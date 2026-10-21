@@ -1,0 +1,4 @@
+{
+  "description": "kpi-tracker: registrazione dei KPI di utilizzo, barra e pannello live, comando /kpi",
+  "modules": ["./register.ts"]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "kpi-tracker",
+  "version": "0.2.0",
+  "description": "Registra e mostra tutti i KPI misurabili di utilizzo di Claude Code (token, costo, contesto, rate limit, tool, codice, git, permessi, subagent), salvati per progetto e sessione: barra live, pannello, /kpi con filtri, report HTML ed export CSV/JSON.",
+  "author": {
+    "name": "Thomas Amerio",
+    "url": "https://github.com/tommy6134"
+  },
+  "homepage": "https://github.com/tommy6134/kpi-tracker",
+  "repository": "https://github.com/tommy6134/kpi-tracker",
+  "license": "MIT",
+  "keywords": [
+    "kpi",
+    "metrics",
+    "usage",
+    "analytics",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "dataDir": {
+      "type": "string",
+      "title": "Cartella dati KPI",
+      "description": "Dove salvare i KPI. Vuoto = <cartella di configurazione di Claude Code>/kpi. In sviluppo usa una cartella separata per non mescolare i dati di prova a quelli reali.",
+      "default": ""
+    },
+    "reportDir": {
+      "type": "string",
+      "title": "Cartella report ed export",
+      "description": "Dove salvare report HTML ed export CSV/JSON. Vuoto = _reports e _exports nella cartella dati. Su Linux i browser snap e flatpak non leggono le cartelle nascoste: con una cartella visibile (es. ~/Documenti/kpi) il report si apre direttamente da lì.",
+      "default": ""
+    },
+    "streamTiming": {
+      "type": "boolean",
+      "title": "Metriche per richiesta (TTFT)",
+      "description": "Intercetta lo streaming delle risposte per misurare tempo al primo token, latenza e token per singola richiesta. Disattiva se noti rallentamenti.",
+      "default": true
+    }
+  }
+}

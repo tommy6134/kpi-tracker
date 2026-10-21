@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+/*__STYLE__*/
+</style>
+</head>
+<body class="viz-root">
+<header class="top">
+  <div>
+    <h1>KPI di Claude Code</h1>
+    <p class="sub" id="kpi-sub"></p>
+  </div>
+  <div class="theme">
+    <label for="kpi-theme">Tema</label>
+    <select id="kpi-theme">
+      <option value="auto">Automatico</option>
+      <option value="light">Chiaro</option>
+      <option value="dark">Scuro</option>
+    </select>
+  </div>
+</header>
+<nav class="filters" id="kpi-filters" aria-label="Filtri"></nav>
+<p class="notice" id="kpi-notice" hidden></p>
+<main>
+  <section class="tiles" id="kpi-tiles" aria-label="Indicatori principali"></section>
+  <section class="grid" id="kpi-charts"></section>
+  <section class="card wide" id="kpi-sessions"></section>
+  <section class="card wide" id="kpi-projects"></section>
+</main>
+<footer class="foot" id="kpi-foot"></footer>
+<div class="tooltip" id="kpi-tooltip" role="tooltip" hidden></div>
+<script type="application/json" id="kpi-data">__DATA__</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>

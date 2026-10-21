@@ -1,0 +1,14 @@
+.idea/
+.vscode/
+.claude/
+.claude
+.claude/settings.local.json
+
+# Tipi scritti da Claude Code a ogni caricamento del mod
+.claude-plugin/types/
+
+# Dati KPI delle sessioni di prova in sviluppo
+.kpi-dev/
+
+node_modules/
+.DS_Store

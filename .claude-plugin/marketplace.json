@@ -1,0 +1,15 @@
+{
+  "name": "tommy6134",
+  "owner": {
+    "name": "Thomas Amerio",
+    "url": "https://github.com/tommy6134"
+  },
+  "description": "Plugin per Claude Code di Thomas Amerio.",
+  "plugins": [
+    {
+      "name": "kpi-tracker",
+      "source": "./",
+      "description": "Registra e mostra tutti i KPI di utilizzo di Claude Code, per progetto e sessione."
+    }
+  ]
+}
