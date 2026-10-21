@@ -1,6 +1,6 @@
 {
   "name": "kpi-tracker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Registra e mostra tutti i KPI misurabili di utilizzo di Claude Code (token, costo, contesto, rate limit, tool, codice, git, permessi, subagent), salvati per progetto e sessione: barra live, pannello, /kpi con filtri, report HTML ed export CSV/JSON.",
   "author": {
     "name": "Thomas Amerio",
@@ -35,6 +35,12 @@
       "title": "Metriche per richiesta (TTFT)",
       "description": "Intercetta lo streaming delle risposte per misurare tempo al primo token, latenza e token per singola richiesta. Disattiva se noti rallentamenti.",
       "default": true
+    },
+    "autoUpdate": {
+      "type": "string",
+      "title": "Aggiornamenti automatici",
+      "description": "auto = installa da solo le versioni nuove compatibili con il tuo Claude Code; avviso = le segnala soltanto (installi con /kpi aggiorna); off = nessun controllo. Una versione che richiede un Claude Code più recente non si installa mai: compare un avviso.",
+      "default": "auto"
     }
   }
 }

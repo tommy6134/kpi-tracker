@@ -13,6 +13,8 @@ export type World = {
   opened: string[]
   closed: string[]
   logs: string[]
+  toasts: string[]
+  store: Map<string, unknown>
   commands: string[]
   invalidations: number
   session: { id: string; root: string; model: string; version: string; usage: SessionUsage; repo: { root: string; remote: string | null; internal: boolean; name: string | null } | null }
@@ -41,8 +43,14 @@ export const usageOf = (usd: number, percent = 10): SessionUsage => ({
 /** La cartella Scaricati che `xdg-user-dir DOWNLOAD` risponde nel mondo Linux. */
 export const DOWNLOADS = `${HOME}/Scaricati`
 
-/** Siede il mondo in memoria sotto il plugin; `os` è ciò che risponde `uname -s` (default `Darwin`). */
-export function worldOf(on: On, options: { env?: Record<string, string>; files?: Record<string, string>; os?: string } = {}): World {
+/** Il manifest e il compat.json che il plugin legge dalla propria cartella (`$.plugin.root`). */
+export type OwnRelease = { version: string; minClaudeCode?: string }
+
+/**
+ * Siede il mondo in memoria sotto il plugin; `os` è ciò che risponde `uname -s`
+ * (default `Darwin`), `release` ciò che il plugin trova nei propri plugin.json e compat.json.
+ */
+export function worldOf(on: On, options: { env?: Record<string, string>; files?: Record<string, string>; os?: string; release?: OwnRelease } = {}): World {
   let tick = 1_000
   const env: Record<string, string> = { HOME, CLAUDE_CONFIG_DIR: CONFIG, ...options.env }
 
@@ -54,6 +62,8 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     opened: [],
     closed: [],
     logs: [],
+    toasts: [],
+    store: new Map(),
     commands: [],
     invalidations: 0,
     session: {
@@ -72,8 +82,18 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
 
   const isDir = (path: string) => [...world.files.keys()].some(file => file.startsWith(`${path}/`))
 
+  const own = options.release
+
   on('fs.read', ($, e) => {
     const text = world.files.get(e.path)
+
+    if (text === undefined && own !== undefined && e.path.endsWith('/.claude-plugin/plugin.json')) {
+      return { value: JSON.stringify({ name: 'kpi-tracker', version: own.version }) }
+    }
+
+    if (text === undefined && own?.minClaudeCode !== undefined && e.path.endsWith('/.claude-plugin/compat.json')) {
+      return { value: JSON.stringify({ minClaudeCode: own.minClaudeCode }) }
+    }
 
     return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text }
   })
@@ -130,8 +150,12 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
   })
 
   on('env.get', ($, e) => ({ value: env[e.name] }))
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
+  on('store.get', ($, e) => ({ value: world.store.get(e.key) }))
+  on('store.set', ($, e) => {
+    world.store.set(e.key, JSON.parse(JSON.stringify(e.value)) as unknown)
+
+    return { value: undefined }
+  })
 
   on('session.id', () => ({ value: world.session.id }))
   on('session.root', () => ({ value: world.session.root }))
@@ -168,13 +192,20 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     return { value: undefined } as never
   })
 
+  // Solo le righe del transcript: quelle del log di debug non si vedono.
   on('ui.log', ($, e) => {
-    world.logs.push(e.text)
+    if (e.to !== 'debug') {
+      world.logs.push(e.text)
+    }
 
     return { value: undefined }
   })
 
-  on('ui.toast', () => ({ value: undefined }))
+  on('ui.toast', ($, e) => {
+    world.toasts.push(e.text)
+
+    return { value: undefined }
+  })
 
   on('ui.invalidate', () => {
     world.invalidations += 1

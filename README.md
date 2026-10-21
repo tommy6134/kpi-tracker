@@ -11,11 +11,13 @@ I dati restano in locale, organizzati per **progetto** (cartella di avvio) e **s
 
 Non salva mai il testo di prompt o risposte, né gli argomenti dei comandi: vedi [docs/privacy.md](docs/privacy.md).
 
-> Richiede Claude Code **2.1.287 o successivo** (i mod sono attivi da quella versione). Sviluppato e provato su macOS (2.1.296), Linux (Ubuntu 25.10, 2.1.299) e Windows.
+Si aggiorna da solo, e solo a versioni compatibili con il tuo Claude Code: vedi [Aggiornamenti](#aggiornamenti).
+
+> Richiede Claude Code **2.1.287 o successivo** (i mod sono attivi da quella versione; il minimo di ogni versione è in [`.claude-plugin/compat.json`](.claude-plugin/compat.json)). Sviluppato e provato su macOS (2.1.296), Linux (Ubuntu 25.10, 2.1.299) e Windows.
 
 ## Requisiti
 
-- **Claude Code 2.1.287 o successivo** (CLI da terminale).
+- **Claude Code 2.1.287 o successivo** (CLI da terminale); il minimo esatto di ogni versione è in `.claude-plugin/compat.json`.
 - **`git`** installato: Claude Code lo usa per scaricare il plugin da GitHub.
 
 Nient'altro: niente Node, Python, npm né compilazione, il codice gira dentro Claude Code. Se `git` non c'è nel progetto o il browser non si apre, il plugin continua a funzionare (manca solo il branch nei metadati, e il report va aperto a mano).
@@ -41,9 +43,28 @@ In alternativa, in due passi (anche da shell con `claude plugin …`):
 
 I plugin installati da terminale con scope **user** si caricano anche nelle sessioni della scheda Code dell'app. In alternativa puoi caricare il plugin come zip dalle impostazioni dell'app (scarica lo zip della release da GitHub, oppure crealo con `git archive --format=zip -o kpi-tracker.zip HEAD`).
 
-## Aggiornamento e disinstallazione
+## Aggiornamenti
 
-Da shell:
+Dalla 0.3.0 kpi-tracker **si aggiorna da solo**. Una volta al giorno (e subito dopo che hai aggiornato Claude Code), una decina di secondi dopo l'avvio di una sessione interattiva, aggiorna il catalogo del marketplace e guarda se c'è una versione nuova:
+
+- **compatibile** con il tuo Claude Code: la installa e te lo dice; si attiva con `/reload-plugins` o al prossimo avvio;
+- **richiede un Claude Code più recente**: **non la installa** e ti avvisa (toast, riga nella barra, `/kpi` e transcript) con la versione richiesta. Aggiorna Claude Code con `claude update`: al primo avvio dopo l'aggiornamento il plugin si aggiorna.
+
+Se la versione installata richiede un Claude Code più recente di quello in uso (per esempio dopo un aggiornamento manuale), il plugin continua a registrare quello che può e mostra lo stesso avviso.
+
+`/kpi aggiorna` mostra lo stato (versione installata, ultima disponibile, Claude Code richiesto e in uso, ultimo controllo) e installa subito l'ultima versione se compatibile; `/kpi aggiorna --verifica` controlla soltanto. Il comportamento si sceglie con l'opzione `autoUpdate` (`auto`, `avviso`, `off`, vedi [Configurazione](#configurazione)). Se il controllo non riesce (rete assente, `git` mancante) si riprova dopo un'ora, in silenzio: dopo tre tentativi falliti compare una riga nel transcript.
+
+> **Lascia spento l'aggiornamento automatico nativo** del marketplace (`/plugin` → Marketplaces, spento di default per i marketplace di terze parti): installa le versioni nuove senza controllare quale Claude Code richiedono. Se lo trovi acceso, kpi-tracker te lo segnala una volta e lascia fare a lui.
+
+Gli aggiornamenti automatici funzionano da CLI (servono i comandi `claude plugin …`). Con `--plugin-dir` (sviluppo) sono disattivati.
+
+**Marketplace propri** (per esempio un catalogo aziendale su GitLab): funzionano senza modifiche, anche con un altro nome di marketplace o di plugin e con qualunque `CLAUDE_CONFIG_DIR`. Il catalogo può indicare il plugin:
+
+- con un percorso (`"source": "./"`, un mirror di questo repo): versione e `compat.json` si leggono dal clone del catalogo;
+- con un repo git (`"source": { "source": "url", "url": "…" }`, `github` o `git-subdir`, con l'eventuale `ref`): si leggono con un `git fetch --depth 1` in `_meta/upstream.git` tra i dati KPI, usando le credenziali git già configurate (git non le chiede mai a terminale);
+- con un commit fissato (`sha`) o da npm: le versioni le decide chi gestisce il catalogo, e il plugin non interviene.
+
+**Dalla 0.2.0** serve un ultimo aggiornamento a mano, da shell:
 
 ```bash
 claude plugin marketplace update tommy6134
@@ -52,9 +73,9 @@ claude plugin update kpi-tracker@tommy6134
 
 Poi riavvia Claude Code (o `/reload-plugins` nelle sessioni aperte).
 
-Per disattivarlo o disinstallarlo: `/plugin`, scheda Installed, oppure `claude plugin uninstall kpi-tracker@tommy6134`. I dati raccolti restano in `<configurazione>/kpi/` finché non li cancelli.
+## Disinstallazione
 
-> Per chi pubblica una nuova versione: aumenta `version` in `.claude-plugin/plugin.json` (e aggiorna il CHANGELOG), altrimenti `claude plugin update` non vede nulla di nuovo.
+Per disattivarlo o disinstallarlo: `/plugin`, scheda Installed, oppure `claude plugin uninstall kpi-tracker@tommy6134`. I dati raccolti restano in `<configurazione>/kpi/` finché non li cancelli.
 
 ## Dove finiscono i dati
 
@@ -88,6 +109,7 @@ Il formato completo è in [docs/storage.md](docs/storage.md).
 | `/kpi esporta csv\|json [filtri] [--livello sessioni\|giorni\|turni\|eventi] [--standard]` | Export (CSV per Excel italiano; `--standard` per `,` e `.`) |
 | `/kpi pulisci --piu-vecchie-di 180d [--si]` | Elenca, e con `--si` cancella, le sessioni più vecchie |
 | `/kpi ricostruisci [filtri]` | Ricalcola i KPI dagli eventi grezzi |
+| `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
 | `/kpi aiuto` | Guida |
 
 **Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--modello`, `--tipo interattiva|print|sdk`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--project`, `--by`…).
@@ -103,6 +125,7 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 | `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
 | `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
 | `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
+| `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
 
 ## Sviluppo
 
@@ -133,7 +156,14 @@ Struttura del codice:
 | `hooks/report/`, `assets/report/` | Report HTML (dataset + template, stile e app in JS puro) |
 | `hooks/export/`, `hooks/maintenance/` | Export CSV/JSON, pulizia, ricostruzione |
 | `hooks/ui/` | Barra, pannello, sparkline |
+| `hooks/update/` | Aggiornamenti: confronto di versioni, installazione e catalogo del marketplace, lettura della release dai repo git, controllo di compatibilità |
 | `types/index.d.ts` | Contratto di `$.state` |
+
+### Pubblicare una versione
+
+1. Aumenta `version` in `.claude-plugin/plugin.json`, altrimenti né gli aggiornamenti automatici né `claude plugin update` vedono nulla di nuovo.
+2. Se il codice usa eventi o API del motore arrivati dopo il minimo attuale, alza `minClaudeCode` in `.claude-plugin/compat.json`. Claude Code non ha un campo per la versione minima e una versione che usa API assenti passa la validazione ma si rompe in silenzio: è questo file che impedisce alle installazioni con un Claude Code più vecchio di aggiornarsi. Allinea anche i requisiti in questo README.
+3. Aggiorna il CHANGELOG, poi porta la versione su `main`: il marketplace segue il branch predefinito.
 
 Documentazione: [catalogo dei KPI](docs/kpi.md) · [formati su disco](docs/storage.md) · [privacy](docs/privacy.md) · [CHANGELOG](CHANGELOG.md).
 

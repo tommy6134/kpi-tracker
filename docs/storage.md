@@ -7,6 +7,7 @@
 | Percorso | Contenuto |
 | --- | --- |
 | `_meta/kpi-root.json` | marcatore della radice (`schemaVersion`, `plugin`, `createdAt`): la pulizia rifiuta di cancellare se manca |
+| `_meta/upstream.git/` | repo git bare con l'ultimo commit del plugin, senza checkout: c'è solo se il marketplace indica il plugin con un URL, e serve agli aggiornamenti per leggere versione e `compat.json` (si può cancellare, si ricrea) |
 | `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata) |
 | `_exports/kpi-<livello>-<data-ora>.csv\|json` | export (in parti `-parteN` oltre ~3,5 MB; nella cartella `reportDir`, se impostata, o nel file di `--out`) |
 | `<progetto>/project.json` | un progetto |

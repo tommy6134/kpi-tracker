@@ -36,11 +36,13 @@ export type Host = {
   storeSet: (key: string, value: unknown) => Promise<void>
   invalidate: () => void
   log: (text: string) => void
-  toast: (text: string) => void
+  /** Una riga nel solo log di debug (`claude --debug`), niente a schermo. */
+  debug: (text: string) => void
+  toast: (text: string, timeoutMs?: number) => void
   openPane: (pane: PaneOpenArgs) => Promise<OpenResult>
   closePane: (pane: PaneCloseArgs) => Promise<void>
   registerCommand: (spec: CommandSpec) => Promise<unknown>
-  run: (argv: readonly string[], init?: { cwd?: string; timeoutMs?: number }) => Promise<ProcessRunResult>
+  run: (argv: readonly string[], init?: { cwd?: string; timeoutMs?: number; env?: Record<string, string> }) => Promise<ProcessRunResult>
   bindingGet: () => Promise<{ sessionId: string; at: number } | null>
   bindingSet: (value: { sessionId: string; at: number } | null) => Promise<void>
   sessionId: () => Promise<string>

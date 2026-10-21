@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+Dalla 0.2.0 serve un ultimo aggiornamento a mano (`claude plugin marketplace update tommy6134` e `claude plugin update kpi-tracker@tommy6134`); dopo, il plugin si aggiorna da solo.
+
+- Aggiornamenti automatici con controllo di compatibilità: una volta al giorno, e subito dopo un aggiornamento di Claude Code, il plugin aggiorna il catalogo del marketplace e installa la versione nuova solo se il Claude Code in uso basta. Si attiva con `/reload-plugins` o al riavvio.
+- Una versione che richiede un Claude Code più recente non si installa: avviso con la versione richiesta e `claude update` (toast, riga nella barra, `/kpi`, transcript; toast e transcript una volta sola).
+- Nuovo `.claude-plugin/compat.json` con il Claude Code minimo (`minClaudeCode`) di ogni versione. All'avvio ogni versione controlla il proprio, e avvisa se il motore è troppo vecchio.
+- Funziona anche con marketplace propri (es. un catalogo aziendale su GitLab), con qualunque nome di marketplace o di plugin e qualunque `CLAUDE_CONFIG_DIR`. Se il catalogo indica il plugin con un repo git (`url`, `github`, `git-subdir`), versione e `compat.json` si leggono con `git fetch --depth 1` in `_meta/upstream.git`, senza mai chiedere credenziali a terminale; con un commit fissato (`sha`) o da npm decide il catalogo.
+- Nuovo `/kpi aggiorna` (`update`): stato degli aggiornamenti e installazione immediata; `--verifica` (`--check`) controlla soltanto.
+- Nuova opzione `autoUpdate`: `auto` (default), `avviso`, `off`.
+- Se l'aggiornamento automatico nativo del marketplace è acceso, il plugin lo segnala una volta e non interviene: quello nativo non controlla la versione di Claude Code.
+- Controlli falliti (rete, `git`): nuovo tentativo dopo un'ora, senza avvisi; dopo tre fallimenti di fila, una riga nel transcript.
+
 ## 0.2.0
 
 Provato su Linux (Ubuntu 25.10, Claude Code 2.1.299) e su Windows.

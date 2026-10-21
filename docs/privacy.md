@@ -1,6 +1,8 @@
 # Privacy
 
-kpi-tracker salva **metriche e metadati**, mai contenuti. Tutto resta sul tuo disco: il plugin non fa chiamate di rete.
+kpi-tracker salva **metriche e metadati**, mai contenuti. Tutto resta sul tuo disco: il plugin non invia dati da nessuna parte.
+
+L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`, salvo `off`). Al massimo una volta al giorno il plugin lancia `claude plugin marketplace update`, cioè un `git fetch` del marketplace da cui l'hai installato. Se il catalogo indica il plugin con un URL, fa anche un `git fetch --depth 1` di quel repo per leggerne la versione. Se c'è una versione nuova compatibile, lancia `claude plugin update`. Sono gli stessi comandi che lanceresti a mano, e scaricano soltanto: non partono con `--plugin-dir` né nelle sessioni `-p`/SDK.
 
 ## Cosa si salva
 

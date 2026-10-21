@@ -19,9 +19,12 @@ import type { KpiRepo } from './core/session-file'
 import type { SessionStore } from './core/writer'
 import type { Host } from './host'
 
-export type TrackerEnv = EnvValues & { CLAUDE_CODE_ENTRYPOINT?: string | undefined }
+export type TrackerEnv = EnvValues & { CLAUDE_CODE_ENTRYPOINT?: string | undefined; CLAUDE_CODE_EXECPATH?: string | undefined }
 
 type Early = { body: KpiEventBody; t: number; a?: string }
+
+/** Un avviso sugli aggiornamenti: la riga della barra e la frase per /kpi. */
+export type UpdateNotice = { tone: 'warn' | 'info'; band: string; text: string }
 
 export type Tracker = {
   options: KpiOptions
@@ -47,9 +50,15 @@ export type Tracker = {
   toolsAwaitingMs: Map<string, string>
   /** Ultimo id di sessione chiusa (per il collegamento dopo /clear). */
   lastClosedId: string | null
-  timers: { flush?: { cancel: () => void }; heartbeat?: { cancel: () => void }; debounce?: { cancel: () => void } }
+  timers: { flush?: { cancel: () => void }; heartbeat?: { cancel: () => void }; debounce?: { cancel: () => void }; update?: { cancel: () => void } }
   branch: string | null
   ui: { bandHidden: boolean; bandDisabled: boolean; paneOpen: boolean; reports: Map<string, string>; reportSeq: number }
+  /**
+   * Aggiornamenti: `self` se questa versione vuole un Claude Code più recente,
+   * `check` l'esito dell'ultimo controllo (bloccato, disponibile, installato),
+   * `installed` la versione installata in questa sessione, `queue` un controllo alla volta.
+   */
+  update: { self: UpdateNotice | null; check: UpdateNotice | null; installed: string | null; queue: Promise<unknown> }
   diag: { attachErrors: number; lastError?: string }
 }
 
@@ -78,9 +87,13 @@ export function newTracker(options: KpiOptions): Tracker {
     timers: {},
     branch: null,
     ui: { bandHidden: false, bandDisabled: false, paneOpen: false, reports: new Map(), reportSeq: 0 },
+    update: { self: null, check: null, installed: null, queue: Promise.resolve() },
     diag: { attachErrors: 0 },
   }
 }
+
+/** L'avviso da mostrare: prima quello sulla versione in uso, poi l'esito del controllo. */
+export const noticeOf = (tracker: Tracker): UpdateNotice | null => tracker.update.self ?? tracker.update.check
 
 /** Il tipo di sessione dai segnali disponibili. */
 export function kindOf(interactive: boolean | null, surface: string | null, entrypoint?: string): KpiKind {

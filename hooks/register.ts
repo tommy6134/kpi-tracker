@@ -13,6 +13,7 @@ import {
   flushNow,
   newTracker,
   noteToolMs,
+  noticeOf,
   record,
   refreshBranch,
   scheduleFlush,
@@ -21,6 +22,7 @@ import {
   type AttachExtra,
   type Tracker,
 } from './tracker'
+import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
 import { liveOf } from './ui/live'
 import { PANE_ID, paneView } from './ui/pane'
@@ -47,7 +49,8 @@ function hostOf($: EngineInterface): Host {
     storeSet: (key, value) => $.store.set(key, value),
     invalidate: () => $.ui.invalidate('ui.render'),
     log: text => $.ui.log(text),
-    toast: text => $.ui.toast(text),
+    debug: text => $.ui.log(text, { to: 'debug' }),
+    toast: (text, timeoutMs) => $.ui.toast(text, timeoutMs === undefined ? undefined : { timeoutMs }),
     openPane: pane => $.ui.open(pane) as Promise<OpenResult>,
     closePane: pane => $.ui.close(pane),
     registerCommand: spec => $.command.register(spec),
@@ -104,6 +107,7 @@ export function register(on: On, raw: PluginOptions) {
       HOME: await $.env.get('HOME'),
       USERPROFILE: await $.env.get('USERPROFILE'),
       CLAUDE_CODE_ENTRYPOINT: await $.env.get('CLAUDE_CODE_ENTRYPOINT'),
+      CLAUDE_CODE_EXECPATH: await $.env.get('CLAUDE_CODE_EXECPATH'),
     })
 
     tracker.ui.bandDisabled = (await host.storeGet('band').catch(() => undefined)) === 'off'
@@ -112,7 +116,7 @@ export function register(on: On, raw: PluginOptions) {
       .registerCommand({
         name: 'kpi',
         description: 'KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export',
-        argumentHint: '[live|statistiche|sessioni|progetti|sessione|report|esporta|pulisci|ricostruisci|barra|aiuto] [filtri]',
+        argumentHint: '[live|statistiche|sessioni|progetti|sessione|report|esporta|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri]',
         immediate: true,
       })
       .catch(() => undefined)
@@ -124,6 +128,7 @@ export function register(on: On, raw: PluginOptions) {
 
     pendingStart = null
     await attach(tracker, sessionId, pending?.source ?? 'startup', pending?.extra ?? {})
+    void startUpdates(tracker).catch(() => undefined)
 
     return next(e)
   }).catch(($, e, next) => next(e))
@@ -586,15 +591,21 @@ export function register(on: On, raw: PluginOptions) {
     const live = liveOf(store.file, store.details, Date.now())
     const { Box, Text, Button } = $.ui.resolve(e)
 
-    return bandView({ Box, Text, Button }, live, Math.max(20, Math.floor(e.props.bodyColumns)), {
-      details: () => {
-        void openPane(host).catch(() => undefined)
+    return bandView(
+      { Box, Text, Button },
+      live,
+      Math.max(20, Math.floor(e.props.bodyColumns)),
+      {
+        details: () => {
+          void openPane(host).catch(() => undefined)
+        },
+        hide: () => {
+          tracker.ui.bandHidden = true
+          host.invalidate()
+        },
       },
-      hide: () => {
-        tracker.ui.bandHidden = true
-        host.invalidate()
-      },
-    })
+      noticeOf(tracker),
+    )
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE_ID }, ($, e, next) => {

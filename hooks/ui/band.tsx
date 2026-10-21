@@ -5,6 +5,7 @@ import type { Elements, RenderElement } from 'claude-code'
 
 import { compact, pct, pct100, usd } from '../format/fmt'
 import type { LiveView } from './live'
+import { ACCENT, WARN } from './palette'
 
 export type BandKit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'>
 
@@ -12,6 +13,9 @@ export type BandActions = {
   details: () => void
   hide: () => void
 }
+
+/** La riga di avviso sugli aggiornamenti sotto la barra. */
+export type BandNotice = { tone: 'warn' | 'info'; band: string }
 
 /** Le parti della riga, dalla più alla meno importante, per una larghezza data. */
 export function bandParts(live: LiveView, columns: number): string[] {
@@ -42,8 +46,28 @@ export function bandParts(live: LiveView, columns: number): string[] {
   return [usd(live.cost), ctx].filter((part): part is string => part !== null)
 }
 
-/** La barra sopra il prompt: una riga sola, con i pulsanti a destra. */
-export function bandView(kit: BandKit, live: LiveView, columns: number, actions: BandActions): RenderElement {
+/** La barra sopra il prompt: una riga con i pulsanti a destra, più l'eventuale avviso sugli aggiornamenti. */
+export function bandView(kit: BandKit, live: LiveView, columns: number, actions: BandActions, notice: BandNotice | null = null): RenderElement {
+  const { Box, Text } = kit
+  const row = bandRow(kit, live, columns, actions)
+
+  if (notice === null) {
+    return row
+  }
+
+  return (
+    <Box flexDirection="column">
+      {row}
+      <Box paddingRight={5}>
+        <Text wrap="truncate-end" color={notice.tone === 'warn' ? WARN : ACCENT}>
+          {notice.band}
+        </Text>
+      </Box>
+    </Box>
+  )
+}
+
+function bandRow(kit: BandKit, live: LiveView, columns: number, actions: BandActions): RenderElement {
   const { Box, Text, Button } = kit
   const parts = bandParts(live, columns)
   const isWide = columns >= 80

@@ -15,6 +15,7 @@ export const HELP = `## /kpi · guida
 | \`/kpi esporta csv\\|json [filtri] [--livello sessioni\\|giorni\\|turni\\|eventi] [--standard]\` (\`export\`) | Esporta i dati (CSV per Excel italiano; \`--standard\` per il CSV classico) |
 | \`/kpi pulisci --piu-vecchie-di 180d [--si]\` (\`prune --older-than\`) | Elenca (e con \`--si\` cancella) le sessioni più vecchie |
 | \`/kpi ricostruisci [filtri]\` (\`rebuild\`) | Ricalcola i KPI dagli eventi grezzi |
+| \`/kpi aggiorna [--verifica]\` (\`update --check\`) | Controlla gli aggiornamenti e installa l'ultima versione se il tuo Claude Code la supporta; \`--verifica\` controlla soltanto |
 | \`/kpi aiuto\` (\`help\`) | Questa guida |
 
 **Filtri** (ripetibili, anche con valori separati da virgola):

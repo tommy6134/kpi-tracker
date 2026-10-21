@@ -38,9 +38,9 @@ function periodColumn(range: DayAgg, sessions: number): string[] {
 
 const PERIOD_LABELS = ['Sessioni', 'Turni', 'Tempo attivo', 'Costo', 'Token totali', 'Input / output', 'Cache hit', 'Tool call', 'Righe', 'Commit', 'Prompt']
 
-/** Il riepilogo di `/kpi`: sessione corrente, oggi, ultimi 7 giorni. */
-export function summaryReport(current: KpiSessionFile | null, today: { range: DayAgg; sessions: number }, week: { range: DayAgg; sessions: number }, now: number): string {
-  const parts: string[] = ['## KPI di Claude Code']
+/** Il riepilogo di `/kpi`: sessione corrente, oggi, ultimi 7 giorni; `notice` è l'avviso sugli aggiornamenti, in testa. */
+export function summaryReport(current: KpiSessionFile | null, today: { range: DayAgg; sessions: number }, week: { range: DayAgg; sessions: number }, now: number, notice?: string): string {
+  const parts: string[] = ['## KPI di Claude Code', ...(notice !== undefined ? [`> ${notice}`] : [])]
   const columns: string[][] = []
   const headers = ['KPI']
 

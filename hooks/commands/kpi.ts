@@ -12,7 +12,8 @@ import { GROUP_ALIASES, totalsOf, type GroupKey } from '../query/aggregate'
 import { describeFilter, emptyFilter, filterOf } from '../query/filters'
 import { loadSessions } from '../query/load'
 import { buildReport } from '../report/html'
-import { flushNow, type Tracker } from '../tracker'
+import { flushNow, noticeOf, type Tracker } from '../tracker'
+import { checkForUpdates, updateReport } from '../update/update'
 import { daysOfAge, parseArgs } from './args'
 import { HELP } from './help'
 import { projectsReport, sessionReport, sessionsReport, statsReport, summaryReport } from './report-text'
@@ -94,6 +95,12 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     return { text: `Argomenti non validi: ${args.errors.join('; ')}.\n\nScrivi \`/kpi aiuto\` per la guida.` }
   }
 
+  if (args.sub === 'aggiorna') {
+    const outcome = await checkForUpdates(tracker, { force: true, install: !args.bools.has('verifica') })
+
+    return { text: await updateReport(tracker, host, outcome) }
+  }
+
   const root = tracker.root
 
   if (root === null) {
@@ -144,8 +151,10 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const todayTotals = totalsOf(todayRows, todayFilter)
       const weekTotals = totalsOf(weekRows, weekFilter)
 
+      const notice = noticeOf(tracker)
+
       return {
-        text: summaryReport(current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now),
+        text: summaryReport(current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now, notice === null ? undefined : `${notice.tone === 'warn' ? '⚠ ' : ''}${notice.text}`),
         short: privateNote(`Riepilogo KPI (oggi ${usd(todayTotals.range.cost)}, 7 giorni ${usd(weekTotals.range.cost)})`),
         toModel,
       }

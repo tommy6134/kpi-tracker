@@ -17,6 +17,7 @@ export type Subcommand =
   | 'esporta'
   | 'pulisci'
   | 'ricostruisci'
+  | 'aggiorna'
   | 'aiuto'
 
 const SUBCOMMANDS: Record<string, Subcommand> = {
@@ -42,6 +43,8 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
   prune: 'pulisci',
   ricostruisci: 'ricostruisci',
   rebuild: 'ricostruisci',
+  aggiorna: 'aggiorna',
+  update: 'aggiorna',
   aiuto: 'aiuto',
   help: 'aiuto',
 }
@@ -92,6 +95,8 @@ const BOOL_FLAGS: Record<string, string> = {
   yes: 'si',
   tutto: 'tutto',
   all: 'tutto',
+  verifica: 'verifica',
+  check: 'verifica',
 }
 
 export type ParsedArgs = {
