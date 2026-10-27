@@ -1,8 +1,8 @@
 /** I filtri dei report e il loro confronto con una sessione. */
 
-import { dayOfArg, type ParsedArgs } from '../commands/args'
+import { dayOfArg, monthOfArg, type ParsedArgs } from '../commands/args'
 import type { KpiSessionFile } from '../core/session-file'
-import { dayKey } from '../core/time'
+import { dayKey, monthEnd } from '../core/time'
 import type { I18n } from '../i18n'
 
 export type KpiFilter = {
@@ -58,6 +58,22 @@ export function filterOf(L: I18n, args: ParsedArgs, now: number, currentProject:
 
   const since = args.flags.da?.at(-1)
   const until = args.flags.a?.at(-1)
+  const rawMonth = args.flags.mese?.at(-1)
+
+  // `--mese` imposta da e a sul mese: insieme a loro sarebbe ambiguo.
+  if (rawMonth !== undefined) {
+    const month = monthOfArg(rawMonth)
+    const flag = args.typed.mese ?? 'mese'
+
+    if (since !== undefined || until !== undefined) {
+      errors.push(L.t('--{flag} non si combina con --{since} e --{until}', { flag, since: args.typed.da ?? 'da', until: args.typed.a ?? 'a' }))
+    } else if (month === null) {
+      errors.push(L.t('mese non valido per --{flag}: {value} (per esempio 2026-11 o 11/2026)', { flag, value: rawMonth }))
+    } else {
+      filter.sinceDay = `${month}-01`
+      filter.untilDay = monthEnd(month)
+    }
+  }
 
   if (since !== undefined) {
     const day = dayOfArg(since, now)

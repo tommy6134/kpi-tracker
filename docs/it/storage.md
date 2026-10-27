@@ -11,7 +11,7 @@ _English: [docs/storage.md](../storage.md)_
 | `_meta/kpi-root.json` | marcatore della radice (`schemaVersion`, `plugin`, `createdAt`): la pulizia rifiuta di cancellare se manca |
 | `_meta/upstream.git/` | repo git bare con l'ultimo commit del plugin, senza checkout: c'è solo se il marketplace indica il plugin con un URL, e serve agli aggiornamenti per leggere versione e `compat.json` (si può cancellare, si ricrea) |
 | `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata). `/kpi cartella` crea la cartella, con un `.keep` vuoto, se non c'è ancora |
-| `_exports/kpi-<livello>-<data-ora>.csv\|json` | export (in parti `-parteN` oltre ~3,5 MB; nella cartella `reportDir`, se impostata, o nel file di `--out`). Livello e parti hanno il nome della lingua dell'export: `kpi-sessioni-…`, `-parte2` in italiano; `kpi-sessions-…`, `-part2` in inglese |
+| `_exports/kpi_<nome>_<periodo>[_<livello>].csv\|json` | export (in parti `_parteN` oltre ~3,5 MB; nella cartella `reportDir`, se impostata, o nel file di `--out`). Il periodo è quello del filtro (`2026-11`, `2026-11-03`, `2026-09_2026-11`…) o, senza un periodo chiuso, la data e l'ora dell'export; livello e parti hanno il nome della lingua dell'export: `_giorni`, `_parte2` in italiano; `_days`, `_part2` in inglese. Fino alla 0.4.0: `kpi-<livello>-<data-ora>` |
 | `<progetto>/project.json` | un progetto |
 | `<progetto>/<sessione>/` | una sessione |
 

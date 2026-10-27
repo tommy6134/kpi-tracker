@@ -136,7 +136,9 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 | `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
 | `/kpi aiuto` | Guida |
 
-**Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--project`, `--by`…), qualunque sia la lingua.
+**Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--mese 2026-11` (o `11/2026`: da e a su quel mese), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--month`, `--project`, `--by`…), qualunque sia la lingua.
+
+**Nome dei file di export:** `kpi_<nome_cognome>_<periodo>[_<livello>].csv|json`, per esempio `kpi_mario_rossi_2026-11.csv`. Il nome viene dall'opzione `fullName`, altrimenti da `git config user.name`, in minuscolo, senza accenti e con `_` al posto degli spazi; senza nessuno dei due non c'è. Il periodo è quello del filtro: un giorno (`2026-11-03`), un mese (`2026-11`, anche con `--mese`), mesi interi (`2026-09_2026-11`) o l'intervallo (`2026-09-15_2026-11-02`), e rifare l'export dello stesso periodo sovrascrive il file. Senza filtro di data, o con solo `--da` o `--a`, è la data e l'ora dell'export (`2026-11-03_14-30-05`), come prima. Il livello sessioni non ha suffisso; gli altri lo aggiungono nella lingua dell'export (`_giorni`, `_days`), e così le parti oltre ~3,5 MB (`_parte2`, `_part2`). `--out` sceglie il file liberamente.
 
 **Lingua:** `--lingua it|en` (`--lang`) sceglie la lingua di un comando: report testuali, report HTML, CSV e JSON (colonne, valori, nome del file). Senza, vale l'opzione `language`. Il report HTML ha anche un selettore Italiano/English accanto al tema, e si apre in inglese con `#en` nell'indirizzo (`#it` per l'italiano).
 
@@ -153,6 +155,7 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 | `language` | `"en"` | Lingua di barra, pannello, `/kpi`, report ed export: `en` o `it`. Chi aggiorna dalla 0.3.0 con dati già registrati e senza averla mai scelta resta in italiano (il plugin la imposta a `it` una volta sola) |
 | `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
 | `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
+| `fullName` | `""` | Nome e cognome nel nome dei file di export (`kpi_mario_rossi_2026-11.csv`); vuoto = `git config user.name` |
 | `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
 | `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
 

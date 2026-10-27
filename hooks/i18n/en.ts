@@ -48,6 +48,8 @@ export const EN = {
   "Indica l'età: `/kpi pulisci --piu-vecchie-di 180d` (giorni d, settimane w, mesi m, anni y). Aggiungi `--si` per cancellare davvero.": 'Give the age: `/kpi prune --older-than 180d` (days d, weeks w, months m, years y). Add `--yes` to actually delete.',
   'tipo di sessione sconosciuto: {value}': 'unknown session kind: {value}',
   'data non valida per --{flag}: {value}': 'invalid date for --{flag}: {value}',
+  '--{flag} non si combina con --{since} e --{until}': '--{flag} cannot be combined with --{since} and --{until}',
+  'mese non valido per --{flag}: {value} (per esempio 2026-11 o 11/2026)': 'invalid month for --{flag}: {value} (for example 2026-11 or 11/2026)',
   'KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export': 'Claude Code usage KPIs: summary, live panel, statistics, sessions, HTML report, export',
   '[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]': '[live|stats|sessions|projects|session|report|export|folder|prune|rebuild|band|update|help] [filters] [--lang it|en]',
   'KPI · sessione': 'KPI · session',

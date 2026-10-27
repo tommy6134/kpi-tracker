@@ -87,6 +87,13 @@ export function monthKey(day: string): string {
   return day.slice(0, 7)
 }
 
+/** L'ultimo giorno (`YYYY-MM-DD`) del mese `YYYY-MM`. */
+export function monthEnd(month: string): string {
+  const [year, number] = month.split('-').map(Number)
+
+  return `${month}-${two(new Date(Date.UTC(year ?? 1970, number ?? 1, 0)).getUTCDate())}`
+}
+
 function dayKeyUtc(ms: number): string {
   const d = new Date(ms)
 

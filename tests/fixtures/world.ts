@@ -19,6 +19,8 @@ export type World = {
   invalidations: number
   session: { id: string; root: string; model: string; version: string; usage: SessionUsage; repo: { root: string; remote: string | null; internal: boolean; name: string | null } | null }
   branch: string
+  /** Ciò che risponde `git config user.name` (vuoto = nessun nome). */
+  gitUser: string
   /** Tutto il testo scritto su disco, per i controlli di privacy. */
   written: () => string
   /** I file scritti sotto un prefisso. */
@@ -81,6 +83,7 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
       repo: { root: CWD, remote: 'git@git.example.com:team/progetto-demo.git', internal: true, name: 'progetto-demo' },
     },
     branch: 'main',
+    gitUser: '',
     written: () => [...world.files.values()].join('\n'),
     under: prefix => [...world.files.keys()].filter(path => path.startsWith(prefix)).sort(),
     json: <T,>(path: string) => JSON.parse(world.files.get(path) ?? 'null') as T,
@@ -175,9 +178,12 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     world.runs.push([...e.argv])
 
     const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse')
+    const isUser = e.argv[0] === 'git' && e.argv.includes('user.name')
     const stdout = isBranch
       ? `${world.branch}\n`
-      : e.argv[0] === 'uname'
+      : isUser
+        ? `${world.gitUser}\n`
+        : e.argv[0] === 'uname'
         ? `${options.os ?? 'Darwin'}\n`
         : e.argv[0] === 'xdg-user-dir'
           ? `${DOWNLOADS}\n`

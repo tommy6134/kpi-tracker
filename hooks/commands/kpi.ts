@@ -5,7 +5,7 @@ import { dirName, hasHiddenSegment, isAbsolute, join, resolvePath, trimSlash, RE
 import { readJson } from '../core/recover'
 import type { KpiDetails } from '../analysis/summary-types'
 import { addDays, dayKey, stampOf } from '../core/time'
-import { exportCsv, exportJson, LEVEL_NAMES, LEVELS } from '../export/export'
+import { exportCsv, exportFileName, exportJson, LEVEL_NAMES, LEVELS, nameSlugOf, partPathOf, periodOf } from '../export/export'
 import type { Host } from '../host'
 import { i18nOf, langOf, type I18n } from '../i18n'
 import { pruneSessions, rebuildSessions } from '../maintenance/maintenance'
@@ -94,6 +94,20 @@ async function browserCopy(host: Host, platform: Platform, path: string, html: s
     () => copy,
     () => null,
   )
+}
+
+/** Nome e cognome per i file di export: l'opzione `fullName`, altrimenti `git config user.name`; `''` se nessuno dei due. */
+async function ownerOf(ctx: KpiCommandContext): Promise<string> {
+  const { host, tracker } = ctx
+
+  if (tracker.options.fullName !== '') {
+    return nameSlugOf(tracker.options.fullName)
+  }
+
+  const cwd = tracker.launchCwd
+  const result = await host.run(['git', 'config', 'user.name'], { ...(cwd !== null && { cwd }), timeoutMs: 2000 }).catch(() => null)
+
+  return result !== null && result.exitCode === 0 ? nameSlugOf(result.stdout.trim()) : ''
 }
 
 /** Un errore degli argomenti nella lingua di `L`. */
@@ -344,13 +358,12 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       }
 
       const rows = await loadSessions(host.fs, root, filter, override)
-      const stamp = stampOf(now)
       const levelName = LEVEL_NAMES[level][lang]
-      const path = outPath ?? join(dir as string, `kpi-${levelName}-${stamp}.${format}`)
+      const path = outPath ?? join(dir as string, exportFileName(await ownerOf(ctx), periodOf(filter, now), level === 'sessioni' ? null : levelName, format))
       // Il CSV segue la lingua (Excel italiano o standard); --standard e --excel lo forzano.
       const excel = args.bools.has('excel') || (!args.bools.has('standard') && lang === 'it')
       const result = format === 'csv' ? await exportCsv(host.fs, L, rows, filter, level, excel) : await exportJson(host.fs, L, rows, filter, level, { description, generatedAt: now })
-      const paths = result.parts.map((_, index) => (index === 0 ? path : path.replace(/(\.[a-z]+)?$/, `-${L.t('parte')}${index + 1}$1`)))
+      const paths = result.parts.map((_, index) => (index === 0 ? path : partPathOf(path, L.t('parte'), index + 1)))
 
       for (const [index, part] of result.parts.entries()) {
         await host.fs.write(paths[index] as string, part)

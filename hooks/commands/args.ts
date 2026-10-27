@@ -81,6 +81,8 @@ const VALUE_FLAGS: Record<string, string> = {
   'più-vecchie-di': 'piu-vecchie-di',
   'older-than': 'piu-vecchie-di',
   out: 'out',
+  mese: 'mese',
+  month: 'mese',
   lingua: 'lingua',
   lang: 'lingua',
   language: 'lingua',
@@ -243,6 +245,17 @@ export function dayOfArg(value: string, now: number, offsetMin?: number): string
   }
 
   return null
+}
+
+/** Un mese di filtro come `YYYY-MM`, da `2026-11` o `11/2026`; `null` se non si capisce. */
+export function monthOfArg(value: string): string | null {
+  const v = value.trim()
+  const iso = /^(\d{4})-(\d{1,2})$/.exec(v)
+  const it = /^(\d{1,2})\/(\d{4})$/.exec(v)
+  const year = Number(iso?.[1] ?? it?.[2])
+  const month = Number(iso?.[2] ?? it?.[1])
+
+  return Number.isInteger(year) && month >= 1 && month <= 12 ? `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}` : null
 }
 
 /** `YYYY-MM-DD` se il giorno esiste nel calendario (niente 32/13 né 30/02), altrimenti `null`. */

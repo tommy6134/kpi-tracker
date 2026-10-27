@@ -6,11 +6,11 @@ import { mergeAll, mergeSummary } from '../hooks/analysis/merge'
 import { foldEvents } from '../hooks/analysis/reducer'
 import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary } from '../hooks/analysis/summary-types'
-import { dayOfArg, daysOfAge, parseArgs, words } from '../hooks/commands/args'
+import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
-import { dayKey, hourSlot, stampOf } from '../hooks/core/time'
-import { csvParts } from '../hooks/export/export'
+import { dayKey, hourSlot, monthEnd, stampOf } from '../hooks/core/time'
+import { csvParts, exportFileName, nameSlugOf, partPathOf, periodOf } from '../hooks/export/export'
 import { compact, dur, fixed, usd } from '../hooks/format/fmt'
 import { i18nOf, langOf } from '../hooks/i18n'
 import { embedJson, escapeHtml } from '../hooks/report/html'
@@ -100,6 +100,34 @@ describe('tempo', () => {
     expect(stampOf(T0, 0)).toBe('2026-10-12_08-00-00')
     // 12/10/2026 è un lunedì: lunedì 08 → slot 8.
     expect(hourSlot(T0, 0)).toBe(8)
+  })
+
+  test('mesi: --mese in due forme, ultimo giorno del mese', () => {
+    expect(monthOfArg('2026-11')).toBe('2026-11')
+    expect(monthOfArg('3/2027')).toBe('2027-03')
+    expect(monthOfArg('2026-13')).toBe(null)
+    expect(monthOfArg('novembre')).toBe(null)
+    expect(monthEnd('2026-11')).toBe('2026-11-30')
+    expect(monthEnd('2026-02')).toBe('2026-02-28')
+    expect(monthEnd('2028-02')).toBe('2028-02-29')
+  })
+})
+
+describe('nome dei file di export', () => {
+  test('nome normalizzato, periodo del filtro o data e ora, livello e parti', () => {
+    expect(nameSlugOf('Thomas Amerio')).toBe('thomas_amerio')
+    expect(nameSlugOf("  Zoë D'Àlvarez-Strauß ")).toBe('zoe_d_alvarez_strauss')
+    expect(nameSlugOf('李')).toBe('')
+    expect(periodOf({}, T0, 0)).toBe('2026-10-12_08-00-00')
+    expect(periodOf({ sinceDay: '2026-10-01' }, T0, 0)).toBe('2026-10-12_08-00-00')
+    expect(periodOf({ sinceDay: '2026-10-12', untilDay: '2026-10-12' }, T0)).toBe('2026-10-12')
+    expect(periodOf({ sinceDay: '2026-02-01', untilDay: '2026-02-28' }, T0)).toBe('2026-02')
+    expect(periodOf({ sinceDay: '2026-09-01', untilDay: '2026-11-30' }, T0)).toBe('2026-09_2026-11')
+    expect(periodOf({ sinceDay: '2026-09-01', untilDay: '2026-11-29' }, T0)).toBe('2026-09-01_2026-11-29')
+    expect(exportFileName('mario_rossi', '2026-11', null, 'csv')).toBe('kpi_mario_rossi_2026-11.csv')
+    expect(exportFileName('', '2026-11', 'days', 'json')).toBe('kpi_2026-11_days.json')
+    expect(partPathOf('/x/kpi_mario_rossi_2026-11.csv', 'parte', 2)).toBe('/x/kpi_mario_rossi_2026-11_parte2.csv')
+    expect(partPathOf('/x/export', 'part', 3)).toBe('/x/export_part3')
   })
 })
 

@@ -11,7 +11,7 @@ _Italiano: [docs/it/storage.md](it/storage.md)_
 | `_meta/kpi-root.json` | root marker (`schemaVersion`, `plugin`, `createdAt`): pruning refuses to delete without it |
 | `_meta/upstream.git/` | bare git repo with the plugin's latest commit, no checkout: present only if the marketplace lists the plugin with a URL, used by updates to read the version and `compat.json` (can be deleted, it is recreated) |
 | `_reports/report-<date-time>.html`, `latest.html` | HTML reports (in the `reportDir` folder, if set). `/kpi folder` creates the folder, with an empty `.keep`, if it does not exist yet |
-| `_exports/kpi-<level>-<date-time>.csv\|json` | exports (split into `-partN` parts beyond ~3.5 MB; in the `reportDir` folder, if set, or in the `--out` file). Level and parts are named in the export's language: `kpi-sessions-…`, `-part2` in English; `kpi-sessioni-…`, `-parte2` in Italian |
+| `_exports/kpi_<name>_<period>[_<level>].csv\|json` | exports (split into `_partN` parts beyond ~3.5 MB; in the `reportDir` folder, if set, or in the `--out` file). The period is the filter's (`2026-11`, `2026-11-03`, `2026-09_2026-11`…) or, without a closed period, the date and time of the export; level and parts are named in the export's language: `_days`, `_part2` in English; `_giorni`, `_parte2` in Italian. Until 0.4.0: `kpi-<level>-<date-time>` |
 | `<project>/project.json` | a project |
 | `<project>/<session>/` | a session |
 

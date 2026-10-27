@@ -284,7 +284,8 @@ describe('/kpi', () => {
 
     await $.command.run(command('kpi', 'esporta csv'))
 
-    expect(world.under(`${dir}/kpi-sessioni-`)).toHaveLength(1)
+    // Senza filtro di data e senza nome: data e ora di adesso, il livello sessioni non ha suffisso.
+    expect(world.under(dir).filter(path => /\/kpi_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv$/.test(path))).toHaveLength(1)
 
     await $.command.run(command('kpi', 'esporta json --out ~/kpi.json'))
 
@@ -393,14 +394,14 @@ describe('in inglese', () => {
 
     expect(csv).toContain('Exported 1 row (sessions)')
     expect(csv).toContain('standard format')
-    expect(csvPath).toMatch(/\/kpi-sessions-[\d_-]+\.csv$/)
+    expect(csvPath).toMatch(/\/kpi_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv$/)
     expect(text.startsWith('start,project,path,session,kind,status,duration_min')).toBe(true)
     expect(text.split('\n')[0]).toMatch(/,version,tools_denied,rejected_by_user,denied_by_classifier,permission_dialogs$/)
     expect(text).toContain(',interactive,active,')
 
     await $.command.run(command('kpi', 'export csv --excel --level days'))
 
-    const excel = world.files.get(world.under(`${ROOT}/_exports/`).find(path => path.includes('kpi-days-')) as string) ?? ''
+    const excel = world.files.get(world.under(`${ROOT}/_exports/`).find(path => path.endsWith('_days.csv')) as string) ?? ''
 
     expect(excel.startsWith('﻿day;project;session;kind;cost_usd')).toBe(true)
 
@@ -408,13 +409,52 @@ describe('in inglese', () => {
     await $.command.run(command('kpi', 'esporta json --livello giorni --lingua it'))
 
     const jsons = world.under(`${ROOT}/_exports/`).filter(path => path.endsWith('.json'))
-    const en = world.json<{ language: string; level: string; filter: string; rows: { day: string; cost_usd: number }[] }>(jsons.find(path => path.includes('kpi-days-')) as string)
-    const it = world.json<{ language: string; level: string; rows: { giorno: string; costo_usd: number }[] }>(jsons.find(path => path.includes('kpi-giorni-')) as string)
+    const en = world.json<{ language: string; level: string; filter: string; rows: { day: string; cost_usd: number }[] }>(jsons.find(path => path.endsWith('_days.json')) as string)
+    const it = world.json<{ language: string; level: string; rows: { giorno: string; costo_usd: number }[] }>(jsons.find(path => path.endsWith('_giorni.json')) as string)
 
     expect(en).toMatchObject({ language: 'en', level: 'days', filter: 'all data' })
     expect(en.rows[0]?.cost_usd).toBe(1.42)
     expect(it).toMatchObject({ language: 'it', level: 'giorni' })
     expect(it.rows[0]?.costo_usd).toBe(1.42)
+  })
+
+  test('nome dell\'export: nome e cognome, periodo del filtro, livello e lingua; lo stesso periodo sovrascrive', { options: { language: 'it', fullName: '  José Ñúñez-Ølsen ' } }, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const run = async (args: string) => ((await $.command.run(command('kpi', args))) as { text: string }).text
+    const names = () => world.under(`${ROOT}/_exports/`).map(path => path.slice(`${ROOT}/_exports/`.length))
+
+    await workedSession($, on, world, clock)
+    await run('esporta csv --mese 2026-10')
+    await run('esporta csv --month 10/2026')
+    await run('esporta json --mese 2026-10 --livello giorni --lingua en')
+    await run('esporta csv --da 2026-10-12 --a 2026-10-12 --livello turni')
+    await run('esporta csv --da 2026-09-01 --a 2026-10-31')
+    await run('esporta csv --da 2026-10-05 --a 2026-10-20')
+
+    expect(names()).toEqual([
+      'kpi_jose_nunez_olsen_2026-09_2026-10.csv',
+      'kpi_jose_nunez_olsen_2026-10-05_2026-10-20.csv',
+      'kpi_jose_nunez_olsen_2026-10-12_turni.csv',
+      'kpi_jose_nunez_olsen_2026-10.csv',
+      'kpi_jose_nunez_olsen_2026-10_days.json',
+    ])
+    expect(await run('esporta csv --mese 2026-10 --da 2026-10-01')).toContain('--mese non si combina con --da e --a')
+    expect(await run('esporta csv --mese 2026-13')).toContain('mese non valido per --mese: 2026-13')
+  })
+
+  test('nome dell\'export: senza opzione si usa git config user.name; senza nessuno dei due il file non ha nome', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+    world.gitUser = 'Anna Bianchi'
+    await $.command.run(command('kpi', 'esporta csv --mese 2026-10'))
+    world.gitUser = ''
+    await $.command.run(command('kpi', 'esporta csv --mese 2026-10'))
+
+    expect(world.under(`${ROOT}/_exports/`)).toEqual([`${ROOT}/_exports/kpi_2026-10.csv`, `${ROOT}/_exports/kpi_anna_bianchi_2026-10.csv`])
+    expect(world.runs.filter(argv => argv.includes('user.name'))).toHaveLength(2)
   })
 
   test('il report HTML si apre nella lingua scelta e porta entrambe le descrizioni', EN, async ($, on) => {

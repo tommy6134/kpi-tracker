@@ -10,6 +10,7 @@ import { cacheHit, type KpiDetails } from '../analysis/summary-types'
 import { allEventsOf, readJson } from '../core/recover'
 import { join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
+import { monthEnd, stampOf } from '../core/time'
 import type { HostFs } from '../host'
 import type { I18n, Lang } from '../i18n'
 import { inRange, type KpiFilter } from '../query/filters'
@@ -38,6 +39,57 @@ export const LEVEL_NAMES: Record<ExportLevel, Record<Lang, string>> = {
 }
 
 export const PART_MAX = 3_500_000
+
+/** Lettere che la scomposizione Unicode non riduce a una lettera latina con accento. */
+const FOLDED: Readonly<Record<string, string>> = { ß: 'ss', æ: 'ae', œ: 'oe', ø: 'o', đ: 'd', ł: 'l', þ: 'th' }
+
+/** Un nome per un file: minuscole, senza accenti, spazi e simboli → `_` (`Thomas Amerio` → `thomas_amerio`). */
+export function nameSlugOf(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[ßæœøđłþ]/g, letter => FOLDED[letter] ?? '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .slice(0, 60)
+    .replace(/^_+|_+$/g, '')
+}
+
+/**
+ * Il periodo nel nome dell'export. Con un periodo chiuso: un giorno
+ * (`2026-11-03`), un mese (`2026-11`), mesi interi (`2026-09_2026-11`) o
+ * l'intervallo (`2026-09-15_2026-11-02`): rifare l'export dello stesso periodo
+ * sovrascrive il file. Senza date, o con una sola, data e ora di adesso.
+ */
+export function periodOf(filter: Pick<KpiFilter, 'sinceDay' | 'untilDay'>, now: number, offsetMin?: number): string {
+  const since = filter.sinceDay
+  const until = filter.untilDay
+
+  if (since === undefined || until === undefined) {
+    return stampOf(now, offsetMin)
+  }
+
+  if (since === until) {
+    return since
+  }
+
+  const first = since.slice(0, 7)
+  const last = until.slice(0, 7)
+
+  if (since.endsWith('-01') && until === monthEnd(last)) {
+    return first === last ? first : `${first}_${last}`
+  }
+
+  return `${since}_${until}`
+}
+
+/** `kpi_<nome>_<periodo>[_<livello>].<formato>`: il livello sessioni non ha suffisso, il nome manca se non c'è. */
+export function exportFileName(owner: string, period: string, level: string | null, format: string): string {
+  return `${['kpi', owner, period, level ?? ''].filter(part => part !== '').join('_')}.${format}`
+}
+
+/** Il percorso della parte `n` (dalla seconda): `…_parte2.csv` in italiano, `…_part2.csv` in inglese. */
+export const partPathOf = (path: string, part: string, n: number): string => path.replace(/(\.[a-z]+)?$/, `_${part}${n}$1`)
 
 type Value = string | number | boolean | null | undefined
 type Table = { columns: string[]; rows: Value[][] }

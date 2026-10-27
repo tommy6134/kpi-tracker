@@ -40,6 +40,12 @@
       "description": "Where to save HTML reports and CSV/JSON exports. Empty = _reports and _exports in the data folder. On Linux snap and flatpak browsers cannot read hidden folders: with a visible folder (e.g. ~/Documents/kpi) the report opens straight from there.",
       "default": ""
     },
+    "fullName": {
+      "type": "string",
+      "title": "Name for export files",
+      "description": "Name and surname in the CSV/JSON export file names, e.g. \"Mario Rossi\" gives kpi_mario_rossi_2026-11.csv (lower case, no accents, spaces become _). Empty = the name in git config user.name; without either, the files have no name.",
+      "default": ""
+    },
     "streamTiming": {
       "type": "boolean",
       "title": "Per-request metrics (TTFT)",
