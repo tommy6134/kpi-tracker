@@ -626,6 +626,12 @@ function applyTool(state: ReduceState, event: Extract<KpiEvent, { e: 'tool' }>):
   } else if (event.st === 'deny') {
     agg.deny += 1
     s.perms.toolDenied += 1
+  } else if (event.st === 'cls') {
+    // Il classificatore si conta da PermissionDenied (perms.denied): qui solo la colonna del tool.
+    agg.deny += 1
+  } else if (event.st === 'rej') {
+    agg.rej = (agg.rej ?? 0) + 1
+    s.perms.rejected = (s.perms.rejected ?? 0) + 1
   } else {
     agg.intr += 1
     s.errors.interrupts += 1

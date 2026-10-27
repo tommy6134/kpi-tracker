@@ -202,7 +202,7 @@ Documentazione (in inglese in [docs/](docs/)): [catalogo dei KPI](docs/it/kpi.md
 ## Limiti noti
 
 - Il **costo** è quello calcolato da Claude Code (equivalente API, comprese le sue chiamate di servizio); non esiste un costo per modello o per subagent. Dalla 0.4.0 coincide con `/cost`, compreso quanto speso fuori dai turni; resta escluso solo quanto Claude Code spende dopo la chiusura di una sessione che non viene più ripresa.
-- La **risposta dell'utente** in un dialogo di permesso non è esposta: si contano decisioni, dialoghi e negazioni.
+- Della **risposta dell'utente** in un dialogo di permesso si vede solo il "no" (dalla 0.5.0; prima contava come interruzione): si contano decisioni, dialoghi, negazioni e rifiuti.
 - L'esito dei comandi Bash **con pipe** riflette solo l'ultimo comando.
 - Su **Linux** i browser installati come snap o flatpak (Firefox su Ubuntu, Brave, Chromium) non leggono le cartelle nascoste come `~/.claude`: `/kpi report` apre allora una copia del report nella cartella Scaricati (`kpi-report.html`, sovrascritta ogni volta). Per evitare la copia imposta `reportDir` su una cartella visibile, per esempio `~/Documenti/kpi`.
 - Le sessioni precedenti all'installazione non vengono importate.

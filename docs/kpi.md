@@ -90,7 +90,7 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 | KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
 | Calls per tool | built-in, MCP, plugin; main or subagent | `tool.call` | E |
-| Outcome | ok, error, denied, interrupted; error rate | `tool.call` (result) | E |
+| Outcome | ok, error, denied (by a rule, the mode, a hook or the auto mode classifier), rejected by the user in the permission dialog, interrupted; error rate. The kind of failure is recognised from the start of the error text, read in memory and never stored | `tool.call` (result) | E |
 | Duration | without permission waits and hooks (mean, p90) | `classic.PostToolUse(Failure).duration_ms` | E |
 | Wall time | including the permission wait | clock around `tool.call` | E |
 | Read-only | share of calls run read-only | `tool.call.isReadOnly` | E |
@@ -145,8 +145,9 @@ Lines written by subagents are counted from their tool calls, without double cou
 | Decisions | allow, ask, deny per tool | `tool.check` | E |
 | Decided by | rule, hook, mode | `tool.check` (`rule`, `hook`) | E |
 | Dialogs shown | | `classic.PermissionRequest` | E |
-| Denied by the classifier | | `classic.PermissionDenied` | E |
-| Denied tool calls | | `tool.call` (deny) | E |
+| Denied by the classifier | denied by the auto mode classifier | `classic.PermissionDenied` | E |
+| Denied tool calls | by a rule, the mode (don't ask) or a hook. Until 0.4.0 a call denied by a rule counted as a tool error | `tool.call` (deny, error text) | E |
+| Rejected by the user | "No" in the permission dialog, also with a message for Claude. Since 0.5.0: until 0.4.0 a rejection counted as an interruption, and the old data stays that way (the text is not stored) | `tool.call` (error text) | E |
 
 ## Subagents and workflows
 
@@ -182,6 +183,6 @@ Lines written by subagents are counted from their tool calls, without double cou
 ## Not available
 
 - cost per request, per model or per subagent (Claude Code exposes only the session's total cost);
-- the user's answer in the permission dialog;
+- the user's "yes" in the permission dialog (the "no" is counted since 0.5.0);
 - the engine's service calls (titles, classifiers), included only in the total cost;
 - Bash's numeric exit code (only ok/error).

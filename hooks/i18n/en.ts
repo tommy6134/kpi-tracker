@@ -156,6 +156,7 @@ export const EN = {
   Chiamate: 'Calls',
   Errori: 'Errors',
   Negate: 'Denied',
+  Rifiutate: 'Rejected',
   Interrotte: 'Interrupted',
   'Durata media': 'Mean duration',
   'Parallelismo medio {mean} tool per batch · in background {bg} · MCP {mcp}': 'Mean parallelism {mean} tools per batch · in background {bg} · MCP {mcp}',
@@ -185,8 +186,9 @@ export const EN = {
   Decisioni: 'Decisions',
   'Chi ha deciso': 'Decided by',
   'Dialoghi di permesso mostrati': 'Permission dialogs shown',
-  'Negati dal classificatore': 'Denied by the classifier',
-  'Tool call negate': 'Denied tool calls',
+  'Negate da regola, modalità o hook': 'Denied by a rule, the mode or a hook',
+  "Rifiutate dall'utente": 'Rejected by the user',
+  'Negate dal classificatore': 'Denied by the classifier',
   'Subagent e workflow ({n} avviati)': 'Subagents and workflows ({n} launched)',
   Tipo: 'Kind',
   Avviati: 'Launched',
@@ -290,6 +292,7 @@ export const EN = {
   Chiesti: 'Asked',
   Dialoghi: 'Dialogs',
   Negati: 'Denied',
+  'Rifiutati da te': 'Rejected by you',
 
   // ------------------------------------------------------------ report HTML
   'Asset del report non trovati in {dir}: dati grezzi qui sotto.': 'Report assets not found in {dir}: raw data below.',

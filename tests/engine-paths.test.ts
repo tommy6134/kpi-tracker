@@ -143,6 +143,39 @@ describe('tool, permessi e subagent', () => {
     expect(s.perms.dialogs).toBe(1)
   })
 
+  test('rifiuto dell\'utente, negazione da regola e dal classificatore, interruzione: esiti separati, nessun testo salvato', async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    // I testi che il motore dà al modello (Claude Code 2.1.312); il rifiuto porta le parole dell'utente.
+    const results: Record<string, string> = {
+      'git push': "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said:\nnon pubblicare il ramo segreto",
+      'rm -rf build': 'Permission to use Bash with command rm -rf build has been denied.',
+      'curl example.com': 'Permission for this action was denied by the Claude Code auto mode classifier. Reason: rete',
+      'npm test': '[Request interrupted by user for tool use]',
+    }
+
+    on('tool.call', ($$, e) => ({ isError: true, result: results[(e as { command: string }).command], text: results[(e as { command: string }).command] }) as never)
+
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+
+    for (const command of Object.keys(results)) {
+      await $.tool.call({ tool: 'Bash', command } as never)
+    }
+
+    await $.classic.PermissionDenied({ ...base, hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_input: {}, tool_use_id: 'u3', reason: 'rete' } as never)
+    await $.turn.complete({ answer: '', durationMs: 100, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    await clock.advance(6000)
+
+    const s = sessionFile(world).file.summary
+
+    expect(s.tools.byTool.Bash).toMatchObject({ n: 4, err: 0, deny: 2, rej: 1, intr: 1 })
+    expect(s.perms).toMatchObject({ rejected: 1, toolDenied: 1, denied: 1 })
+    expect(s.errors.interrupts).toBe(1)
+    expect(s.errors.toolErr).toBe(0)
+    expect(world.written()).not.toContain('segreto')
+  })
+
   test('subagent: avvio, turno e token attribuiti al tipo', async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)

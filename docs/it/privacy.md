@@ -28,6 +28,7 @@ L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`
 
 - Il classificatore Bash (`hooks/analysis/bash-classify.ts`) scarta virgolette, heredoc, sostituzioni `$(…)` e assegnazioni. Un sottocomando esce solo se è in un elenco noto per quel programma, altrimenti diventa `*`.
 - I nomi passano da `safeName`: un valore che non sembra un identificatore diventa `altro`.
+- L'esito di una tool call fallita (rifiutata dall'utente, negata, interrotta) si riconosce dall'inizio del testo d'errore, in memoria. Il testo non si salva mai, anche quando contiene le parole scritte dall'utente nel dialogo dei permessi.
 - I test (`tests/units.test.ts`, `tests/ui-commands.test.ts`) verificano che nessun file scritto, export compresi, contenga il testo di prompt, gli argomenti segreti dei comandi o i messaggi di commit.
 
 ## Contesto del modello

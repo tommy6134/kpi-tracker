@@ -28,6 +28,7 @@ The only network traffic comes from **updates** (the `autoUpdate` option, unless
 
 - The Bash classifier (`hooks/analysis/bash-classify.ts`) drops quotes, heredocs, `$(…)` substitutions and assignments. A subcommand comes out only if it is in a known list for that program, otherwise it becomes `*`.
 - Names go through `safeName`: a value that does not look like an identifier becomes `altro` (shown as "other").
+- The outcome of a failed tool call (rejected by the user, denied, interrupted) is recognised from the start of its error text, in memory. The text is never stored, also when it carries the words the user typed in the permission dialog.
 - The tests (`tests/units.test.ts`, `tests/ui-commands.test.ts`) check that no written file, exports included, contains prompt text, secret command arguments or commit messages.
 
 ## Model context

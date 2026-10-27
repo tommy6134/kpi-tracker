@@ -3,6 +3,8 @@
 ## Unreleased
 
 - The **branch** is read again at every prompt, in the background: a switch made from another terminal is recorded at the next prompt (before, only at start and after Claude's git commands). In `session.json` the branches are in the order they were last active, the current one last.
+- **Rejections apart from interruptions.** A "No" in the permission dialog is a new outcome, *rejected by the user*, no longer counted as an interruption. Calls denied by a rule, the mode or a hook now count as denied instead of as tool errors, and those denied by the auto mode classifier no longer count as errors either. The outcome is recognised from Claude Code's error text, read in memory and never stored. Old data stays as it was (the text was not saved).
+- `/kpi stats` and `/kpi session` (Permissions section and a *Rejected* column per tool), the HTML report (Permissions card) and the panel show denied by a rule, the mode or a hook, rejected by the user, denied by the classifier and dialogs shown. New export columns at the end of the sessions level: `tools_denied`, `rejected_by_user`, `denied_by_classifier`, `permission_dialogs` (`tool_negate`, `rifiutate_utente`, `negate_classificatore`, `dialoghi_permesso` in Italian).
 
 ## 0.4.0
 

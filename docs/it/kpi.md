@@ -90,7 +90,7 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 | KPI | Definizione | Fonte | Gran. |
 | --- | --- | --- | --- |
 | Chiamate per tool | built-in, MCP, plugin; principale o subagent | `tool.call` | E |
-| Esito | ok, errore, negato, interrotto; tasso di errore | `tool.call` (risultato) | E |
+| Esito | ok, errore, negato (da una regola, dalla modalità, da un hook o dal classificatore della modalità auto), rifiutato dall'utente nel dialogo dei permessi, interrotto; tasso di errore. Il tipo di fallimento si riconosce dall'inizio del testo d'errore, letto in memoria e mai salvato | `tool.call` (risultato) | E |
 | Durata | senza attese di permesso e hook (media, p90) | `classic.PostToolUse(Failure).duration_ms` | E |
 | Tempo totale | inclusa l'attesa del permesso | orologio attorno a `tool.call` | E |
 | Read-only | quota di chiamate eseguite in sola lettura | `tool.call.isReadOnly` | E |
@@ -145,8 +145,9 @@ Le righe scritte dai subagent si contano dai loro tool call, senza doppi contegg
 | Decisioni | allow, ask, deny per tool | `tool.check` | E |
 | Chi ha deciso | regola, hook, modalità | `tool.check` (`rule`, `hook`) | E |
 | Dialoghi mostrati | | `classic.PermissionRequest` | E |
-| Negati dal classificatore | | `classic.PermissionDenied` | E |
-| Tool call negate | | `tool.call` (deny) | E |
+| Negati dal classificatore | negati dal classificatore della modalità auto | `classic.PermissionDenied` | E |
+| Tool call negate | da una regola, dalla modalità (don't ask) o da un hook. Fino alla 0.4.0 una chiamata negata da una regola contava come errore del tool | `tool.call` (deny, testo d'errore) | E |
+| Rifiutate dall'utente | "No" nel dialogo dei permessi, anche con un messaggio per Claude. Dalla 0.5.0: fino alla 0.4.0 un rifiuto contava come interruzione, e i dati vecchi restano così (il testo non si salva) | `tool.call` (testo d'errore) | E |
 
 ## Subagent e workflow
 
@@ -182,6 +183,6 @@ Le righe scritte dai subagent si contano dai loro tool call, senza doppi contegg
 ## Non disponibili
 
 - costo per richiesta, per modello o per subagent (Claude Code espone solo il costo totale della sessione);
-- la risposta dell'utente nel dialogo di permesso;
+- il "sì" dell'utente nel dialogo di permesso (il "no" si conta dalla 0.5.0);
 - le chiamate di servizio del motore (titoli, classificatori), incluse solo nel costo totale;
 - il codice di uscita numerico di Bash (solo ok/errore).

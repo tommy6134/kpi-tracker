@@ -37,7 +37,8 @@ export type LiveView = {
   tests: { n: number; ok: number; err: number }
   files: { add: number; del: number; created: number; modified: number; read: number; top: { path: string; add: number; del: number }[]; byClass: { cls: string; add: number }[] }
   git: { commits: number; pushes: number; prs: { n: number; action: string }[] }
-  perms: { allow: number; ask: number; deny: number; dialogs: number; denied: number; toolDenied: number }
+  /** `denied`: tool call negate da regola, modalità, hook o classificatore; `rejected`: rifiutate dall'utente nel dialogo. */
+  perms: { allow: number; ask: number; dialogs: number; denied: number; rejected: number }
   agents: { type: string; n: number; ms: number; tok: number }[]
   errors: { tool: number; api: number; refusals: number; interrupts: number }
   series: KpiTurnPoint[]
@@ -126,10 +127,9 @@ export function liveOf(file: KpiSessionFile, details: KpiDetails, now: number): 
     perms: {
       allow: s.perms.byDecision.allow ?? 0,
       ask: s.perms.byDecision.ask ?? 0,
-      deny: s.perms.byDecision.deny ?? 0,
       dialogs: s.perms.dialogs,
-      denied: s.perms.denied,
-      toolDenied: s.perms.toolDenied,
+      denied: s.perms.toolDenied + s.perms.denied,
+      rejected: s.perms.rejected ?? 0,
     },
     agents: topOf(Object.fromEntries(Object.entries(s.agents.byType).map(([type, agg]) => [type, agg.n])), 6).map(([type]) => {
       const agg = s.agents.byType[type] as { n: number; ms: number; tok: number }

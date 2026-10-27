@@ -235,6 +235,20 @@ describe('esito dei tool', () => {
     expect(statusOf({ isError: true, result: 'x', text: 'boom' })).toBe('err')
     expect(statusOf({ isError: true, result: 'x', text: 'Interrupted by user' })).toBe('intr')
     expect(statusOf({ result: { interrupted: true } })).toBe('intr')
+    // I testi del motore (Claude Code 2.1.312): rifiuto nel dialogo, regola, modalità, hook, classificatore, chiamate non eseguite.
+    const error = (text: string) => statusOf({ isError: true, result: text, text })
+
+    expect(error("The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.")).toBe('rej')
+    expect(error("The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.")).toBe('rej')
+    expect(error('<tool_use_error>Permission to use Bash with command git push has been denied.</tool_use_error>')).toBe('deny')
+    expect(error("Permission to use Bash has been denied because Claude Code is running in don't ask mode.")).toBe('deny')
+    expect(error('Permission to edit /w/a.ts has been denied.')).toBe('deny')
+    expect(error("Hook 'guard' blocked this action: no")).toBe('deny')
+    expect(error('Permission for this action has been denied. Reason: rete')).toBe('cls')
+    expect(error('[Request interrupted by user for tool use]')).toBe('intr')
+    expect(error("[Tool call not completed: an approval request expired with no answer, so the action awaiting approval did not run. Nobody refused it, so this is not the user's decision; ask again if it is still needed.]")).toBe('intr')
+    // Un comando fallito che stampa quelle frasi a metà output resta un errore.
+    expect(error("grep: trovato \"The user doesn't want to proceed with this tool use\"")).toBe('err')
     expect(statusOf({ result: {} })).toBe('ok')
     expect(urlHost('https://docs.example.com/a?tok=SEGRETO')).toBe('docs.example.com')
   })

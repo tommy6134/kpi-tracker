@@ -18,8 +18,12 @@ export type BashCat = 'git' | 'test' | 'build' | 'package' | 'docker' | 'fs' | '
 /** Classe di un file toccato. */
 export type FileClass = 'src' | 'test' | 'doc' | 'config' | 'altro'
 
-/** Esito di una tool call. */
-export type ToolStatus = 'ok' | 'err' | 'deny' | 'intr'
+/**
+ * Esito di una tool call: riuscita, errore, negata da regola, modalità o hook,
+ * interrotta, rifiutata dall'utente nel dialogo dei permessi (`rej`, dalla
+ * 0.5.0), negata dal classificatore della modalità auto (`cls`, dalla 0.5.0).
+ */
+export type ToolStatus = 'ok' | 'err' | 'deny' | 'intr' | 'rej' | 'cls'
 
 export type GitInfo = {
   /** Commit: sha a 7 caratteri, tipo (committed/amended/cherry-picked), branch. */

@@ -204,6 +204,7 @@ describe('/kpi', () => {
 
     expect(csv).toContain('formato Excel italiano')
     expect(world.files.get(csvPath)?.startsWith('﻿inizio;progetto;percorso;sessione')).toBe(true)
+    expect(world.files.get(csvPath)?.split('\r\n')[0]).toMatch(/;versione;tool_negate;rifiutate_utente;negate_classificatore;dialoghi_permesso$/)
 
     await $.command.run(command('kpi', 'esporta json --livello giorni'))
 
@@ -394,6 +395,7 @@ describe('in inglese', () => {
     expect(csv).toContain('standard format')
     expect(csvPath).toMatch(/\/kpi-sessions-[\d_-]+\.csv$/)
     expect(text.startsWith('start,project,path,session,kind,status,duration_min')).toBe(true)
+    expect(text.split('\n')[0]).toMatch(/,version,tools_denied,rejected_by_user,denied_by_classifier,permission_dialogs$/)
     expect(text).toContain(',interactive,active,')
 
     await $.command.run(command('kpi', 'export csv --excel --level days'))

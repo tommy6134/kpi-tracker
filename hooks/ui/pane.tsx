@@ -441,7 +441,8 @@ export function paneView(kit: PaneKit, L: I18n, live: LiveView | null, columns: 
     count(L.t('Consentiti'), live.perms.allow),
     count(L.t('Chiesti'), live.perms.ask),
     count(L.t('Dialoghi'), live.perms.dialogs),
-    count(L.t('Negati'), live.perms.deny + live.perms.denied + live.perms.toolDenied, undefined, WARN),
+    count(L.t('Negati'), live.perms.denied, undefined, WARN),
+    count(L.t('Rifiutati da te'), live.perms.rejected, undefined, WARN),
   ])
 
   // Con errori la card Errori sale subito sotto quelle in testa, così si vede senza scorrere.

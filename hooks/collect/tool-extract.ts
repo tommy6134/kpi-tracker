@@ -23,6 +23,21 @@ type ToolResultLike = {
   text?: string
 }
 
+/*
+ * Gli esiti che il motore restituisce come errore, riconosciuti dall'inizio
+ * del testo che legge il modello (Claude Code 2.1.312). Il testo si legge in
+ * memoria e non si salva: con un rifiuto può contenere le parole dell'utente.
+ */
+const LEAD = String.raw`^\s*(?:<tool_use_error>\s*)?`
+/** "No" nel dialogo dei permessi, anche con un messaggio dell'utente. */
+const REJECTED_RE = new RegExp(`${LEAD}The user doesn't want to (?:proceed with this tool use|take this action)`)
+/** Negata dal classificatore della modalità auto. */
+const CLASSIFIER_RE = new RegExp(`${LEAD}Permission for this action (?:was|has been) denied`)
+/** Negata da una regola, dalla modalità (don't ask) o da un hook. */
+const DENIED_RE = new RegExp(`${LEAD}(?:Permission to (?:use|read|edit) [\\s\\S]*?has been denied|Hook '[^']*' blocked this action|Agent type '[^']*' has been denied)`)
+/** Interrotta, o non eseguita senza che nessuno l'abbia rifiutata (turno chiuso, richiesta scaduta). */
+const INTERRUPTED_RE = new RegExp(`${LEAD}\\[(?:Request interrupted|Tool call )|interrupted|interrotto|request was aborted`, 'i')
+
 /** L'esito di una tool call dal suo risultato. */
 export function statusOf(result: ToolResultLike | undefined): ToolStatus {
   if (result === undefined) {
@@ -34,9 +49,21 @@ export function statusOf(result: ToolResultLike | undefined): ToolStatus {
   }
 
   if (result.isError === true) {
-    const text = typeof result.text === 'string' ? result.text : ''
+    const text = typeof result.text === 'string' ? result.text : typeof result.result === 'string' ? result.result : ''
 
-    return /interrupted|interrotto|user (rejected|denied|doesn't want)|request was aborted/i.test(text) ? 'intr' : 'err'
+    if (REJECTED_RE.test(text)) {
+      return 'rej'
+    }
+
+    if (CLASSIFIER_RE.test(text)) {
+      return 'cls'
+    }
+
+    if (DENIED_RE.test(text)) {
+      return 'deny'
+    }
+
+    return INTERRUPTED_RE.test(text) ? 'intr' : 'err'
   }
 
   const record = result.result as { interrupted?: unknown } | undefined

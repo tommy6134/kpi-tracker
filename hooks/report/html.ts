@@ -118,13 +118,15 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       Math.round(percentileOf(s.requests.ttft, 0.5)),
       s.perms.byDecision.allow ?? 0,
       s.perms.byDecision.ask ?? 0,
-      (s.perms.byDecision.deny ?? 0) + s.perms.denied + s.perms.toolDenied,
+      s.perms.toolDenied,
       s.perms.dialogs,
       s.errors.turnErr,
       s.errors.interrupts,
       s.errors.refusals,
       file.meta.versions.at(-1) ?? '',
       r6(s.cost.outsideTurns ?? 0),
+      s.perms.rejected ?? 0,
+      s.perms.denied,
     ])
 
     maps.push({

@@ -7,7 +7,7 @@
   var SVGNS = 'http://www.w3.org/2000/svg'
 
   // Indici delle tuple (vedi hooks/report/html.ts).
-  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35 }
+  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35, rejected: 36, clsDenied: 37 }
   var DAY = { s: 0, day: 1, cost: 2, inp: 3, out: 4, cr: 5, cw: 6, turns: 7, active: 8, prompts: 9, req: 10, tools: 11, toolErr: 12, add: 13, del: 14, commits: 15 }
 
   // ------------------------------------------------------------ lingua
@@ -124,6 +124,9 @@
     'Consentiti': 'Allowed',
     'Chiesti': 'Asked',
     'Negati': 'Denied',
+    'Negate da regola, modalità o hook': 'Denied by a rule, the mode or a hook',
+    "Rifiutate dall'utente": 'Rejected by the user',
+    'Negate dal classificatore': 'Denied by the classifier',
     'Dialoghi mostrati': 'Dialogs shown',
     'Permessi': 'Permissions',
     'Decisione': 'Decision',
@@ -158,7 +161,7 @@
     'Commit · push · PR': 'Commits · pushes · PRs',
     'Test ok · ko': 'Tests passed · failed',
     'Build ok · ko': 'Builds ok · failed',
-    'Permessi consentiti · chiesti · negati': 'Permissions allowed · asked · denied',
+    'Permessi consentiti · chiesti · negati · rifiutati': 'Permissions allowed · asked · denied · rejected',
     'Errori turno · interruzioni · rifiuti': 'Turn errors · interrupts · refusals',
     'Dettaglio sessione {id}': 'Session detail {id}',
     'Progetti ({n})': 'Projects ({n})',
@@ -717,7 +720,7 @@
     if (mcp.length) card(t('Server MCP'), null, null, function (n) { hbars(n, mcp.map(function (x) { return { label: x.name, value: x.v[0], err: x.v[1] } }), int, C.s1, function (it) { return [{ value: int(it.err), label: t('errori') }] }) }, { head: ['Server', t('Chiamate'), t('Errori')], rows: mcp.map(function (x) { return [x.name, int(x.v[0]), int(x.v[1])] }), num: [1, 2] })
 
     // Permessi, errori, stop: tabelle compatte
-    var perms = [[t('Consentiti'), sum(S.allow)], [t('Chiesti'), sum(S.ask)], [t('Negati'), sum(S.deny)], [t('Dialoghi mostrati'), sum(S.dialogs)]]
+    var perms = [[t('Consentiti'), sum(S.allow)], [t('Chiesti'), sum(S.ask)], [t('Negate da regola, modalità o hook'), sum(S.deny)], [t("Rifiutate dall'utente"), sum(S.rejected)], [t('Negate dal classificatore'), sum(S.clsDenied)], [t('Dialoghi mostrati'), sum(S.dialogs)]]
     card(t('Permessi'), null, null, function (n) { hbars(n, perms.map(function (p) { return { label: p[0], value: p[1] } }), int, C.s1) }, { head: [t('Decisione'), t('Volte')], rows: perms.map(function (p) { return [p[0], int(p[1])] }), num: [1] })
     var errs = mapSum(rows, 'e', null, D.errors).map(function (x) { return [x.name, x.v[0]] }).concat([[t('turni in errore'), sum(S.turnErr)], [t('interruzioni'), sum(S.interrupts)], [t('rifiuti'), sum(S.refusals)]]).filter(function (x) { return x[1] > 0 })
     card(t('Errori e interruzioni'), null, null, function (n) { hbars(n, errs.map(function (p) { return { label: p[0], value: p[1] } }), int, C.s8) }, { head: [t('Tipo'), t('Volte')], rows: errs.map(function (p) { return [p[0], int(p[1])] }), num: [1] })
@@ -809,7 +812,7 @@
       [t('Compattazioni'), int(s[S.compactions])], [t('Tool (errori)'), int(tt.tools) + ' (' + int(tt.toolErr) + ')'], [t('Righe'), '+' + int(tt.add) + ' −' + int(tt.del)],
       [t('File creati · modificati · letti'), int(s[S.created]) + ' · ' + int(s[S.modified]) + ' · ' + int(s[S.read])], [t('Commit · push · PR'), int(tt.commits) + ' · ' + int(s[S.pushes]) + ' · ' + int(s[S.prs])],
       [t('Test ok · ko'), int(s[S.testsOk]) + ' · ' + int(s[S.testsKo])], [t('Build ok · ko'), int(s[S.buildsOk]) + ' · ' + int(s[S.buildsKo])], ['Subagent', int(s[S.agents])],
-      [t('Permessi consentiti · chiesti · negati'), int(s[S.allow]) + ' · ' + int(s[S.ask]) + ' · ' + int(s[S.deny])], [t('Errori turno · interruzioni · rifiuti'), int(s[S.turnErr]) + ' · ' + int(s[S.interrupts]) + ' · ' + int(s[S.refusals])],
+      [t('Permessi consentiti · chiesti · negati · rifiutati'), int(s[S.allow]) + ' · ' + int(s[S.ask]) + ' · ' + int(s[S.deny] + (s[S.clsDenied] || 0)) + ' · ' + int(s[S.rejected] || 0)], [t('Errori turno · interruzioni · rifiuti'), int(s[S.turnErr]) + ' · ' + int(s[S.interrupts]) + ' · ' + int(s[S.refusals])],
     ]
     var dl = el('dl')
     items.forEach(function (it) { dl.appendChild(el('div', {}, [el('dt', { text: it[0] }), el('dd', { text: String(it[1]) })])) })

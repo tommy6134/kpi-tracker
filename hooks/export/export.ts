@@ -98,6 +98,10 @@ const COLUMNS_EN: Readonly<Record<string, string>> = {
   evento: 'event',
   agente: 'agent',
   dati: 'data',
+  tool_negate: 'tools_denied',
+  rifiutate_utente: 'rejected_by_user',
+  negate_classificatore: 'denied_by_classifier',
+  dialoghi_permesso: 'permission_dialogs',
 }
 
 /** Le colonne nella lingua di `L`. */
@@ -123,6 +127,8 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
         'costo_fuori_turni_usd', 'token_input', 'token_output', 'cache_letta', 'cache_scritta', 'cache_hit', 'tool', 'errori_tool', 'bash', 'test_ok', 'test_ko',
         'righe_aggiunte', 'righe_rimosse', 'file_creati', 'file_modificati', 'commit', 'push', 'pr', 'subagent', 'compattazioni',
         'contesto_max_pct', 'rate_5h_max_pct', 'rate_7g_max_pct', 'branch', 'modelli', 'versione',
+        // Dalla 0.5.0, in fondo per non spostare le colonne di chi usa fogli già fatti.
+        'tool_negate', 'rifiutate_utente', 'negate_classificatore', 'dialoghi_permesso',
       ],
       rows: rows.map(row => {
         const s = row.file.summary
@@ -135,6 +141,7 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
           s.files.uniqueModified, r.commits, s.git.pushes, Object.values(s.git.prs).reduce((a, b) => a + b, 0), s.agents.n, s.compactions.n,
           s.context.maxPct, s.rate.five_hour?.max ?? null, s.rate.seven_day?.max ?? null, row.file.meta.branches.join(' '),
           row.file.meta.models.join(' '), row.file.meta.versions.at(-1) ?? '',
+          s.perms.toolDenied, s.perms.rejected ?? 0, s.perms.denied, s.perms.dialogs,
         ]
       }),
     }

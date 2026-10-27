@@ -213,19 +213,20 @@ export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[]
       L.t('Tool ({n} chiamate)', { n: int(s.tools.n) }),
       table(
         L,
-        ['Tool', L.t('Chiamate'), L.t('Errori'), L.t('Negate'), L.t('Interrotte'), L.t('Durata media'), 'p90', 'Read-only', 'Subagent'],
+        ['Tool', L.t('Chiamate'), L.t('Errori'), L.t('Negate'), L.t('Rifiutate'), L.t('Interrotte'), L.t('Durata media'), 'p90', 'Read-only', 'Subagent'],
         tools.slice(0, 20).map(([name, agg]) => [
           name,
           int(agg.n),
           `${int(agg.err)} (${ratio(agg.err, agg.n)})`,
           int(agg.deny),
+          int(agg.rej ?? 0),
           int(agg.intr),
           agg.ms.n === 0 ? '–' : dur(meanOf(agg.ms)),
           agg.ms.n === 0 ? '–' : dur(percentileOf(agg.ms, 0.9)),
           ratio(agg.ro, agg.n),
           int(agg.sub),
         ]),
-        [1, 2, 3, 4, 5, 6, 7, 8],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
       ) +
         `\n\n${L.t('Parallelismo medio {mean} tool per batch · in background {bg} · MCP {mcp}', {
           mean: fixed(meanOf(s.tools.batches), 1),
@@ -317,8 +318,9 @@ export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[]
         [L.t('Decisioni'), counts(L, s.perms.byDecision)],
         [L.t('Chi ha deciso'), counts(L, s.perms.byWho)],
         [L.t('Dialoghi di permesso mostrati'), int(s.perms.dialogs)],
-        [L.t('Negati dal classificatore'), int(s.perms.denied)],
-        [L.t('Tool call negate'), int(s.perms.toolDenied)],
+        [L.t('Negate da regola, modalità o hook'), int(s.perms.toolDenied)],
+        [L.t('Rifiutate dall\'utente'), int(s.perms.rejected ?? 0)],
+        [L.t('Negate dal classificatore'), int(s.perms.denied)],
       ]),
     ),
   )
