@@ -5,7 +5,7 @@ import { classOf, countPatch, lineCount, linesOfResult } from '../hooks/analysis
 import { mergeAll, mergeSummary } from '../hooks/analysis/merge'
 import { foldEvents } from '../hooks/analysis/reducer'
 import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
-import { emptyDetails, emptySummary } from '../hooks/analysis/summary-types'
+import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
@@ -243,6 +243,24 @@ describe('righe di codice', () => {
     expect(classOf('/r/README.md')).toBe('doc')
     expect(classOf('/r/pom.xml')).toBe('config')
     expect(classOf('/r/logo.png')).toBe('altro')
+    expect(classOf('/r/cobol/PAYROLL.CBL')).toBe('cobol')
+    expect(classOf('/r/copy/CUSTREC.cpy')).toBe('cobol')
+    expect(classOf('/r/src/legacy.cob')).toBe('cobol')
+    expect(classOf('/r/jcl/NIGHTLY.JCL')).toBe('mainframe')
+    expect(classOf('/r/pli/calc.pli')).toBe('mainframe')
+    expect(classOf('/r/exec/deploy.rexx')).toBe('mainframe')
+    expect(classOf('/r/tests/PAYROLL.cbl')).toBe('test')
+  })
+
+  test('il reducer ricava la classe dal percorso, anche dagli eventi salvati con la classe di prima', () => {
+    const state = foldEvents({ summary: emptySummary(), details: emptyDetails() }, events([
+      [T0, { e: 'tool', id: 'u1', tool: 'Edit', st: 'ok', wall: 5, x: { k: 'file', op: 'edit', path: '/w/src/PAYROLL.cbl', ext: 'cbl', cls: 'src', add: 7, del: 1 } }],
+      [T0 + 1, { e: 'tool', id: 'u2', tool: 'Write', st: 'ok', wall: 5, x: { k: 'file', op: 'write', path: '/w/jcl/RUN.jcl', ext: 'jcl', cls: 'altro', add: 3, cr: 1 } }],
+    ]))
+
+    expect(state.summary.files.byClass).toEqual({ cobol: { n: 1, add: 7, del: 1 }, mainframe: { n: 1, add: 3, del: 0 } })
+    expect(state.details.files['/w/src/PAYROLL.cbl']?.cls).toBe('cobol')
+    expect(state.summary.rv).toBe(REDUCER_VERSION)
   })
 })
 

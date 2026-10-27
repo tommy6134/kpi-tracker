@@ -1,6 +1,8 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
+import { REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import type { KpiProjectFile, KpiSessionFile } from '../hooks/core/session-file'
+import { REBUILD_KEY } from '../hooks/maintenance/maintenance'
 import { classicStart, HEADLESS, IT, SESSION } from './fixtures/inputs'
 import { CWD, PROJECT_DIR, ROOT, SESSION_ID, usageOf, worldOf } from './fixtures/world'
 
@@ -209,18 +211,19 @@ describe('ciclo di vita della sessione', () => {
       const file = world.json<KpiSessionFile>(path)
 
       file.summary.cost.usd = 0.1
+      delete file.summary.rv
       world.files.set(path, JSON.stringify(file))
     }
 
     stale()
-    world.store.delete('rebuild-0.4.0')
+    world.store.delete(REBUILD_KEY)
     world.session.id = '7c6d5e4f-0000-0000-0000-000000000000'
     world.session.usage = usageOf(0)
     await $.session.start(SESSION)
     await clock.advance(2000)
 
     expect(Math.abs(world.json<KpiSessionFile>(path).summary.cost.usd - 0.4) < 1e-9).toBe(true)
-    expect(world.logs.filter(line => line.includes('ricalcolati i KPI di 1 sessione passata'))).toHaveLength(1)
+    expect(world.logs.filter(line => line.includes('ricalcolati i KPI di 1 sessione passata con la nuova versione (+$0,30'))).toHaveLength(1)
 
     // La seconda volta non si rifà nulla.
     stale()
@@ -228,6 +231,62 @@ describe('ciclo di vita della sessione', () => {
     await clock.advance(2000)
 
     expect(world.json<KpiSessionFile>(path).summary.cost.usd).toBe(0.1)
+  })
+
+  test('una sessione aperta in un altro processo si ricalcola a un avvio successivo; una ripresa si ricalcola all\'aggancio', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    on('tool.call', () => ({ result: { type: 'create', filePath: `${CWD}/src/PAYROLL.cbl`, content: 'a\nb\n' }, text: 'ok' }))
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'Write', file_path: `${CWD}/src/PAYROLL.cbl`, content: 'a\nb\n' } as never)
+    await $.session.end({ reason: 'prompt_input_exit', sessionId: SESSION_ID, resume: { id: SESSION_ID } } as never)
+    await clock.advance(2000)
+
+    const path = `${PROJECT_DIR}/${sessionDirs(world)[0]}/session.json`
+    // Una versione precedente contava il COBOL come src, e la sessione è ancora aperta altrove.
+    const stale = (heartbeatAt: number): void => {
+      const file = world.json<KpiSessionFile>(path)
+
+      delete file.summary.rv
+      file.summary.files.byClass = { src: { n: 1, add: 2, del: 0 } }
+      file.status = 'active'
+      file.heartbeatAt = heartbeatAt
+      world.files.set(path, JSON.stringify(file))
+    }
+    const classes = () => Object.keys(world.json<KpiSessionFile>(path).summary.files.byClass)
+    const other = (id: string) => {
+      world.session.id = id
+      world.session.usage = usageOf(0)
+    }
+
+    stale(clock.now())
+    world.store.delete(REBUILD_KEY)
+    other('7c6d5e4f-0000-0000-0000-000000000000')
+    await $.session.start(SESSION)
+    await clock.advance(2000)
+
+    expect(classes()).toEqual(['src'])
+    expect(world.store.get(REBUILD_KEY)).toMatchObject({ pending: [SESSION_ID] })
+
+    // Al primo avvio dopo che l'altro processo l'ha lasciata, la si rifà.
+    stale(clock.now() - 20 * 60_000)
+    other('8d7e6f5a-0000-0000-0000-000000000000')
+    await $.session.start(SESSION)
+    await clock.advance(2000)
+
+    expect(classes()).toEqual(['cobol'])
+    expect(world.store.get(REBUILD_KEY)).toMatchObject({ pending: [] })
+
+    // Una ripresa di una sessione calcolata da una versione precedente la rifà dagli eventi.
+    stale(clock.now() - 20 * 60_000)
+    world.session.id = SESSION_ID
+    await $.classic.SessionStart(classicStart('resume'))
+    await clock.advance(6000)
+
+    expect(classes()).toEqual(['cobol'])
+    expect(world.json<KpiSessionFile>(path).summary.rv).toBe(REDUCER_VERSION)
   })
 
   test('una sessione -p è di tipo print e salva a fine turno', IT, async ($, on) => {

@@ -6,6 +6,7 @@
 
 import type { KpiEvent } from '../core/events'
 import { dayKey, hourSlot } from '../core/time'
+import { classOf } from './lines'
 import { addStat, bump } from './stats'
 import {
   emptyDay,
@@ -866,8 +867,10 @@ function applyFile(state: ReduceState, t: number, x: Extract<NonNullable<Extract
   const s = state.summary
   const d = state.details
   const files = s.files
+  // La classe dal percorso, non quella salvata: così le classi nuove valgono anche per gli eventi vecchi.
+  const cls = classOf(x.path)
   const isNew = d.files[x.path] === undefined
-  const file = (d.files[x.path] ??= { r: 0, e: 0, w: 0, add: 0, del: 0, ext: x.ext, cls: x.cls, last: t })
+  const file = (d.files[x.path] ??= { r: 0, e: 0, w: 0, add: 0, del: 0, ext: x.ext, cls, last: t })
   const wasModified = file.e + file.w > 0
   const wasRead = file.r > 0
   const add = x.add ?? 0
@@ -935,7 +938,7 @@ function applyFile(state: ReduceState, t: number, x: Extract<NonNullable<Extract
     byExt.del += del
     capRecords(files.byExt, 60, value => value.add + value.del + value.n)
 
-    const byClass = (files.byClass[x.cls] ??= { n: 0, add: 0, del: 0 })
+    const byClass = (files.byClass[cls] ??= { n: 0, add: 0, del: 0 })
 
     byClass.n += 1
     byClass.add += add

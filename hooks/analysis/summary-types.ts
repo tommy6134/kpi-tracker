@@ -7,6 +7,13 @@
 import type { BashCat, FileClass, KpiKind } from '../core/events'
 import { emptyStat, type Stat } from './stats'
 
+/**
+ * La versione del calcolo del summary. Quando cambia, le sessioni passate si
+ * ricalcolano dagli eventi: all'avvio (maintenance.ts) e alla ripresa di una
+ * sessione (core/binding.ts). 2 = classe dei file dal percorso (cobol, mainframe).
+ */
+export const REDUCER_VERSION = 2
+
 export type Tokens = { in: number; out: number; cr: number; cw: number }
 
 export const emptyTokens = (): Tokens => ({ in: 0, out: 0, cr: 0, cw: 0 })
@@ -77,6 +84,8 @@ export type ReducerCursor = {
 
 export type KpiSummary = {
   v: 1
+  /** La versione del calcolo (REDUCER_VERSION) che l'ha prodotto; assente = 1 (fino alla 0.4.0). */
+  rv?: number
   firstAt: number
   lastAt: number
   kind: KpiKind
@@ -219,6 +228,7 @@ export const emptyCursor = (): ReducerCursor => ({ lastCost: 0, segEnd: null, se
 export function emptySummary(kind: KpiKind = 'sconosciuta'): KpiSummary {
   return {
     v: 1,
+    rv: REDUCER_VERSION,
     firstAt: 0,
     lastAt: 0,
     kind,

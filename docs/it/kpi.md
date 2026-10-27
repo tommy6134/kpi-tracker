@@ -119,7 +119,7 @@ Categorie: **git, test, build, package, docker, fs, network, altro**. Si salvano
 
 | KPI | Definizione | Fonte | Gran. |
 | --- | --- | --- | --- |
-| Righe aggiunte, rimosse, nette | per file, estensione, classe (src, test, doc, config) e giorno | `gitDiff` o `structuredPatch` di Edit/Write; contenuto per i file creati | E |
+| Righe aggiunte, rimosse, nette | per file, estensione, classe e giorno. Classi: test, cobol (`.cbl` `.cob` `.cpy` `.cobol`), mainframe (i file mainframe che non sono COBOL: `.jcl` `.pli` `.pl1` `.rexx` `.rex` `.bms` `.ezt` `.clist`), config, doc, src, altro. La classe si ricava dal percorso, quindi un cambio delle regole vale anche per le sessioni passate, una volta ricalcolate | `gitDiff` o `structuredPatch` di Edit/Write; contenuto per i file creati | E |
 | File creati, modificati, letti (unici) | | Edit, Write, Read | E |
 | Modifiche ritoccate dall'utente | modifiche cambiate dall'utente nel dialogo | `userModified` | E |
 | File fuori dal progetto | | percorso fuori dalla cartella di avvio | E |

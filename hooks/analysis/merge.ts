@@ -20,7 +20,7 @@ const MAX_PATHS = [
   'todos.done',
 ]
 
-const SKIP = new Set(['_r', 'kind', 'v'])
+const SKIP = new Set(['_r', 'kind', 'v', 'rv'])
 
 const isStat = (value: unknown): value is Stat =>
   typeof value === 'object' && value !== null && 'n' in value && 'sum' in value && 'h' in value && 'min' in value && 'max' in value

@@ -4,12 +4,12 @@
  * (nuova o ripresa) e un nuovo segmento per questo processo.
  */
 
-import { emptyDetails, emptySummary, type KpiDetails } from '../analysis/summary-types'
+import { emptyDetails, emptySummary, REDUCER_VERSION, type KpiDetails } from '../analysis/summary-types'
 import type { HostFs } from '../host'
 import { SCHEMA_VERSION, type KpiKind, type ResumeInfo } from './events'
 import { segmentId } from './ids'
 import { encodeProject, encodeProjectAlt, id8Of, join, parseSessionDir, projectNameOf, ROOT_MARKER, sessionDirName } from './paths'
-import { readJson, replayTail } from './recover'
+import { readJson, rebuildFrom, replayTail } from './recover'
 import type { KpiProjectFile, KpiRepo, KpiSegment, KpiSessionFile } from './session-file'
 import { localOffsetMin } from './time'
 import { sessionStoreOf, type SessionStore } from './writer'
@@ -170,6 +170,17 @@ export async function openSession(fs: HostFs, args: OpenArgs): Promise<SessionSt
     file.summary ??= emptySummary(args.kind)
     file.diag ??= { flushes: 0, flushErrors: 0, bytes: 0 }
     file.links ??= {}
+
+    // Calcolata da una versione precedente: si rifà dagli eventi, poi il replay sistema solo i segmenti.
+    if ((file.summary.rv ?? 1) < REDUCER_VERSION) {
+      const rebuilt = await rebuildFrom(fs, dir, file)
+
+      if (rebuilt.events > 0) {
+        file.summary = rebuilt.summary
+        details = rebuilt.details
+      }
+    }
+
     await replayTail(fs, dir, file, details)
     file.status = 'active'
     file.interactive = file.interactive || args.interactive

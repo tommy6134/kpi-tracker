@@ -119,7 +119,7 @@ Categories: **git, test, build, package, docker, fs, network, other** (stored as
 
 | KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Lines added, removed, net | per file, extension, class (src, test, doc, config) and day | `gitDiff` or `structuredPatch` of Edit/Write; content for created files | E |
+| Lines added, removed, net | per file, extension, class and day. Classes: test, cobol (`.cbl` `.cob` `.cpy` `.cobol`), mainframe (the mainframe files that are not COBOL: `.jcl` `.pli` `.pl1` `.rexx` `.rex` `.bms` `.ezt` `.clist`), config, doc, src, other. The class comes from the path, so a change of the rules applies to past sessions too once they are recomputed | `gitDiff` or `structuredPatch` of Edit/Write; content for created files | E |
 | Files created, modified, read (unique) | | Edit, Write, Read | E |
 | Edits changed by the user | edits the user changed in the dialog | `userModified` | E |
 | Files outside the project | | path outside the launch folder | E |

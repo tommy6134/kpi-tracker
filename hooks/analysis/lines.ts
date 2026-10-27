@@ -75,18 +75,30 @@ const CONFIG_NAMES = new Set(['dockerfile', 'makefile', 'jenkinsfile', 'procfile
 const CODE_EXT = new Set([
   'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 'cts', 'py', 'pyi', 'java', 'kt', 'kts', 'scala', 'groovy', 'go', 'rs', 'c', 'h', 'cc', 'cpp', 'cxx', 'hpp', 'hh',
   'cs', 'fs', 'vb', 'rb', 'php', 'swift', 'm', 'mm', 'dart', 'lua', 'pl', 'r', 'jl', 'ex', 'exs', 'erl', 'clj', 'hs', 'ml', 'elm', 'sql', 'sh', 'bash', 'zsh',
-  'fish', 'ps1', 'bat', 'cmd', 'css', 'scss', 'sass', 'less', 'html', 'htm', 'vue', 'svelte', 'astro', 'graphql', 'gql', 'proto', 'sol', 'zig', 'nim', 'cob',
-  'cbl', 'cpy', 'pli', 'rpg', 'abap', 'jsp', 'ejs', 'hbs', 'twig', 'ipynb',
+  'fish', 'ps1', 'bat', 'cmd', 'css', 'scss', 'sass', 'less', 'html', 'htm', 'vue', 'svelte', 'astro', 'graphql', 'gql', 'proto', 'sol', 'zig', 'nim',
+  'rpg', 'abap', 'jsp', 'ejs', 'hbs', 'twig', 'ipynb',
 ])
+/** Sorgenti e copybook COBOL. */
+const COBOL_EXT = new Set(['cbl', 'cob', 'cpy', 'cobol'])
+/** I file mainframe che non sono COBOL: JCL, PL/I, REXX, mappe BMS di CICS, Easytrieve, CLIST. */
+const MAINFRAME_EXT = new Set(['jcl', 'pli', 'pl1', 'rexx', 'rex', 'bms', 'ezt', 'clist'])
 const TEST_RE = /(^|[\\/])(tests?|__tests__|specs?|e2e|it)[\\/]|[._-](test|spec|tests|e2e)\.[a-z0-9]+$|Tests?\.(java|kt|scala|cs|groovy)$|_test\.(go|py|rb|exs?)$|(^|[\\/])test_[^\\/]+\.py$|IT\.java$/i
 
-/** La classe di un file: test, src, doc, config o altro. */
+/** La classe di un file: test, cobol, mainframe, config, doc, src o altro. */
 export function classOf(path: string): FileClass {
   const name = baseName(path).toLowerCase()
   const ext = extOf(path)
 
   if (TEST_RE.test(path)) {
     return 'test'
+  }
+
+  if (COBOL_EXT.has(ext)) {
+    return 'cobol'
+  }
+
+  if (MAINFRAME_EXT.has(ext)) {
+    return 'mainframe'
   }
 
   if (CONFIG_NAMES.has(name) || CONFIG_EXT.has(ext)) {

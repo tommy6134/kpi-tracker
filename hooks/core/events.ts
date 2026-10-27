@@ -15,8 +15,8 @@ export type KpiKind = 'interattiva' | 'print' | 'sdk' | 'desktop' | 'vscode' | '
 /** Categorie dei comandi Bash. */
 export type BashCat = 'git' | 'test' | 'build' | 'package' | 'docker' | 'fs' | 'network' | 'altro'
 
-/** Classe di un file toccato. */
-export type FileClass = 'src' | 'test' | 'doc' | 'config' | 'altro'
+/** Classe di un file toccato (`cobol` e `mainframe` dalla 0.5.0: prima erano `src` o `altro`). */
+export type FileClass = 'src' | 'test' | 'doc' | 'config' | 'cobol' | 'mainframe' | 'altro'
 
 /**
  * Esito di una tool call: riuscita, errore, negata da regola, modalità o hook,

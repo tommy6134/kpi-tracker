@@ -1,6 +1,7 @@
 /** Manutenzione: pulizia delle sessioni vecchie e ricostruzione dei KPI dagli eventi. */
 
 import { join, isInside, parseSessionDir, ROOT_MARKER } from '../core/paths'
+import { REDUCER_VERSION } from '../analysis/summary-types'
 import { readJson, rebuildFrom } from '../core/recover'
 import { displayStatus, type KpiSessionFile } from '../core/session-file'
 import type { Host, HostFs } from '../host'
@@ -136,27 +137,44 @@ export async function rebuildSessions(fs: HostFs, L: I18n, rows: readonly Sessio
   return `${L.t('Ricostruite {sessions} da {events}.', { sessions: L.count(done, 'sessione', 'sessioni'), events: L.count(events, 'evento', 'eventi') })}${skipped.length > 0 ? ` ${L.t('Saltate (in corso o senza eventi): {ids}.', { ids: skipped.join(', ') })}` : ''}`
 }
 
-/** La chiave di `$.store` che segna la ricostruzione dopo il nuovo calcolo del costo (0.4.0). */
-export const REBUILD_KEY = 'rebuild-0.4.0'
+/** La chiave di `$.store` che segna il ricalcolo per la versione corrente del summary. */
+export const REBUILD_KEY = `rebuild-r${REDUCER_VERSION}`
+
+/** Il segno del ricalcolo: quando è partito e le sessioni rimaste da rifare perché erano aperte in un altro processo. */
+type RebuildMark = { at: number; pending?: string[] }
 
 /**
- * Una volta sola, dopo l'aggiornamento alla 0.4.0, ricalcola le sessioni
- * passate col nuovo calcolo del costo (il ledger tra un segmento e l'altro).
- * Il segno in `$.store` si scrive prima di partire, così due processi non la
- * fanno insieme; restano fuori la sessione in corso e quelle attive altrove.
- * Restituisce la riga per il transcript, o `null` se non c'era nulla da fare.
+ * Ricalcola dagli eventi le sessioni passate fatte con una versione
+ * precedente del calcolo (`summary.rv`): una volta per versione, e di nuovo
+ * agli avvii successivi solo per quelle che allora erano attive in un altro
+ * processo. Il segno in `$.store` si scrive prima di partire, così due
+ * processi non lo fanno insieme; la sessione in corso si ricalcola già
+ * all'aggancio (core/binding.ts). Restituisce la riga per il transcript, o
+ * `null` se non c'era nulla da fare.
  */
 export async function rebuildOnce(host: Host, L: I18n, root: string, current: string | null): Promise<string | null> {
-  if ((await host.storeGet(REBUILD_KEY).catch(() => null)) !== undefined) {
+  const mark = (await host.storeGet(REBUILD_KEY).catch(() => null)) as RebuildMark | null | undefined
+
+  if (mark === null || (mark !== undefined && (mark.pending ?? []).length === 0)) {
     return null
   }
 
   const now = await host.now()
 
-  await host.storeSet(REBUILD_KEY, { at: now })
+  await host.storeSet(REBUILD_KEY, { at: now, pending: [] })
 
-  const rows = await loadSessions(host.fs, root, emptyFilter(), [])
-  const result = await rebuildAll(host.fs, rows, row => row.file.sessionId === current || displayStatus(row.file, now) === 'attiva')
+  const wanted = mark === undefined ? null : new Set(mark.pending)
+  const rows = (await loadSessions(host.fs, root, emptyFilter(), [])).filter(
+    row => row.file.sessionId !== current && (row.file.summary.rv ?? 1) < REDUCER_VERSION && (wanted === null || wanted.has(row.file.sessionId)),
+  )
+  const busy = (row: SessionRow): boolean => displayStatus(row.file, now) === 'attiva'
+  const pending = rows.filter(busy).map(row => row.file.sessionId)
+
+  if (pending.length > 0) {
+    await host.storeSet(REBUILD_KEY, { at: now, pending })
+  }
+
+  const result = await rebuildAll(host.fs, rows, busy)
 
   if (result.done === 0) {
     return null
@@ -164,5 +182,5 @@ export async function rebuildOnce(host: Host, L: I18n, root: string, current: st
 
   const recovered = result.costAfter - result.costBefore
 
-  return `${L.t('kpi-tracker: ricalcolati i KPI di {sessions} col nuovo calcolo del costo', { sessions: L.count(result.done, 'sessione passata', 'sessioni passate') })}${recovered > 0.0005 ? ` ${L.t('(+{usd} di costo prima non registrato)', { usd: L.usd(recovered) })}` : ''}.`
+  return `${L.t('kpi-tracker: ricalcolati i KPI di {sessions} con la nuova versione', { sessions: L.count(result.done, 'sessione passata', 'sessioni passate') })}${recovered > 0.0005 ? ` ${L.t('(+{usd} di costo prima non registrato)', { usd: L.usd(recovered) })}` : ''}.`
 }

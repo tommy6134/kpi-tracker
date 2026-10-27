@@ -48,7 +48,7 @@ Metadati e KPI aggregati, riscritto a ogni salvataggio (5–20 KB):
 | `segments[]` | un elemento per processo: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (il ledger del costo all'aggancio; la differenza dall'ultima lettura del segmento precedente si conta come costo fuori dai turni quando il ledger è della stessa sessione) |
 | `meta` | `branches` (nell'ordine in cui sono stati attivi l'ultima volta: quello corrente è l'ultimo), `repo`, `models`, `versions`, `permissionModes` |
 | `diag` | salvataggi, errori di scrittura, byte scritti |
-| `summary` | tutti i KPI aggregati (vedi `hooks/analysis/summary-types.ts`) |
+| `summary` | tutti i KPI aggregati (vedi `hooks/analysis/summary-types.ts`); `summary.rv` è la versione del calcolo che l'ha prodotto (assente fino alla 0.4.0 = 1) |
 
 ### details.json
 
@@ -69,5 +69,6 @@ Gli eventi grezzi, **fonte di verità**: un file JSONL per segmento, ruotato olt
 - `$.fs.write` riscrive il file intero: ogni salvataggio fotografa insieme eventi in attesa, summary e `lastSeq`, poi scrive **prima i chunk e poi** `session.json`. Così `session.json` non conta mai eventi che non siano già su disco.
 - Al riaggancio (ripresa, crash) gli eventi con `q > lastSeq` si rigiocano sul summary.
 - `/kpi ricostruisci` rifà summary e dettagli da zero dagli eventi (anche dopo un cambio di `schemaVersion`).
+- Quando una versione nuova cambia il calcolo (`summary.rv` più basso di quello del plugin), le sessioni passate si ricalcolano da sole dagli eventi: una volta, al primo avvio interattivo della versione nuova, con una riga nel transcript. Una sessione aperta in quel momento in un altro processo si ricalcola a un avvio successivo, quando è chiusa; una sessione ripresa si ricalcola all'aggancio.
 - Salvataggi: 250 ms dopo la fine di ogni turno, ogni 5 s se ci sono novità, heartbeat ogni 60 s, prima di `/kpi` e alla chiusura della sessione. In `claude -p` a ogni fine turno.
 - Ogni processo scrive solo i propri chunk: due processi sulla stessa sessione non si sovrascrivono gli eventi.

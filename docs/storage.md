@@ -47,7 +47,7 @@ Metadata and aggregated KPIs, rewritten at every save (5–20 KB):
 | `segments[]` | one item per process: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (the cost ledger at binding time; the difference from the last reading of the previous segment counts as cost outside turns when the ledger belongs to the same session) |
 | `meta` | `branches` (in the order they were last active: the current one is last), `repo`, `models`, `versions`, `permissionModes` |
 | `diag` | saves, write errors, bytes written |
-| `summary` | every aggregated KPI (see `hooks/analysis/summary-types.ts`) |
+| `summary` | every aggregated KPI (see `hooks/analysis/summary-types.ts`); `summary.rv` is the version of the computation that produced it (absent until 0.4.0 = 1) |
 
 ### details.json
 
@@ -68,5 +68,6 @@ The raw events, **source of truth**: one JSONL file per segment, rotated beyond 
 - `$.fs.write` rewrites the whole file: each save snapshots pending events, summary and `lastSeq` together, then writes **the chunks first and then** `session.json`. So `session.json` never counts events that are not already on disk.
 - On rebinding (resume, crash) the events with `q > lastSeq` are replayed onto the summary.
 - `/kpi rebuild` redoes summary and details from scratch from the events (also after a `schemaVersion` change).
+- When a new version changes the computation (`summary.rv` lower than the plugin's), past sessions are recomputed from the events by themselves: once, at the first interactive start of the new version, with a line in the transcript. A session open in another process at that moment is recomputed at a later start, once it is closed; a resumed session is recomputed when it is attached.
 - Saves: 250 ms after the end of each turn, every 5 s if there is something new, a heartbeat every 60 s, before `/kpi` and when the session closes. In `claude -p` at the end of each turn.
 - Each process writes only its own chunks: two processes on the same session do not overwrite each other's events.

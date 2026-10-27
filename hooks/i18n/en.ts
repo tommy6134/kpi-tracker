@@ -262,7 +262,7 @@ export const EN = {
   'Non cancellate: {ids}.': 'Not deleted: {ids}.',
   'Ricostruite {sessions} da {events}.': 'Rebuilt {sessions} from {events}.',
   'Saltate (in corso o senza eventi): {ids}.': 'Skipped (in progress or without events): {ids}.',
-  'kpi-tracker: ricalcolati i KPI di {sessions} col nuovo calcolo del costo': 'kpi-tracker: recomputed the KPIs of {sessions} with the new cost computation',
+  'kpi-tracker: ricalcolati i KPI di {sessions} con la nuova versione': 'kpi-tracker: recomputed the KPIs of {sessions} with the new version',
   '(+{usd} di costo prima non registrato)': '(+{usd} of cost not recorded before)',
 
   // ------------------------------------------------------------ barra e pannello
