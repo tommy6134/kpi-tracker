@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.4.0 (unreleased)
+## 0.4.0
+
+Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration is simply skipped.
 
 - **Exact cost.** The KPI cost now matches `/cost` and the status line. `session.measure` fires only at the end of a main turn, so what was spent outside turns (background subagents that finish later, service calls, the stretch before `/exit`) never arrived, and the next segment (reload, resume) took it as its baseline: on real data between 4 and 45 cents were missing at each boundary. The plugin now reads Claude Code's cost ledger when a subagent finishes, every minute, before `/kpi` and when the session closes, and the cost between one segment and the next is counted when the ledger belongs to the same session.
 - New KPI **cost outside turns**, in `/kpi stats`, `/kpi session`, the HTML report and the `cost_outside_turns_usd` export column. `/kpi session current` also shows the cost according to Claude Code next to the KPI one.
@@ -15,6 +17,7 @@
 - **Open the folder** of reports and exports in the file manager: new `/kpi folder [report|export|data]` (`cartella`), `--folder` (`--cartella`) on `/kpi report` and `/kpi export` (the file's folder, also with `--out`), a **Folder** button in the `/kpi live` panel. In WSL reports and folders open with Windows' `explorer.exe`.
 - The HTML report's header shows the reports and exports folders with **Open** (`file://` link), **Copy path** and **Copy command**: a page opened from `file://` cannot start the file manager, Claude Code can.
 - HTML report: the custom period's date fields no longer show when another period is selected, and the header wraps on narrow screens.
+- **Desktop app, Cowork and chat**: a README section explains what works where (the desktop app's Code tab shares `~/.claude` and data with the CLI; Cowork is still to be tried; chat cannot run mods), and [docs/cowork-test.md](docs/cowork-test.md) is the checklist to try the desktop app and Cowork on macOS. Band, panel and `/kpi` are tested on the `desktop` surface too.
 
 ## 0.3.0
 

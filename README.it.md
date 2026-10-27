@@ -45,7 +45,26 @@ In alternativa, in due passi (anche da shell con `claude plugin …`):
 
 ### App desktop (scheda Code)
 
-I plugin installati da terminale con scope **user** si caricano anche nelle sessioni della scheda Code dell'app. In alternativa puoi caricare il plugin come zip dalle impostazioni dell'app (scarica lo zip della release da GitHub, oppure crealo con `git archive --format=zip -o kpi-tracker.zip HEAD`).
+I plugin installati da terminale con scope **user** si caricano anche nelle sessioni della scheda Code dell'app. Dall'app stessa, dove `/plugin` non funziona: clicca **+** accanto alla casella del prompt, poi **Plugins**, **Add marketplace** con `tommy6134/kpi-tracker`, poi **Add plugin**. Vedi [App desktop, Cowork e chat](#app-desktop-cowork-e-chat) per cosa cambia lì.
+
+## App desktop, Cowork e chat
+
+La stessa cartella del plugin si installa ovunque, ma ogni posto ne carica una parte diversa. kpi-tracker è un **mod** (hook TypeScript che girano dentro Claude Code), quindi funziona dove gira Claude Code:
+
+| | CLI (terminale) | App desktop, scheda Code (locale) | Cowork | Chat (web, app, mobile) |
+| --- | --- | --- | --- | --- |
+| Motore | Claude Code | la stessa Claude Code, inclusa nell'app (mod dalla 2.1.286) | basato su Claude Code, in una macchina virtuale | nessuna Claude Code |
+| Cartella `.claude` | `~/.claude` o `CLAUDE_CONFIG_DIR` | **la stessa `~/.claude`**: plugin, settings e dati KPI in comune con la CLI | una VM che si azzera tra le sessioni; resta solo la cartella di lavoro montata | nessuna |
+| Installazione | `/plugin install` | **+ → Plugins → Add marketplace**, oppure da terminale con scope user | Customize → Plugins sull'account claude.ai (marketplace GitHub o zip) | come Cowork |
+| Hook e mod | sì | sì (non nelle sessioni WSL) | da verificare: gli hook dei plugin risultano caricati, i mod "per Claude Code", e ci sono segnalazioni di bug aperte | ignorati |
+| Barra e pannello | sì | sì (le sparkline sono testo invece di `Raster`) | probabilmente no | no |
+| Opzioni (`userConfig`) | schermata di installazione e `/config` | `/config` | non le chiede: valgono i default | — |
+| Browser e cartella | sì | sì | dentro la VM: non raggiungono il desktop dell'host | — |
+| Aggiornamenti automatici | sì | spenti (servono i comandi `claude plugin …` della CLI); `/kpi aggiorna` prova a mano | no | no |
+
+- **App desktop**: funziona tutto tranne gli aggiornamenti automatici. Le sessioni si registrano con tipo `desktop`, quindi `--tipo desktop` le filtra.
+- **Cowork**: non ancora supportato. [docs/it/cowork-test.md](docs/it/cowork-test.md) è la checklist per provarlo su macOS; l'esito decide se aggiungere il supporto (dati nella cartella di lavoro montata, solo output testuale).
+- **Chat**: non è possibile. Gli hook dei plugin non girano in chat e non c'è un filesystem locale.
 
 ## Aggiornamenti
 

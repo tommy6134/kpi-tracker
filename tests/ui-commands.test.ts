@@ -521,3 +521,42 @@ describe('cartella di report ed export', () => {
     expect(world.logs.at(-1)).toBe(`Cartella aperta: ${ROOT}/_reports.`)
   })
 })
+
+describe('app desktop (scheda Code)', () => {
+  const DESKTOP = { ...SESSION, surface: 'desktop' as const }
+
+  test('la sessione è di tipo desktop; barra, pannello e /kpi si disegnano anche lì', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const surfaces = ['terminal', 'desktop'] as const
+
+    on('ui.render', ($$, e) => ({ type: 'Text', children: [e.component === 'CommandOutput' ? (e.props as { text: string }).text : ''] }))
+    on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: 'ok' }) as never)
+    await $.session.start(DESKTOP)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+    await $.tool.call({ tool: 'Bash', command: 'npm test' } as never)
+    await $.turn.complete({ answer: '', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    world.session.usage = usageOf(0.5, 20)
+    await $.session.measure({ context: { tokens: 40_000, window: 200_000, percent: 20 }, rateLimits: [], cost: { usd: 0.5 }, changed: ['cost', 'context'] })
+    await clock.advance(6000)
+
+    expect(world.json<KpiSessionFile>(world.under(PROJECT_DIR).find(path => path.endsWith('session.json')) as string).kind).toBe('desktop')
+
+    for (const surface of surfaces) {
+      const band = textOf(await $.ui.render({ ...BAND, surface }))
+      const pane = await $.ui.render({ ...PANE, surface })
+
+      expect(band).toContain('$0,50')
+      expect(textOf(pane)).toContain(' Costo ')
+      expect(textOf(pane)).toContain('[Cartella]')
+      expect(await accepted($, { ...BAND, surface, plugin: PLUGIN })).toBe(surface)
+      expect(await accepted($, { ...PANE, surface, plugin: PLUGIN })).toBe(surface)
+      // Il Raster c'è solo sul terminale: sul desktop la sparkline è testo.
+      expect(elementsOf(pane, 'Raster').length > 0).toBe(surface === 'terminal')
+    }
+
+    const result = (await $.command.run(command('kpi'))) as { text: string }
+
+    expect(textOf(await $.ui.render({ ...commandOutput(result.text), surface: 'desktop' }))).toContain('## KPI di Claude Code')
+  })
+})

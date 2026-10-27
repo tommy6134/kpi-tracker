@@ -45,7 +45,26 @@ Alternatively, in two steps (also from a shell with `claude plugin …`):
 
 ### Desktop app (Code tab)
 
-Plugins installed from the terminal with the **user** scope also load in the sessions of the app's Code tab. Alternatively you can upload the plugin as a zip from the app's settings (download the release zip from GitHub, or build it with `git archive --format=zip -o kpi-tracker.zip HEAD`).
+Plugins installed from the terminal with the **user** scope also load in the sessions of the app's Code tab. From the app itself, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `tommy6134/kpi-tracker`, then **Add plugin**. See [Desktop app, Cowork and chat](#desktop-app-cowork-and-chat) for what changes there.
+
+## Desktop app, Cowork and chat
+
+The same plugin folder installs everywhere, but each place loads a different part of it. kpi-tracker is a **mod** (TypeScript hooks that run inside Claude Code), so it works where Claude Code runs:
+
+| | CLI (terminal) | Desktop app, Code tab (local) | Cowork | Chat (web, app, mobile) |
+| --- | --- | --- | --- | --- |
+| Engine | Claude Code | the same Claude Code, bundled with the app (mods from 2.1.286) | built on Claude Code, in a virtual machine | no Claude Code |
+| `.claude` folder | `~/.claude` or `CLAUDE_CONFIG_DIR` | **the same `~/.claude`**: plugins, settings and KPI data are shared with the CLI | a VM reset between sessions; only the mounted work folder persists | none |
+| Install | `/plugin install` | **+ → Plugins → Add marketplace**, or from the terminal with the user scope | Customize → Plugins on your claude.ai account (GitHub marketplace or zip) | as Cowork |
+| Hooks and mods | yes | yes (not in WSL sessions) | to be verified: plugin hooks are documented as loaded, mods as "for Claude Code", and there are open bug reports | ignored |
+| Band and panel | yes | yes (the sparklines are text instead of `Raster`) | probably not | no |
+| Options (`userConfig`) | install screen and `/config` | `/config` | not asked: the defaults apply | — |
+| Browser and folder | yes | yes | inside the VM: they cannot reach the host's desktop | — |
+| Automatic updates | yes | off (they need the `claude plugin …` CLI); `/kpi update` tries by hand | no | no |
+
+- **Desktop app**: everything works except automatic updates. Sessions are recorded with the `desktop` kind, so `--kind desktop` filters them.
+- **Cowork**: not supported yet. [docs/cowork-test.md](docs/cowork-test.md) is the checklist to try it on macOS; the result decides whether support is added (data in the mounted work folder, text output only).
+- **Chat**: not possible. Plugin hooks do not run in chat and there is no local file system.
 
 ## Updates
 
