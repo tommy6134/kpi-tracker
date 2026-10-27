@@ -17,6 +17,7 @@ export const GROUP_ALIASES: Record<string, GroupKey> = {
   giorno: 'giorno',
   day: 'giorno',
   giorni: 'giorno',
+  days: 'giorno',
   settimana: 'settimana',
   week: 'settimana',
   mese: 'mese',

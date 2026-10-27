@@ -2,6 +2,10 @@ import type { RenderInput, SessionStartInput } from 'claude-code'
 
 import { CWD, SESSION_ID } from './world'
 
+/** Le opzioni di un test con il plugin in italiano o in inglese (il default del plugin è l'inglese). */
+export const IT = { options: { language: 'it' } }
+export const EN = { options: { language: 'en' } }
+
 export const SESSION: SessionStartInput = { surface: 'terminal', isInteractive: true, cwd: CWD }
 export const HEADLESS: SessionStartInput = { surface: null, isInteractive: false, cwd: CWD }
 

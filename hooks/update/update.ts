@@ -11,13 +11,16 @@
  * con un URL (remote.ts); se la release è più nuova e compatibile,
  * `claude plugin update <plugin>@<mkt>`. La sessione resta sulla versione
  * vecchia fino a /reload-plugins o al riavvio.
+ *
+ * Avvisi, barra e transcript sono nella lingua configurata (`tracker.i18n`);
+ * il report di `/kpi aggiorna` in quella del comando.
  */
 
 import type { UpdateMode } from '../config'
 import { join, META_DIR } from '../core/paths'
-import { cut, dateTime } from '../format/fmt'
 import { table } from '../format/markdown'
 import type { Host } from '../host'
+import type { I18n, MsgKey } from '../i18n'
 import type { Tracker, UpdateNotice } from '../tracker'
 import { installationOf, knownMarketplace, releaseAt, sourceOf, type Release } from './install'
 import { NO_PROMPT, releaseInRepo } from './remote'
@@ -94,45 +97,43 @@ export function isDue(state: UpdateState, now: number, engine: string): boolean 
 
 // --------------------------------------------------------------- avvisi
 
-const UPDATE_ENGINE = 'aggiorna Claude Code con `claude update`'
-
-export function blockedNotice(version: string, min: string, engine: string): UpdateNotice {
+export function blockedNotice(L: I18n, version: string, min: string, engine: string): UpdateNotice {
   return {
     tone: 'warn',
-    band: `⚠ kpi-tracker ${version} richiede Claude Code ≥ ${min} (in uso ${engine}) · claude update`,
-    text: `kpi-tracker ${version} è disponibile ma richiede Claude Code ≥ ${min} (in uso ${engine}): ${UPDATE_ENGINE}, poi il plugin si aggiorna da solo.`,
+    band: L.t('⚠ kpi-tracker {version} richiede Claude Code ≥ {min} (in uso {engine}) · claude update', { version, min, engine }),
+    text: L.t('kpi-tracker {version} è disponibile ma richiede Claude Code ≥ {min} (in uso {engine}): aggiorna Claude Code con `claude update`, poi il plugin si aggiorna da solo.', { version, min, engine }),
   }
 }
 
-export function selfNotice(version: string, min: string, engine: string): UpdateNotice {
+export function selfNotice(L: I18n, version: string, min: string, engine: string): UpdateNotice {
   return {
     tone: 'warn',
-    band: `⚠ kpi-tracker ${version} richiede Claude Code ≥ ${min} (in uso ${engine}) · claude update`,
-    text: `Questa versione di kpi-tracker (${version}) richiede Claude Code ≥ ${min} (in uso ${engine}): alcune metriche potrebbero mancare; ${UPDATE_ENGINE}.`,
+    band: L.t('⚠ kpi-tracker {version} richiede Claude Code ≥ {min} (in uso {engine}) · claude update', { version, min, engine }),
+    text: L.t('Questa versione di kpi-tracker ({version}) richiede Claude Code ≥ {min} (in uso {engine}): alcune metriche potrebbero mancare; aggiorna Claude Code con `claude update`.', { version, min, engine }),
   }
 }
 
-export function readyNotice(version: string): UpdateNotice {
+export function readyNotice(L: I18n, version: string): UpdateNotice {
   return {
     tone: 'info',
-    band: `↻ kpi-tracker ${version} installato · /reload-plugins per attivarlo`,
-    text: `kpi-tracker ${version} è installato: /reload-plugins o riavvia Claude Code per attivarlo.`,
+    band: L.t('↻ kpi-tracker {version} installato · /reload-plugins per attivarlo', { version }),
+    text: L.t('kpi-tracker {version} è installato: /reload-plugins o riavvia Claude Code per attivarlo.', { version }),
   }
 }
 
-export function availableNotice(version: string): UpdateNotice {
+export function availableNotice(L: I18n, version: string): UpdateNotice {
   return {
     tone: 'info',
-    band: `kpi-tracker ${version} disponibile · /kpi aggiorna`,
-    text: `kpi-tracker ${version} è disponibile: \`/kpi aggiorna\` per installarlo.`,
+    band: L.t('kpi-tracker {version} disponibile · /kpi aggiorna', { version }),
+    text: L.t('kpi-tracker {version} è disponibile: `/kpi aggiorna` per installarlo.', { version }),
   }
 }
 
-export const nativeText = (marketplace: string): string =>
-  `kpi-tracker: l'aggiornamento automatico di Claude Code è acceso per il marketplace ${marketplace} e installa le versioni nuove senza controllare quale Claude Code richiedono. Spegnilo da /plugin → Marketplaces: kpi-tracker si aggiorna da solo, e solo a versioni compatibili.`
+export const nativeText = (L: I18n, marketplace: string): string =>
+  L.t('kpi-tracker: l\'aggiornamento automatico di Claude Code è acceso per il marketplace {marketplace} e installa le versioni nuove senza controllare quale Claude Code richiedono. Spegnilo da /plugin → Marketplaces: kpi-tracker si aggiorna da solo, e solo a versioni compatibili.', { marketplace })
 
-const failText = (failures: number, error: string): string =>
-  `kpi-tracker: il controllo degli aggiornamenti non riesce da ${failures} tentativi (${error}). Dettagli con /kpi aggiorna.`
+const failText = (L: I18n, failures: number, error: string): string =>
+  L.t('kpi-tracker: il controllo degli aggiornamenti non riesce da {failures} tentativi ({error}). Dettagli con /kpi aggiorna.', { failures, error })
 
 /** Toast e riga nel transcript. */
 function announce(host: Host, text: string): void {
@@ -178,7 +179,7 @@ const firstLine = (text: string): string | undefined =>
     .map(line => line.trim())
     .find(line => line !== '')
 
-const errorText = (error: unknown): string => cut(firstLine(error instanceof Error ? error.message : String(error)) ?? 'errore sconosciuto', 200)
+const errorText = (L: I18n, error: unknown): string => L.cut(firstLine(error instanceof Error ? error.message : String(error)) ?? L.t('errore sconosciuto'), 200)
 
 /** Lancia la CLI di Claude Code (il binario in uso, altrimenti `claude` dal PATH); rifiuta con la prima riga dell'errore. */
 async function claude(tracker: Tracker, host: Host, args: string[], timeoutMs: number): Promise<void> {
@@ -186,31 +187,47 @@ async function claude(tracker: Tracker, host: Host, args: string[], timeoutMs: n
   const result = await host.run([exec === undefined || exec === '' ? 'claude' : exec, ...args], { timeoutMs, env: NO_PROMPT })
 
   if (result.exitCode !== 0) {
-    throw new Error(firstLine(result.stderr) ?? firstLine(result.stdout) ?? `claude ${args.slice(0, 2).join(' ')}: codice di uscita ${result.exitCode}`)
+    throw new Error(firstLine(result.stderr) ?? firstLine(result.stdout) ?? `claude ${args.slice(0, 2).join(' ')}: ${tracker.i18n.t('codice di uscita {code}', { code: result.exitCode })}`)
   }
 }
 
 /** Il repo bare per i plugin indicati con un URL, tra i dati KPI (`_meta/upstream.git`). */
 function upstreamDirOf(tracker: Tracker): string {
   if (tracker.root === null) {
-    throw new Error('cartella dati non disponibile')
+    throw new Error(tracker.i18n.t('cartella dati non disponibile'))
   }
 
   return join(tracker.root, META_DIR, UPSTREAM_DIR)
 }
 
+/** Che fonte del catalogo è (`percorso non valido`, `fonte non valida`, `fonte npm`…), nella lingua. */
+function sourceWhat(L: I18n, what: string): string {
+  if (what === 'percorso non valido') {
+    return L.t('percorso non valido')
+  }
+
+  if (what === 'fonte non valida') {
+    return L.t('fonte non valida')
+  }
+
+  const match = /^fonte (\S+)$/.exec(what)
+
+  return match === null ? what : L.t('fonte {type}', { type: match[1] ?? '' })
+}
+
 /** Avvisi di un controllo: barra e /kpi sempre; toast e transcript una volta per release e Claude Code. */
 function report(tracker: Tracker, host: Host, outcome: CheckOutcome, engine: string, state: UpdateState, quiet: boolean): UpdateState {
+  const L = tracker.i18n
   let next = state
 
   if (outcome.kind === 'bloccato') {
-    tracker.update.check = blockedNotice(outcome.remote.version, outcome.minClaudeCode, engine)
+    tracker.update.check = blockedNotice(L, outcome.remote.version, outcome.minClaudeCode, engine)
     next = once(host, state, `${outcome.remote.version}|${engine}`, tracker.update.check.text, quiet)
   } else if (outcome.kind === 'disponibile') {
-    tracker.update.check = availableNotice(outcome.remote.version)
+    tracker.update.check = availableNotice(L, outcome.remote.version)
     next = once(host, state, `${outcome.remote.version}|${engine}`, tracker.update.check.text, quiet)
   } else if (outcome.kind === 'installato') {
-    tracker.update.check = readyNotice(outcome.remote.version)
+    tracker.update.check = readyNotice(L, outcome.remote.version)
     tracker.update.installed = outcome.remote.version
 
     if (!quiet) {
@@ -233,6 +250,7 @@ function report(tracker: Tracker, host: Host, outcome: CheckOutcome, engine: str
 async function runCheck(tracker: Tracker, request: { force: boolean; install: boolean }): Promise<CheckOutcome> {
   const host = tracker.host
   const installation = host === null ? null : installationOf(host.pluginRoot)
+  const L = tracker.i18n
 
   if (host === null || installation === null) {
     return { kind: 'cartella' }
@@ -242,12 +260,12 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
 
   if (!request.force) {
     if (tracker.options.autoUpdate === 'off') {
-      return { kind: 'spento', why: 'aggiornamenti spenti dall\'opzione autoUpdate.' }
+      return { kind: 'spento', why: L.t('aggiornamenti spenti dall\'opzione autoUpdate.') }
     }
 
     // `claude plugin …` passa da $.process.run, che c'è solo nella CLI.
     if (tracker.interactive !== true || tracker.surface === 'desktop') {
-      return { kind: 'spento', why: 'controllo automatico solo nelle sessioni interattive della CLI.' }
+      return { kind: 'spento', why: L.t('controllo automatico solo nelle sessioni interattive della CLI.') }
     }
   }
 
@@ -263,7 +281,7 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
 
   if (known?.autoUpdate === true) {
     if (state.nativeShown !== true && !request.force) {
-      announce(host, nativeText(marketplace))
+      announce(host, nativeText(L, marketplace))
     }
 
     tracker.update.check = null
@@ -278,13 +296,13 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
 
   try {
     if (known === null) {
-      throw new Error(`marketplace ${marketplace} assente da known_marketplaces.json`)
+      throw new Error(L.t('marketplace {marketplace} assente da known_marketplaces.json', { marketplace }))
     }
 
     const local = await releaseAt(host.fs, host.pluginRoot)
 
     if (local === null) {
-      throw new Error('versione installata illeggibile')
+      throw new Error(L.t('versione installata illeggibile'))
     }
 
     await claude(tracker, host, ['plugin', 'marketplace', 'update', marketplace], MARKETPLACE_TIMEOUT_MS)
@@ -292,7 +310,7 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
     const source = await sourceOf(host.fs, known.installLocation, plugin)
 
     if (source === null) {
-      throw new Error(`il marketplace ${marketplace} non elenca ${plugin}`)
+      throw new Error(L.t('il marketplace {marketplace} non elenca {plugin}', { marketplace, plugin }))
     }
 
     // Commit fissato o fonte che non è un repo git: le versioni le decide il marketplace, non è un errore.
@@ -301,8 +319,12 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
     if (source.kind === 'altro' || pinned !== undefined) {
       const why =
         pinned !== undefined
-          ? `il marketplace ${marketplace} fissa ${plugin} al commit ${pinned.slice(0, 12)}: le versioni le decide chi gestisce il marketplace.`
-          : `il marketplace ${marketplace} indica ${plugin} con una ${source.kind === 'altro' ? source.what : 'fonte non supportata'}: aggiornalo con \`claude plugin update ${plugin}@${marketplace}\`.`
+          ? L.t('il marketplace {marketplace} fissa {plugin} al commit {sha}: le versioni le decide chi gestisce il marketplace.', { marketplace, plugin, sha: pinned.slice(0, 12) })
+          : L.t('il marketplace {marketplace} indica {plugin} con una {what}: aggiornalo con `claude plugin update {plugin}@{marketplace}`.', {
+              marketplace,
+              plugin,
+              what: source.kind === 'altro' ? sourceWhat(L, source.what) : L.t('fonte non supportata'),
+            })
 
       tracker.update.check = null
       host.invalidate()
@@ -311,10 +333,10 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
       return { kind: 'esterno', why }
     }
 
-    const remote = source.kind === 'locale' ? await releaseAt(host.fs, source.dir) : await releaseInRepo(host, upstreamDirOf(tracker), source)
+    const remote = source.kind === 'locale' ? await releaseAt(host.fs, source.dir) : await releaseInRepo(host, L, upstreamDirOf(tracker), source)
 
     if (remote === null) {
-      throw new Error(`release di ${plugin} illeggibile nel marketplace ${marketplace}`)
+      throw new Error(L.t('release di {plugin} illeggibile nel marketplace {marketplace}', { plugin, marketplace }))
     }
 
     const decision = decide(local.version, remote, engine)
@@ -339,14 +361,14 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
 
     return outcome
   } catch (error) {
-    const message = errorText(error)
+    const message = errorText(L, error)
     const failures = state.failures + 1
     const show = failures >= FAILURES_TO_SHOW && state.failShown !== true && !request.force
 
     host.debug(`aggiornamenti: ${message}`)
 
     if (show) {
-      host.log(failText(failures, message))
+      host.log(failText(L, failures, message))
     }
 
     await saveState(host, { ...state, nextAt: now + RETRY_MS, failures, lastError: message, failShown: state.failShown === true || show })
@@ -357,7 +379,7 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
 
 /** Un controllo, in coda agli altri di questo processo; non rifiuta mai. */
 export function checkForUpdates(tracker: Tracker, request: { force: boolean; install: boolean }): Promise<CheckOutcome> {
-  const run = tracker.update.queue.then(() => runCheck(tracker, request)).catch((error: unknown) => ({ kind: 'errore', error: errorText(error) }) as CheckOutcome)
+  const run = tracker.update.queue.then(() => runCheck(tracker, request)).catch((error: unknown) => ({ kind: 'errore', error: errorText(tracker.i18n, error) }) as CheckOutcome)
 
   tracker.update.queue = run
 
@@ -370,6 +392,7 @@ export function checkForUpdates(tracker: Tracker, request: { force: boolean; ins
  */
 export async function startUpdates(tracker: Tracker): Promise<void> {
   const host = tracker.host
+  const L = tracker.i18n
 
   if (host === null) {
     return
@@ -381,7 +404,7 @@ export async function startUpdates(tracker: Tracker): Promise<void> {
   const before = state
 
   if (local?.minClaudeCode !== undefined && compareVersions(engine, local.minClaudeCode) < 0) {
-    tracker.update.self = selfNotice(local.version, local.minClaudeCode, engine)
+    tracker.update.self = selfNotice(L, local.version, local.minClaudeCode, engine)
 
     const key = `${local.version}|${engine}`
 
@@ -397,9 +420,9 @@ export async function startUpdates(tracker: Tracker): Promise<void> {
   const decision = local === null || latest === undefined ? null : decide(local.version, latest, engine)
 
   if (latest !== undefined && decision?.kind === 'bloccato') {
-    tracker.update.check = blockedNotice(latest.version, decision.minClaudeCode, engine)
+    tracker.update.check = blockedNotice(L, latest.version, decision.minClaudeCode, engine)
   } else if (latest !== undefined && decision?.kind === 'compatibile' && tracker.options.autoUpdate === 'avviso') {
-    tracker.update.check = availableNotice(latest.version)
+    tracker.update.check = availableNotice(L, latest.version)
   }
 
   if (state !== before) {
@@ -418,60 +441,60 @@ export async function startUpdates(tracker: Tracker): Promise<void> {
 
 // -------------------------------------------------------- /kpi aggiorna
 
-const MODE_LABELS: Record<UpdateMode, string> = {
+const MODE_LABELS: Record<UpdateMode, MsgKey> = {
   auto: 'auto: installa da solo le versioni compatibili',
   avviso: 'avviso: segnala le versioni nuove, si installano con `/kpi aggiorna`',
   off: 'off: nessun controllo automatico',
 }
 
-const releaseLabel = (release: Release | null | undefined): string =>
-  release === null || release === undefined ? '–' : `${release.version}${release.minClaudeCode !== undefined ? ` (richiede Claude Code ≥ ${release.minClaudeCode})` : ''}`
+const releaseLabel = (L: I18n, release: Release | null | undefined): string =>
+  release === null || release === undefined ? '–' : `${release.version}${release.minClaudeCode !== undefined ? ` ${L.t('(richiede Claude Code ≥ {min})', { min: release.minClaudeCode })}` : ''}`
 
-function outcomeText(outcome: CheckOutcome, engine: string): string {
+function outcomeText(L: I18n, outcome: CheckOutcome, engine: string): string {
   switch (outcome.kind) {
     case 'cartella':
-      return 'kpi-tracker è caricato da una cartella (`--plugin-dir`), non da un marketplace: gli aggiornamenti automatici sono disattivati.'
+      return L.t('kpi-tracker è caricato da una cartella (`--plugin-dir`), non da un marketplace: gli aggiornamenti automatici sono disattivati.')
     case 'spento':
       return outcome.why
     case 'rinviato':
-      return 'il prossimo controllo è più tardi.'
+      return L.t('il prossimo controllo è più tardi.')
     case 'nativo':
-      return nativeText(outcome.marketplace)
+      return nativeText(L, outcome.marketplace)
     case 'esterno':
       return outcome.why
     case 'errore':
-      return `controllo non riuscito: ${outcome.error.replace(/\.$/, '')}.`
+      return L.t('controllo non riuscito: {error}.', { error: outcome.error.replace(/\.$/, '') })
     case 'aggiornato':
-      return `kpi-tracker ${outcome.local} è l'ultima versione.`
+      return L.t('kpi-tracker {version} è l\'ultima versione.', { version: outcome.local })
     case 'disponibile':
-      return availableNotice(outcome.remote.version).text
+      return availableNotice(L, outcome.remote.version).text
     case 'bloccato':
-      return blockedNotice(outcome.remote.version, outcome.minClaudeCode, engine).text
+      return blockedNotice(L, outcome.remote.version, outcome.minClaudeCode, engine).text
     case 'installato':
-      return readyNotice(outcome.remote.version).text
+      return readyNotice(L, outcome.remote.version).text
   }
 }
 
-/** Il testo di `/kpi aggiorna`: versioni, opzione, ultimo controllo ed esito. */
-export async function updateReport(tracker: Tracker, host: Host, outcome: CheckOutcome): Promise<string> {
+/** Il testo di `/kpi aggiorna`: versioni, opzione, ultimo controllo ed esito, nella lingua di `L`. */
+export async function updateReport(tracker: Tracker, host: Host, outcome: CheckOutcome, L: I18n = tracker.i18n): Promise<string> {
   const engine = engineOf(await host.version())
   const local = await releaseAt(host.fs, host.pluginRoot)
   const state = await loadState(host)
   const bad = tracker.options.badAutoUpdate
   const rows: [string, string][] = [
-    ['Versione installata', releaseLabel(local)],
-    ['Ultima nel marketplace', releaseLabel(state.latest)],
-    ['Claude Code in uso', engine],
-    ['Aggiornamento automatico', `${MODE_LABELS[tracker.options.autoUpdate]}${bad !== null ? ` (valore "${bad}" dell'opzione autoUpdate non valido)` : ''}`],
-    ['Ultimo controllo', state.checkedAt === undefined ? '–' : dateTime(state.checkedAt)],
-    ...(state.lastError !== undefined ? [['Ultimo errore', state.lastError] as [string, string]] : []),
+    [L.t('Versione installata'), releaseLabel(L, local)],
+    [L.t('Ultima nel marketplace'), releaseLabel(L, state.latest)],
+    [L.t('Claude Code in uso'), engine],
+    [L.t('Aggiornamento automatico'), `${L.t(MODE_LABELS[tracker.options.autoUpdate])}${bad !== null ? ` ${L.t('(valore "{value}" dell\'opzione autoUpdate non valido)', { value: bad })}` : ''}`],
+    [L.t('Ultimo controllo'), state.checkedAt === undefined ? '–' : L.dateTime(state.checkedAt)],
+    ...(state.lastError !== undefined ? [[L.t('Ultimo errore'), state.lastError] as [string, string]] : []),
   ]
-  const self = tracker.update.self
+  const self = local?.minClaudeCode !== undefined && tracker.update.self !== null ? selfNotice(L, local.version, local.minClaudeCode, engine) : null
 
   return [
-    '## kpi-tracker · aggiornamenti',
+    `## kpi-tracker · ${L.t('aggiornamenti')}`,
     ...(self !== null ? [`> ⚠ ${self.text}`] : []),
-    table(['Voce', 'Valore'], rows),
-    `**Esito:** ${outcomeText(outcome, engine)}`,
+    table(L, [L.t('Voce'), L.t('Valore')], rows),
+    `**${L.t('Esito')}:** ${outcomeText(L, outcome, engine)}`,
   ].join('\n\n')
 }

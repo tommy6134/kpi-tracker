@@ -1,185 +1,187 @@
-# Catalogo dei KPI
+# KPI catalogue
 
-Tutti i KPI sono **misurati**: i rapporti (cache hit, costo per turno…) sono calcolati da valori misurati, non stimati. Ogni KPI si aggrega per giorno, settimana, mese, progetto, modello, tipo di sessione, branch e repo.
+_Italiano: [docs/it/kpi.md](it/kpi.md)_
 
-Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva il dato. Colonna **Gran.**: E = per evento, T = per turno, S = per sessione.
+Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed from measured values, not estimated. Every KPI aggregates by day, week, month, project, model, session kind, branch and repo.
 
-## Sessione
+**Source** column: the engine event (mod hook) or the field the data comes from. **Gran.** column: E = per event, T = per turn, S = per session.
 
-| KPI | Definizione | Fonte | Gran. |
+## Session
+
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Sessioni | numero di sessioni (cartelle) | storage | S |
-| Tipo | interattiva, print (`claude -p`), sdk, desktop, vscode | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` | S |
-| Origine dei segmenti | startup, resume, clear, fork, ricarica (hot reload) | `classic.SessionStart.source`, `$.state` | S |
-| Segmenti | processi che hanno lavorato sulla sessione (riprese, reload) | storage | S |
-| Motivo di chiusura | clear, resume, logout, prompt_input_exit, other, interrotta | `session.end.reason`, heartbeat | S |
-| Durata | dall'inizio all'ultima attività | `$.session.usage().startedAt`, eventi | S |
-| Versioni di Claude Code | per segmento | `$.session.version()` | S |
-| Progetto, repo, branch | cartella di avvio, repo git, branch (e cambi) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
-| Ripresa | secondi dall'ultima risposta, token di contesto, cache scaduta | `classic.SessionStart` (resume/fork) | S |
-| Sessione precedente/successiva | collegamento tra sessioni separate da `/clear` | storage | S |
+| Sessions | number of sessions (folders) | storage | S |
+| Kind | interactive, print (`claude -p`), sdk, desktop, vscode | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` | S |
+| Segment origin | startup, resume, clear, fork, reload (hot reload) | `classic.SessionStart.source`, `$.state` | S |
+| Segments | processes that worked on the session (resumes, reloads) | storage | S |
+| End reason | clear, resume, logout, prompt_input_exit, other, interrupted | `session.end.reason`, heartbeat | S |
+| Duration | from the start to the last activity | `$.session.usage().startedAt`, events | S |
+| Claude Code versions | per segment | `$.session.version()` | S |
+| Project, repo, branch | launch folder, git repo, branch (and changes) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
+| Resume | seconds since the last response, context tokens, expired cache | `classic.SessionStart` (resume/fork) | S |
+| Previous/next session | link between sessions split by `/clear` | storage | S |
 
-## Tempo e attività
+## Time and activity
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Tempo attivo | somma delle durate dei turni principali | `turn.complete.durationMs` | T |
-| Utilizzo | tempo attivo / durata della sessione | derivato | S |
-| Tempo di risposta dell'utente | dalla fine di un turno al prompt successivo (p50, p90) | orologio, `prompt.submit` | T |
-| Mappa attività | turni per ora × giorno della settimana (ora locale) | `turn.complete` | T |
-| Giorni attivi | giorni con almeno un evento | eventi | S |
+| Active time | sum of the main turns' durations | `turn.complete.durationMs` | T |
+| Utilisation | active time / session duration | derived | S |
+| User response time | from the end of a turn to the next prompt (p50, p90) | clock, `prompt.submit` | T |
+| Activity map | turns per hour × weekday (local time) | `turn.complete` | T |
+| Active days | days with at least one event | events | S |
 
-## Prompt
+## Prompts
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Prompt per origine | composer, sdk, task-notification, scheduled-trigger, peer, channel, auto-continuation, plugin… | `prompt.submit.origin.kind` | E |
-| Prompt per sorgente | user, sdk, system, loop_wakeup, schedule_wakeup, poll_event | `classic.UserPromptSubmit.source` | E |
-| Accodati | prompt scritti mentre un turno era in corso | `prompt.submit.turnId` | E |
-| Lunghezza | caratteri, parole, righe (media, max); il testo non si salva | `prompt.submit.text` (solo lunghezze) | E |
-| Allegati | immagini, documenti, audio | `prompt.submit.attachments[].type` | E |
-| Menzioni @ | per tipo (file, già letto, pdf) | `prompt.mention` | E |
-| Espansioni | comandi slash e prompt MCP espansi, per nome | `classic.UserPromptExpansion` | E |
+| Prompts by origin | composer, sdk, task-notification, scheduled-trigger, peer, channel, auto-continuation, plugin… | `prompt.submit.origin.kind` | E |
+| Prompts by source | user, sdk, system, loop_wakeup, schedule_wakeup, poll_event | `classic.UserPromptSubmit.source` | E |
+| Queued | prompts written while a turn was running | `prompt.submit.turnId` | E |
+| Length | characters, words, lines (mean, max); the text is not stored | `prompt.submit.text` (lengths only) | E |
+| Attachments | images, documents, audio | `prompt.submit.attachments[].type` | E |
+| @ mentions | by kind (file, already read, pdf) | `prompt.mention` | E |
+| Expansions | expanded slash commands and MCP prompts, by name | `classic.UserPromptExpansion` | E |
 
-## Turni e richieste
+## Turns and requests
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Turni principali / dei subagent | | `turn.complete` (con o senza `agentId`) | T |
-| Durata dei turni | media, p50, p90, max, istogramma | `turn.complete.durationMs` | T |
-| Esito | risposta, interrotto, rifiuto (con categoria), errore | `turn.complete.reason`, `refusal.category` | T |
-| Richieste per turno | richieste al modello in un turno | `turn.step` | T |
-| Tool per turno | | `tool.call` | T |
-| Motivi di stop | end_turn, tool_use, max_tokens, pause_turn, refusal… | `turn.step` (risultato) | E |
-| Tempo al primo token (TTFT) | dalla richiesta al primo chunk di contenuto | wrapper di `turn.step` (opzione `streamTiming`) | E |
-| Latenza della richiesta | durata della richiesta | wrapper di `turn.step` | E |
-| Velocità di output | token di output al secondo di generazione | derivato | E |
-| Tool lato server | chiamate eseguite dall'API (numero, durata) | `turn.step.serverToolUses` | E |
-| Fallback di modello | modello che ha risposto diverso da quello richiesto | `turn.step` | E |
-| Lunghezza della risposta | caratteri della risposta finale (il testo non si salva) | `turn.complete.answer` (solo lunghezza) | T |
+| Main / subagent turns | | `turn.complete` (with or without `agentId`) | T |
+| Turn duration | mean, p50, p90, max, histogram | `turn.complete.durationMs` | T |
+| Outcome | answer, interrupted, refusal (with category), error | `turn.complete.reason`, `refusal.category` | T |
+| Requests per turn | model requests in a turn | `turn.step` | T |
+| Tools per turn | | `tool.call` | T |
+| Stop reasons | end_turn, tool_use, max_tokens, pause_turn, refusal… | `turn.step` (result) | E |
+| Time to first token (TTFT) | from the request to the first content chunk | `turn.step` wrapper (`streamTiming` option) | E |
+| Request latency | request duration | `turn.step` wrapper | E |
+| Output speed | output tokens per second of generation | derived | E |
+| Server-side tools | calls run by the API (count, duration) | `turn.step.serverToolUses` | E |
+| Model fallback | the model that answered differs from the one requested | `turn.step` | E |
+| Response length | characters of the final response (the text is not stored) | `turn.complete.answer` (length only) | T |
 
-## Token, costo, contesto, rate limit
+## Tokens, cost, context, rate limits
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Token | input non in cache, output, cache letta, cache scritta, totale; per modello, agente, giorno | `turn.step.usage` (o `turn.complete.usage` senza `streamTiming`), `session.compact.usage` | E |
-| Cache hit | cache letta / (input + cache letta + cache scritta) | derivato | T/S |
-| Quota dei subagent | token dei subagent sul totale | `agentId` | S |
-| Costo | USD calcolati da Claude Code: somma dei delta del ledger, compreso quanto speso tra un segmento e l'altro (ricarica del modulo, ripresa da un processo nuovo) | `session.measure.cost.usd`, `$.session.usage().cost` | S |
-| Costo per turno | delta di costo tra due misurazioni di fine turno, attribuito all'ultimo turno | derivato | T |
-| Costo fuori dai turni | la parte del costo spesa fuori da un turno principale: subagent in background che finiscono dopo, chiamate di servizio, uscita. `session.measure` scatta solo a fine turno, quindi si legge il ledger quando finisce un subagent, ogni minuto, prima di `/kpi` e alla chiusura | `$.session.usage().cost` | S |
-| Costo per commit, per 100 righe, per sessione | | derivato | A |
-| Contesto | riempimento % (massimo, medio a fine turno, ultimo), dimensione della finestra | `session.measure.context` | T |
-| Compattazioni | per trigger (manual, auto…), token prima/dopo, riduzione %, token spesi | `session.compact` | E |
-| Rate limit | % usata a 5 ore, 7 giorni, spend (ultimo, massimo, reset) | `session.measure.rateLimits` | T |
-| Blocchi per rate limit | | `classic.StopFailure.error = rate_limit` | E |
+| Tokens | uncached input, output, cache read, cache write, total; per model, agent, day | `turn.step.usage` (or `turn.complete.usage` without `streamTiming`), `session.compact.usage` | E |
+| Cache hit | cache read / (input + cache read + cache write) | derived | T/S |
+| Subagent share | subagent tokens over the total | `agentId` | S |
+| Cost | USD computed by Claude Code: sum of the ledger's deltas, including what was spent between one segment and the next (module reload, resume from a new process) | `session.measure.cost.usd`, `$.session.usage().cost` | S |
+| Cost per turn | cost delta between two end-of-turn measurements, attributed to the last turn | derived | T |
+| Cost outside turns | the part of the cost spent outside a main turn: background subagents that finish later, service calls, exit. `session.measure` fires only at the end of a turn, so the ledger is read when a subagent finishes, every minute, before `/kpi` and when the session closes | `$.session.usage().cost` | S |
+| Cost per commit, per 100 lines, per session | | derived | A |
+| Context | fill % (max, mean at turn end, last), window size | `session.measure.context` | T |
+| Compactions | by trigger (manual, auto…), tokens before/after, reduction %, tokens spent | `session.compact` | E |
+| Rate limits | % used at 5 hours, 7 days, spend (last, max, reset) | `session.measure.rateLimits` | T |
+| Rate limit blocks | | `classic.StopFailure.error = rate_limit` | E |
 
-## Modelli ed effort
+## Models and effort
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Richieste e token per modello | | `turn.step` | E |
-| Effort | distribuzione di low, medium, high, xhigh, max | `turn.step.effort` | E |
-| Cambi di modello | da, a, origine (command, picker, auto…) | `classic.PostModelSwitch` | E |
-| Modelli dei subagent | | `agent.spawn` (risultato) | E |
+| Requests and tokens per model | | `turn.step` | E |
+| Effort | distribution of low, medium, high, xhigh, max | `turn.step.effort` | E |
+| Model switches | from, to, origin (command, picker, auto…) | `classic.PostModelSwitch` | E |
+| Subagent models | | `agent.spawn` (result) | E |
 
-## Tool
+## Tools
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Chiamate per tool | built-in, MCP, plugin; principale o subagent | `tool.call` | E |
-| Esito | ok, errore, negato, interrotto; tasso di errore | `tool.call` (risultato) | E |
-| Durata | senza attese di permesso e hook (media, p90) | `classic.PostToolUse(Failure).duration_ms` | E |
-| Tempo totale | inclusa l'attesa del permesso | orologio attorno a `tool.call` | E |
-| Read-only | quota di chiamate eseguite in sola lettura | `tool.call.isReadOnly` | E |
-| Parallelismo | tool per batch | `classic.PostToolBatch` | E |
-| Background | comandi e agenti in background | risultati Bash e Agent | E |
-| Server MCP | chiamate ed errori per server | nome `mcp__server__tool` | E |
-| WebFetch | domini (solo host), byte, codici HTTP, errori | risultato WebFetch | E |
-| WebSearch | ricerche | risultato WebSearch | E |
-| Todo | totali e completati dell'ultima lista | risultato TodoWrite | E |
-| Read | righe lette, file unici letti | risultato Read | E |
+| Calls per tool | built-in, MCP, plugin; main or subagent | `tool.call` | E |
+| Outcome | ok, error, denied, interrupted; error rate | `tool.call` (result) | E |
+| Duration | without permission waits and hooks (mean, p90) | `classic.PostToolUse(Failure).duration_ms` | E |
+| Wall time | including the permission wait | clock around `tool.call` | E |
+| Read-only | share of calls run read-only | `tool.call.isReadOnly` | E |
+| Parallelism | tools per batch | `classic.PostToolBatch` | E |
+| Background | commands and agents in the background | Bash and Agent results | E |
+| MCP servers | calls and errors per server | `mcp__server__tool` name | E |
+| WebFetch | domains (host only), bytes, HTTP codes, errors | WebFetch result | E |
+| WebSearch | searches | WebSearch result | E |
+| Todos | total and completed of the last list | TodoWrite result | E |
+| Read | lines read, unique files read | Read result | E |
 
 ## Bash
 
-Categorie: **git, test, build, package, docker, fs, network, altro**. Si salvano solo `programma sottocomando` (es. `mvn test`), mai gli argomenti.
+Categories: **git, test, build, package, docker, fs, network, other** (stored as `altro`). Only `program subcommand` is stored (e.g. `mvn test`), never the arguments.
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Comandi per categoria | con esito (ok, errore, interrotto, timeout, background) | classificatore + risultato | E |
-| Comandi più usati | `programma sottocomando` | classificatore | E |
-| Test | esecuzioni, superate, fallite, pass rate | categoria test + esito | E |
-| Build | esecuzioni, riuscite, fallite | categoria build + esito | E |
-| Comandi con pipe | l'esito riflette solo l'ultimo comando | classificatore | E |
-| Sandbox disattivata | | input Bash `dangerouslyDisableSandbox` | E |
+| Commands by category | with outcome (ok, error, interrupted, timeout, background) | classifier + result | E |
+| Most used commands | `program subcommand` | classifier | E |
+| Tests | runs, passed, failed, pass rate | test category + outcome | E |
+| Builds | runs, succeeded, failed | build category + outcome | E |
+| Piped commands | the outcome reflects only the last command | classifier | E |
+| Sandbox off | | Bash input `dangerouslyDisableSandbox` | E |
 
-## File e codice
+## Files and code
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Righe aggiunte, rimosse, nette | per file, estensione, classe (src, test, doc, config) e giorno | `gitDiff` o `structuredPatch` di Edit/Write; contenuto per i file creati | E |
-| File creati, modificati, letti (unici) | | Edit, Write, Read | E |
-| Modifiche ritoccate dall'utente | modifiche cambiate dall'utente nel dialogo | `userModified` | E |
-| File fuori dal progetto | | percorso fuori dalla cartella di avvio | E |
-| Churn | file modificati 3 o più volte | dettagli | S |
+| Lines added, removed, net | per file, extension, class (src, test, doc, config) and day | `gitDiff` or `structuredPatch` of Edit/Write; content for created files | E |
+| Files created, modified, read (unique) | | Edit, Write, Read | E |
+| Edits changed by the user | edits the user changed in the dialog | `userModified` | E |
+| Files outside the project | | path outside the launch folder | E |
+| Churn | files modified 3 or more times | details | S |
 
-Le righe scritte dai subagent si contano dai loro tool call, senza doppi conteggi.
+Lines written by subagents are counted from their tool calls, without double counting.
 
 ## Git
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Commit | per tipo (committed, amended, cherry-picked), sha, branch | `gitOperation.commit` del risultato Bash | E |
-| Push | per branch | `gitOperation.push` | E |
-| Merge e rebase | | `gitOperation.branch` | E |
-| Pull request | per azione (created, merged…), numero, URL | `gitOperation.pr` | E |
-| Branch | branch visti e cambi | `git rev-parse` | E |
-| Righe per commit | | derivato | A |
+| Commits | by kind (committed, amended, cherry-picked), sha, branch | `gitOperation.commit` of the Bash result | E |
+| Pushes | per branch | `gitOperation.push` | E |
+| Merges and rebases | | `gitOperation.branch` | E |
+| Pull requests | by action (created, merged…), number, URL | `gitOperation.pr` | E |
+| Branches | branches seen and switches | `git rev-parse` | E |
+| Lines per commit | | derived | A |
 
-## Permessi
+## Permissions
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Decisioni | allow, ask, deny per tool | `tool.check` | E |
-| Chi ha deciso | regola, hook, modalità | `tool.check` (`rule`, `hook`) | E |
-| Dialoghi mostrati | | `classic.PermissionRequest` | E |
-| Negati dal classificatore | | `classic.PermissionDenied` | E |
-| Tool call negate | | `tool.call` (deny) | E |
+| Decisions | allow, ask, deny per tool | `tool.check` | E |
+| Decided by | rule, hook, mode | `tool.check` (`rule`, `hook`) | E |
+| Dialogs shown | | `classic.PermissionRequest` | E |
+| Denied by the classifier | | `classic.PermissionDenied` | E |
+| Denied tool calls | | `tool.call` (deny) | E |
 
-## Subagent e workflow
+## Subagents and workflows
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Subagent avviati | per tipo e modello; background, fork, teammate | `agent.spawn` | E |
-| Durata, token, tool per tipo | | turni e tool con `agentId` | E |
-| Esiti ed errori | | risultato del tool Agent | E |
-| Workflow | run distinti | `agent.spawn.workflow` | E |
-| Massimo concorrenti | | `classic.SubagentStart/Stop` | S |
+| Subagents launched | by type and model; background, fork, teammate | `agent.spawn` | E |
+| Duration, tokens, tools per type | | turns and tools with `agentId` | E |
+| Outcomes and errors | | Agent tool result | E |
+| Workflows | distinct runs | `agent.spawn.workflow` | E |
+| Max concurrent | | `classic.SubagentStart/Stop` | S |
 
-## Skill, comandi, istruzioni
+## Skills, commands, instructions
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Skill | invocazioni, esiti | `skill.prompt`, risultato del tool Skill | E |
-| Comandi slash | per nome e origine (anche `/clear`, `/compact`, `/model`) | `command.run` | E |
-| File di istruzioni caricati | per tipo (User, Project, Local, Managed) | `classic.InstructionsLoaded` | E |
-| Task | creati, completati | `classic.TaskCreated/Completed` | E |
-| Cambi di cartella | | `classic.CwdChanged` | E |
+| Skills | invocations, outcomes | `skill.prompt`, Skill tool result | E |
+| Slash commands | by name and origin (also `/clear`, `/compact`, `/model`) | `command.run` | E |
+| Instruction files loaded | by type (User, Project, Local, Managed) | `classic.InstructionsLoaded` | E |
+| Tasks | created, completed | `classic.TaskCreated/Completed` | E |
+| Folder changes | | `classic.CwdChanged` | E |
 
-## Errori e notifiche
+## Errors and notifications
 
-| KPI | Definizione | Fonte | Gran. |
+| KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
-| Errori API | rate_limit, overloaded, billing_error, max_output_tokens, server_error… | `classic.StopFailure` | E |
-| Turni in errore, interrotti, rifiutati | | `turn.complete` | T |
-| Errori dei tool | | `tool.call` | E |
-| Interruzioni | turni interrotti, comandi interrotti | `turn.complete`, risultati | E |
-| Stop per max_tokens | | `turn.step` | E |
-| Notifiche | per tipo | `classic.Notification` | E |
+| API errors | rate_limit, overloaded, billing_error, max_output_tokens, server_error… | `classic.StopFailure` | E |
+| Failed, interrupted, refused turns | | `turn.complete` | T |
+| Tool errors | | `tool.call` | E |
+| Interrupts | interrupted turns, interrupted commands | `turn.complete`, results | E |
+| Stops for max_tokens | | `turn.step` | E |
+| Notifications | by type | `classic.Notification` | E |
 
-## Non disponibili
+## Not available
 
-- costo per richiesta, per modello o per subagent (Claude Code espone solo il costo totale della sessione);
-- la risposta dell'utente nel dialogo di permesso;
-- le chiamate di servizio del motore (titoli, classificatori), incluse solo nel costo totale;
-- il codice di uscita numerico di Bash (solo ok/errore).
+- cost per request, per model or per subagent (Claude Code exposes only the session's total cost);
+- the user's answer in the permission dialog;
+- the engine's service calls (titles, classifiers), included only in the total cost;
+- Bash's numeric exit code (only ok/error).

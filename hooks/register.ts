@@ -23,13 +23,16 @@ import {
   type AttachExtra,
   type Tracker,
 } from './tracker'
+import { i18nOf } from './i18n'
+import { keepsItalian, setItalian } from './i18n/migrate'
 import { rebuildOnce } from './maintenance/maintenance'
 import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
 import { liveOf } from './ui/live'
 import { PANE_ID, paneView } from './ui/pane'
 
-const REPORT_REF = /\(rif\. (kpi:r\d+)\)/
+/** Il riferimento al report completo nella riga breve: `(rif. kpi:r1)` in italiano, `(ref. kpi:r1)` in inglese. */
+const REPORT_REF = /\((?:rif|ref)\. (kpi:r\d+)\)/
 
 /**
  * Lega un Host da `$`. Ogni membro è scritto `$.nome.metodo(...)` in questo
@@ -67,6 +70,14 @@ function hostOf($: EngineInterface): Host {
     repo: () => $.session.repo(),
     version: () => $.session.version(),
     model: () => $.session.model(),
+    settingsRead: key => $.settings.read({ key }),
+    configKeys: async () => (await $.config.list()).map(row => row.key),
+    configSet: async (key, value) => {
+      const result = await $.config.set({ key, value })
+
+      return 'deny' in result && typeof result.deny === 'string' ? { deny: result.deny } : {}
+    },
+    pluginName: $.plugin.name,
     pluginRoot: $.plugin.root,
   }
 }
@@ -114,17 +125,23 @@ export function register(on: On, raw: PluginOptions) {
 
     tracker.ui.bandDisabled = (await host.storeGet('band').catch(() => undefined)) === 'off'
 
+    const L = tracker.i18n
+
     await host
       .registerCommand({
         name: 'kpi',
-        description: 'KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export',
-        argumentHint: '[live|statistiche|sessioni|progetti|sessione|report|esporta|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri]',
+        description: L.t('KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export'),
+        argumentHint: L.t('[live|statistiche|sessioni|progetti|sessione|report|esporta|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]'),
         immediate: true,
       })
       .catch(() => undefined)
 
     startTimers(tracker)
 
+    const root = tracker.root
+    const isInteractive = tracker.interactive === true && root !== null
+    // Prima dell'aggancio: dopo, i dati di questa sessione sembrerebbero di una versione precedente.
+    const keepItalian = isInteractive && tracker.options.language !== 'it' && (await keepsItalian(host, root).catch(() => false))
     const sessionId = await host.sessionId()
     const pending = pendingStart !== null && pendingStart.sessionId === sessionId ? pendingStart : null
 
@@ -132,11 +149,15 @@ export function register(on: On, raw: PluginOptions) {
     await attach(tracker, sessionId, pending?.source ?? 'startup', pending?.extra ?? {})
     void startUpdates(tracker).catch(() => undefined)
 
-    const root = tracker.root
-
-    if (tracker.interactive === true && root !== null) {
-      void rebuildOnce(host, root, sessionId)
+    if (isInteractive) {
+      void rebuildOnce(host, L, root, sessionId)
         .then(line => line !== null && host.log(line))
+        .catch(() => undefined)
+    }
+
+    if (keepItalian) {
+      void setItalian(host)
+        .then(ok => ok && host.log(i18nOf('it').t('kpi-tracker ora parla anche inglese: resta in italiano come prima. Per cambiare lingua: /config → Language / Lingua.')))
         .catch(() => undefined)
     }
 
@@ -589,7 +610,7 @@ export function register(on: On, raw: PluginOptions) {
   // ---------------------------------------------------------- interfaccia
 
   async function openPane(host: Host): Promise<{ isPlaced: boolean; reason?: string }> {
-    const result = await host.openPane({ id: PANE_ID, title: 'KPI · sessione' })
+    const result = await host.openPane({ id: PANE_ID, title: tracker.i18n.t('KPI · sessione') })
 
     tracker.ui.paneOpen = true
     host.invalidate()
@@ -610,6 +631,7 @@ export function register(on: On, raw: PluginOptions) {
 
     return bandView(
       { Box, Text, Button },
+      tracker.i18n,
       live,
       Math.max(20, Math.floor(e.props.bodyColumns)),
       {
@@ -635,6 +657,7 @@ export function register(on: On, raw: PluginOptions) {
 
     return paneView(
       kit,
+      tracker.i18n,
       store === null ? null : liveOf(store.file, store.details, Date.now()),
       Math.max(30, Math.floor(e.props.bodyColumns)),
       {
@@ -710,6 +733,6 @@ export function register(on: On, raw: PluginOptions) {
       }
     }
 
-    return { text: `${result.short} (rif. ${ref})` }
-  }).catch(() => ({ text: `${PLUGIN_NAME}: errore interno nel comando /kpi` }))
+    return { text: `${result.short} (${result.lang === 'en' ? 'ref.' : 'rif.'} ${ref})` }
+  }).catch(() => ({ text: `${PLUGIN_NAME}: ${tracker.i18n.t('errore interno nel comando /kpi')}` }))
 }

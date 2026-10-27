@@ -3,7 +3,7 @@
 /* @jsxFrag Fragment */
 import type { Elements, RenderElement } from 'claude-code'
 
-import { compact, pct, pct100, usd } from '../format/fmt'
+import type { I18n } from '../i18n'
 import type { LiveView } from './live'
 import { ACCENT, WARN } from './palette'
 
@@ -18,7 +18,8 @@ export type BandActions = {
 export type BandNotice = { tone: 'warn' | 'info'; band: string }
 
 /** Le parti della riga, dalla più alla meno importante, per una larghezza data. */
-export function bandParts(live: LiveView, columns: number): string[] {
+export function bandParts(L: I18n, live: LiveView, columns: number): string[] {
+  const { compact, pct, pct100, usd } = L
   const rate = (label: string, view: LiveView['rate5h']) => (view === null ? null : `${label} ${pct100(view.pct)}`)
   const ctx = live.ctxPct === null ? null : `ctx ${pct100(live.ctxPct)}`
 
@@ -29,7 +30,7 @@ export function bandParts(live: LiveView, columns: number): string[] {
       `cache ${pct(live.cacheHit)}`,
       ctx,
       rate('5h', live.rate5h),
-      rate('7g', live.rate7d),
+      rate(L.t('7g'), live.rate7d),
     ].filter((part): part is string => part !== null)
   }
 
@@ -47,9 +48,9 @@ export function bandParts(live: LiveView, columns: number): string[] {
 }
 
 /** La barra sopra il prompt: una riga con i pulsanti a destra, più l'eventuale avviso sugli aggiornamenti. */
-export function bandView(kit: BandKit, live: LiveView, columns: number, actions: BandActions, notice: BandNotice | null = null): RenderElement {
+export function bandView(kit: BandKit, L: I18n, live: LiveView, columns: number, actions: BandActions, notice: BandNotice | null = null): RenderElement {
   const { Box, Text } = kit
-  const row = bandRow(kit, live, columns, actions)
+  const row = bandRow(kit, L, live, columns, actions)
 
   if (notice === null) {
     return row
@@ -67,9 +68,9 @@ export function bandView(kit: BandKit, live: LiveView, columns: number, actions:
   )
 }
 
-function bandRow(kit: BandKit, live: LiveView, columns: number, actions: BandActions): RenderElement {
+function bandRow(kit: BandKit, L: I18n, live: LiveView, columns: number, actions: BandActions): RenderElement {
   const { Box, Text, Button } = kit
-  const parts = bandParts(live, columns)
+  const parts = bandParts(L, live, columns)
   const isWide = columns >= 80
   const isTiny = columns < 50
 
@@ -85,8 +86,8 @@ function bandRow(kit: BandKit, live: LiveView, columns: number, actions: BandAct
         <Text dimColor>{parts.join(' · ')}</Text>
       </Text>
       <Box gap={1}>
-        {!isTiny && <Button key="kpi-details" label={isWide ? 'Dettagli' : 'D'} onPress={actions.details} />}
-        <Button key="kpi-hide" label={columns >= 110 ? 'Nascondi' : '×'} onPress={actions.hide} />
+        {!isTiny && <Button key="kpi-details" label={isWide ? L.t('Dettagli') : 'D'} onPress={actions.details} />}
+        <Button key="kpi-hide" label={columns >= 110 ? L.t('Nascondi') : '×'} onPress={actions.hide} />
       </Box>
     </Box>
   )

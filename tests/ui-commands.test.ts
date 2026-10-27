@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { KpiSessionFile } from '../hooks/core/session-file'
 import { assemble } from '../hooks/report/html'
-import { BAND, command, commandOutput, PANE, SESSION } from './fixtures/inputs'
+import { BAND, command, commandOutput, EN, IT, PANE, SESSION } from './fixtures/inputs'
 import { DOWNLOADS, elementsOf, HOME, PROJECT_DIR, ROOT, SESSION_ID, textOf, usageOf, worldOf, type World } from './fixtures/world'
 
 const PLUGIN = 'kpi-tracker'
@@ -57,7 +57,7 @@ async function workedSession($: Engine, on: Parameters<Parameters<typeof test>[1
 }
 
 describe('barra e pannello', () => {
-  test('la barra mostra costo, token, cache, contesto e rate limit; Nascondi la toglie', async ($, on) => {
+  test('la barra mostra costo, token, cache, contesto e rate limit; Nascondi la toglie', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -84,7 +84,7 @@ describe('barra e pannello', () => {
     expect(textOf(await $.ui.render(BAND))).toBe('motore')
   })
 
-  test('Dettagli apre il pannello, che il terminale accetta a varie larghezze', async ($, on) => {
+  test('Dettagli apre il pannello, che il terminale accetta a varie larghezze', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -117,7 +117,7 @@ describe('barra e pannello', () => {
     expect(await accepted($, { ...PANE, surface: 'desktop', plugin: PLUGIN })).toBe('desktop')
   })
 
-  test('con errori la card Errori sale sotto le card in testa', async ($, on) => {
+  test('con errori la card Errori sale sotto le card in testa', IT, async ($, on) => {
     worldOf(on)
     const clock = mock.clock(on)
 
@@ -138,7 +138,7 @@ describe('barra e pannello', () => {
 })
 
 describe('/kpi', () => {
-  test('al modello va una riga breve; il report completo si disegna nel CommandOutput', async ($, on) => {
+  test('al modello va una riga breve; il report completo si disegna nel CommandOutput', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -158,7 +158,7 @@ describe('/kpi', () => {
     expect(drawn).toContain('$1,42')
   })
 
-  test('--ctx manda il report completo anche al modello', async ($, on) => {
+  test('--ctx manda il report completo anche al modello', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -172,7 +172,7 @@ describe('/kpi', () => {
     expect(result.text).not.toContain('rif. kpi:')
   })
 
-  test('sessioni, progetti, sessione corrente e aiuto', async ($, on) => {
+  test('sessioni, progetti, sessione corrente e aiuto', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
     const full = async (args: string) => ((await $.command.run(command('kpi', `${args} --ctx`))) as { text: string }).text
@@ -188,7 +188,7 @@ describe('/kpi', () => {
     expect(((await $.command.run(command('kpi', 'stats --da domani'))) as { text: string }).text).toContain('data non valida')
   })
 
-  test('report HTML, export CSV/JSON e barra off', async ($, on) => {
+  test('report HTML, export CSV/JSON e barra off', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -218,7 +218,7 @@ describe('/kpi', () => {
     expect(off).toContain('disattivata')
   })
 
-  test('pulisci elenca senza --si e cancella con --si, mai la sessione in corso', async ($, on) => {
+  test('pulisci elenca senza --si e cancella con --si, mai la sessione in corso', IT, async ($, on) => {
     const old = '0ld5e551-0000-0000-0000-000000000000'
     const oldDir = `${PROJECT_DIR}/2025-01-01_10-00-00_0ld5e551`
     const oldFile = { schemaVersion: 1, sessionId: old, createdAt: Date.UTC(2025, 0, 1), updatedAt: Date.UTC(2025, 0, 1), summary: { lastAt: Date.UTC(2025, 0, 1) } }
@@ -235,11 +235,11 @@ describe('/kpi', () => {
 
     const done = ((await $.command.run(command('kpi', 'pulisci --piu-vecchie-di 30d --si'))) as { text: string }).text
 
-    expect(done).toContain('Cancellate 1 sessioni')
+    expect(done).toContain('Sessioni cancellate: 1 su 1')
     expect(world.runs.filter(argv => argv[0] === 'rm')).toEqual([['rm', '-rf', oldDir]])
   })
 
-  test('su macOS il report si apre dal suo percorso, senza copie', async ($, on) => {
+  test('su macOS il report si apre dal suo percorso, senza copie', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -253,7 +253,7 @@ describe('/kpi', () => {
     expect(world.runs.some(argv => argv[0] === 'xdg-user-dir')).toBe(false)
   })
 
-  test('su Linux il report sotto una cartella nascosta si apre da una copia in Scaricati (browser snap e flatpak)', async ($, on) => {
+  test('su Linux il report sotto una cartella nascosta si apre da una copia in Scaricati (browser snap e flatpak)', IT, async ($, on) => {
     const world = worldOf(on, { os: 'Linux' })
     const clock = mock.clock(on)
 
@@ -268,7 +268,7 @@ describe('/kpi', () => {
     expect(report).toContain('Aperto nel browser')
   })
 
-  test('reportDir raccoglie report ed export senza copie; --out accetta ~/… e rifiuta i relativi', { options: { reportDir: '~/Documenti/kpi' } }, async ($, on) => {
+  test('reportDir raccoglie report ed export senza copie; --out accetta ~/… e rifiuta i relativi', { options: { reportDir: '~/Documenti/kpi', language: 'it' } }, async ($, on) => {
     const world = worldOf(on, { os: 'Linux' })
     const clock = mock.clock(on)
     const dir = `${HOME}/Documenti/kpi`
@@ -307,7 +307,7 @@ describe('report HTML', () => {
 })
 
 describe('privacy', () => {
-  test('nessun file scritto contiene testo di prompt, argomenti di comandi o messaggi di commit', async ($, on) => {
+  test('nessun file scritto contiene testo di prompt, argomenti di comandi o messaggi di commit', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -325,5 +325,114 @@ describe('privacy', () => {
 
     expect(file.summary.prompts.chars.max).toBe('implementa la funzione SEGRETA'.length)
     expect(file.summary.git.commits).toBe(1)
+  })
+})
+
+describe('in inglese', () => {
+  test('barra e pannello in inglese, sul terminale e sul desktop', EN, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    on('ui.render', () => ({ type: 'Text', children: [''] }))
+    await workedSession($, on, world, clock)
+
+    const band = textOf(await $.ui.render(BAND))
+
+    expect(band).toContain('$1.42')
+    expect(band).toContain('7d 41%')
+    expect(band).toContain('[Details]')
+    expect(band).toContain('[Hide]')
+
+    const pane = textOf(await $.ui.render(PANE))
+
+    expect(pane).toContain(' Cost ')
+    expect(pane).toContain(' Context ')
+    expect(pane).toContain('[HTML report]')
+    expect(pane).toContain('interactive')
+    expect(pane).not.toContain('Costo')
+
+    for (const surface of ['terminal', 'desktop'] as const) {
+      expect(await accepted($, { ...BAND, surface, plugin: PLUGIN })).toBe(surface)
+      expect(await accepted($, { ...PANE, surface, plugin: PLUGIN })).toBe(surface)
+    }
+  })
+
+  test('senza opzione /kpi è in inglese; --lingua it lo rimette in italiano per un comando', async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    on('ui.render', ($$, e) => ({ type: 'Text', children: [e.component === 'CommandOutput' ? (e.props as { text: string }).text : ''] }))
+    await workedSession($, on, world, clock)
+
+    const result = (await $.command.run(command('kpi'))) as { text: string }
+
+    expect(result.text).toContain('shown to the user')
+    expect(result.text).toMatch(/\(ref\. kpi:r1\)$/)
+    expect(textOf(await $.ui.render(commandOutput(result.text)))).toContain('## Claude Code KPIs')
+
+    const full = async (args: string) => ((await $.command.run(command('kpi', `${args} --ctx`))) as { text: string }).text
+
+    expect(await full('stats --by days')).toContain('### By day')
+    expect(await full('statistiche --lingua it')).toContain('### Costo e token')
+    expect(await full('help')).toContain('/kpi · help')
+    expect(await full('aiuto --lang it')).toContain('/kpi · guida')
+    expect(await full('stats --since tomorrow')).toContain('invalid date for --since: tomorrow')
+    expect(await full('stats --lang fr')).toContain('Unknown language: fr')
+  })
+
+  test('CSV e JSON con colonne e valori in inglese; il formato CSV segue la lingua', EN, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+
+    const csv = ((await $.command.run(command('kpi', 'export csv'))) as { text: string }).text
+    const csvPath = world.under(`${ROOT}/_exports/`).find(path => path.endsWith('.csv')) as string
+    const text = world.files.get(csvPath) ?? ''
+
+    expect(csv).toContain('Exported 1 row (sessions)')
+    expect(csv).toContain('standard format')
+    expect(csvPath).toMatch(/\/kpi-sessions-[\d_-]+\.csv$/)
+    expect(text.startsWith('start,project,path,session,kind,status,duration_min')).toBe(true)
+    expect(text).toContain(',interactive,active,')
+
+    await $.command.run(command('kpi', 'export csv --excel --level days'))
+
+    const excel = world.files.get(world.under(`${ROOT}/_exports/`).find(path => path.includes('kpi-days-')) as string) ?? ''
+
+    expect(excel.startsWith('﻿day;project;session;kind;cost_usd')).toBe(true)
+
+    await $.command.run(command('kpi', 'export json --level days'))
+    await $.command.run(command('kpi', 'esporta json --livello giorni --lingua it'))
+
+    const jsons = world.under(`${ROOT}/_exports/`).filter(path => path.endsWith('.json'))
+    const en = world.json<{ language: string; level: string; filter: string; rows: { day: string; cost_usd: number }[] }>(jsons.find(path => path.includes('kpi-days-')) as string)
+    const it = world.json<{ language: string; level: string; rows: { giorno: string; costo_usd: number }[] }>(jsons.find(path => path.includes('kpi-giorni-')) as string)
+
+    expect(en).toMatchObject({ language: 'en', level: 'days', filter: 'all data' })
+    expect(en.rows[0]?.cost_usd).toBe(1.42)
+    expect(it).toMatchObject({ language: 'it', level: 'giorni' })
+    expect(it.rows[0]?.costo_usd).toBe(1.42)
+  })
+
+  test('il report HTML si apre nella lingua scelta e porta entrambe le descrizioni', EN, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+    await $.command.run(command('kpi', 'report --no-open'))
+
+    const html = world.files.get(`${ROOT}/_reports/latest.html`) ?? ''
+    const data = JSON.parse(/<script type="application\/json" id="kpi-data">(.*?)<\/script>/s.exec(html)?.[1] ?? '{}') as { meta: { lang: string; description: { it: string; en: string } }; codes: Record<string, string> }
+
+    expect(html).toContain('<html lang="en">')
+    expect(html).toContain('<title>KPI Claude Code · all data</title>')
+    expect(data.meta.lang).toBe('en')
+    expect(data.meta.description).toEqual({ it: 'tutti i dati', en: 'all data' })
+    expect(data.codes.interattiva).toBe('interactive')
+
+    await $.command.run(command('kpi', 'report --no-open --lang it'))
+
+    expect(world.files.get(`${ROOT}/_reports/latest.html`)).toContain('<html lang="it">')
   })
 })

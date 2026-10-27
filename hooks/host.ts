@@ -51,5 +51,12 @@ export type Host = {
   repo: () => Promise<SessionRepo | null>
   version: () => Promise<{ version: string; base?: string }>
   model: () => Promise<string>
+  /** Il valore di una chiave dei settings uniti (`pluginConfigs`…), `undefined` se manca. */
+  settingsRead: (key: string) => Promise<unknown>
+  /** Le chiavi delle righe di /config (`<plugin>.<campo>` per le opzioni dei plugin). */
+  configKeys: () => Promise<string[]>
+  /** Cambia una riga di /config; `deny` se rifiutata. */
+  configSet: (key: string, value: string) => Promise<{ deny?: string }>
+  pluginName: string
   pluginRoot: string
 }

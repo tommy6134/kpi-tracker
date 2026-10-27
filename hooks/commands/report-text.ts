@@ -1,9 +1,9 @@
-/** I report testuali (Markdown) di /kpi. */
+/** I report testuali (Markdown) di /kpi, nella lingua di `L`. */
 
-import { meanOf, percentileOf, topOf } from '../analysis/stats'
-import { cacheHit, totalTokens, type DayAgg, type KpiDetails, type KpiSummary } from '../analysis/summary-types'
+import { meanOf, percentileOf, topOf, type Stat } from '../analysis/stats'
+import { cacheHit, totalTokens, type DayAgg, type KpiDetails } from '../analysis/summary-types'
 import { displayStatus, type KpiSessionFile } from '../core/session-file'
-import { compact, cut, date, dateTime, dayLabel, dur, fixed, int, pct, pct100, usd, WEEKDAYS } from '../format/fmt'
+import type { I18n, MsgKey } from '../i18n'
 import { pairs, section, table } from '../format/markdown'
 import { groupBy, rangeOf, type GroupKey, type Totals } from '../query/aggregate'
 import type { KpiFilter } from '../query/filters'
@@ -11,36 +11,39 @@ import type { SessionRow } from '../query/load'
 
 const sumValues = (map: Record<string, number>): number => Object.values(map).reduce((a, b) => a + b, 0)
 
-const ratio = (part: number, whole: number): string => (whole === 0 ? '–' : pct(part / whole))
-
-const counts = (map: Record<string, number>, limit = 12): string => {
+/** Le voci più frequenti di una mappa; le chiavi sono codici salvati, quindi si traducono. */
+const counts = (L: I18n, map: Record<string, number>, limit = 12): string => {
   const top = topOf(map, limit)
 
-  return top.length === 0 ? '–' : top.map(([key, value]) => `${key} ${int(value)}`).join(' · ')
+  return top.length === 0 ? '–' : top.map(([key, value]) => `${L.code(key)} ${L.int(value)}`).join(' · ')
 }
 
+/** Il nome di una finestra di rate limit: `5h`, `7g` / `7d`, o com'è. */
+const rateName = (L: I18n, kind: string, long = false): string =>
+  kind === 'five_hour' ? (long ? L.t('5 ore') : '5h') : kind === 'seven_day' ? (long ? L.t('7 giorni') : L.t('7g')) : kind
+
 /** Le righe chiave di un periodo (per il riepilogo a colonne). */
-function periodColumn(range: DayAgg, sessions: number): string[] {
+function periodColumn(L: I18n, range: DayAgg, sessions: number): string[] {
   return [
-    int(sessions),
-    int(range.turns),
-    dur(range.active),
-    usd(range.cost),
-    compact(range.in + range.out + range.cr + range.cw),
-    `${compact(range.in + range.cr + range.cw)} / ${compact(range.out)}`,
-    ratio(range.cr, range.in + range.cr + range.cw),
-    `${int(range.tools)}${range.toolErr > 0 ? ` (${int(range.toolErr)} err)` : ''}`,
-    `+${int(range.add)} −${int(range.del)}`,
-    int(range.commits),
-    int(range.prompts),
+    L.int(sessions),
+    L.int(range.turns),
+    L.dur(range.active),
+    L.usd(range.cost),
+    L.compact(range.in + range.out + range.cr + range.cw),
+    `${L.compact(range.in + range.cr + range.cw)} / ${L.compact(range.out)}`,
+    L.ratio(range.cr, range.in + range.cr + range.cw),
+    `${L.int(range.tools)}${range.toolErr > 0 ? ` (${L.int(range.toolErr)} err)` : ''}`,
+    `+${L.int(range.add)} −${L.int(range.del)}`,
+    L.int(range.commits),
+    L.int(range.prompts),
   ]
 }
 
-const PERIOD_LABELS = ['Sessioni', 'Turni', 'Tempo attivo', 'Costo', 'Token totali', 'Input / output', 'Cache hit', 'Tool call', 'Righe', 'Commit', 'Prompt']
+const PERIOD_LABELS: MsgKey[] = ['Sessioni', 'Turni', 'Tempo attivo', 'Costo', 'Token totali', 'Input / output', 'Cache hit', 'Tool call', 'Righe', 'Commit', 'Prompt']
 
 /** Il riepilogo di `/kpi`: sessione corrente, oggi, ultimi 7 giorni; `notice` è l'avviso sugli aggiornamenti, in testa. */
-export function summaryReport(current: KpiSessionFile | null, today: { range: DayAgg; sessions: number }, week: { range: DayAgg; sessions: number }, now: number, notice?: string): string {
-  const parts: string[] = ['## KPI di Claude Code', ...(notice !== undefined ? [`> ${notice}`] : [])]
+export function summaryReport(L: I18n, current: KpiSessionFile | null, today: { range: DayAgg; sessions: number }, week: { range: DayAgg; sessions: number }, now: number, notice?: string): string {
+  const parts: string[] = [`## ${L.t('KPI di Claude Code')}`, ...(notice !== undefined ? [`> ${notice}`] : [])]
   const columns: string[][] = []
   const headers = ['KPI']
 
@@ -63,116 +66,125 @@ export function summaryReport(current: KpiSessionFile | null, today: { range: Da
       commits: s.git.commits,
     }
 
-    headers.push('Sessione corrente')
-    columns.push(periodColumn(range, 1))
+    headers.push(L.t('Sessione corrente'))
+    columns.push(periodColumn(L, range, 1))
   }
 
-  headers.push('Oggi', 'Ultimi 7 giorni')
-  columns.push(periodColumn(today.range, today.sessions), periodColumn(week.range, week.sessions))
+  headers.push(L.t('Oggi'), L.t('Ultimi 7 giorni'))
+  columns.push(periodColumn(L, today.range, today.sessions), periodColumn(L, week.range, week.sessions))
 
-  const rows = PERIOD_LABELS.map((label, index) => [label, ...columns.map(column => column[index] ?? '–')])
+  const rows = PERIOD_LABELS.map((label, index) => [L.t(label), ...columns.map(column => column[index] ?? '–')])
 
-  parts.push(table(headers, rows, columns.map((_, index) => index + 1)))
+  parts.push(table(L, headers, rows, columns.map((_, index) => index + 1)))
 
   if (current !== null) {
     const s = current.summary
     const rate = Object.entries(s.rate)
-      .map(([kind, value]) => `${kind === 'five_hour' ? '5h' : kind === 'seven_day' ? '7g' : kind} ${pct100(value.last)} (max ${pct100(value.max)})`)
+      .map(([kind, value]) => `${rateName(L, kind)} ${L.pct100(value.last)} (max ${L.pct100(value.max)})`)
       .join(' · ')
 
     parts.push(
       [
-        `**Sessione** ${current.sessionId.slice(0, 8)} · ${current.project.name} · ${current.kind} · avviata ${dateTime(current.createdAt)} · durata ${dur(now - current.createdAt)}`,
-        `Contesto ${s.context.lastPct > 0 ? pct100(s.context.lastPct) : '–'} (max ${pct100(s.context.maxPct)}) · compattazioni ${int(s.compactions.n)}${rate !== '' ? ` · rate limit ${rate}` : ''}`,
+        L.t('**Sessione** {id} · {project} · {kind} · avviata {start} · durata {duration}', {
+          id: current.sessionId.slice(0, 8),
+          project: current.project.name,
+          kind: L.code(current.kind),
+          start: L.dateTime(current.createdAt),
+          duration: L.dur(now - current.createdAt),
+        }),
+        `${L.t('Contesto {ctx} (max {max}) · compattazioni {n}', { ctx: s.context.lastPct > 0 ? L.pct100(s.context.lastPct) : '–', max: L.pct100(s.context.maxPct), n: L.int(s.compactions.n) })}${rate !== '' ? ` · rate limit ${rate}` : ''}`,
       ].join('  \n'),
     )
   }
 
-  parts.push('_`/kpi aiuto` per tutti i comandi · `/kpi statistiche --da 7d` per il dettaglio completo._')
+  parts.push(`_${L.t('`/kpi aiuto` per tutti i comandi · `/kpi statistiche --da 7d` per il dettaglio completo.')}_`)
 
   return parts.join('\n\n')
 }
 
 /** Il report completo di un insieme di sessioni: tutte le categorie di KPI. */
-export function statsReport(totals: Totals, rows: readonly SessionRow[], filter: KpiFilter, description: string, by: GroupKey | null): string {
+export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[], filter: KpiFilter, description: string, by: GroupKey | null): string {
   const s = totals.summary
   const r = totals.range
   const turns = r.turns
   const tokensAll = totalTokens(s.tokens)
+  const { int, fixed, dur, usd, compact, pct, pct100, ratio } = L
   const out: string[] = [`## KPI · ${description}`]
+  const p50p90 = (stat: Stat): string => (stat.n === 0 ? '–' : `${dur(percentileOf(stat, 0.5))} · ${dur(percentileOf(stat, 0.9))}`)
 
   out.push(
     section(
-      'Panoramica',
-      pairs([
-        ['Sessioni', `${int(totals.sessions)} (${counts(totals.byKind)})`],
-        ['Progetti', int(totals.projects)],
-        ['Giorni attivi', int(totals.days)],
-        ['Turni (principali / subagent)', `${int(turns)} / ${int(s.turns.sub)}`],
-        ['Prompt', int(r.prompts)],
-        ['Tempo attivo del modello', dur(r.active)],
-        ['Durata media turno · p50 · p90', `${dur(meanOf(s.turns.dur))} · ${dur(percentileOf(s.turns.dur, 0.5))} · ${dur(percentileOf(s.turns.dur, 0.9))}`],
-        ['Segmenti di processo (riprese, reload)', int(s.segments)],
+      L.t('Panoramica'),
+      pairs(L, [
+        [L.t('Sessioni'), `${int(totals.sessions)} (${counts(L, totals.byKind)})`],
+        [L.t('Progetti'), int(totals.projects)],
+        [L.t('Giorni attivi'), int(totals.days)],
+        [L.t('Turni (principali / subagent)'), `${int(turns)} / ${int(s.turns.sub)}`],
+        [L.t('Prompt'), int(r.prompts)],
+        [L.t('Tempo attivo del modello'), dur(r.active)],
+        [L.t('Durata media turno · p50 · p90'), `${dur(meanOf(s.turns.dur))} · ${p50p90(s.turns.dur)}`],
+        [L.t('Segmenti di processo (riprese, reload)'), int(s.segments)],
       ]),
     ),
   )
 
   out.push(
     section(
-      'Costo e token',
-      pairs([
-        ['Costo', usd(r.cost)],
-        ['Costo fuori dai turni (subagent in background, servizi, uscita)', `${usd(s.cost.outsideTurns ?? 0)} (${ratio(s.cost.outsideTurns ?? 0, s.cost.usd)})`],
-        ['Costo per turno · per sessione', `${usd(turns === 0 ? 0 : r.cost / turns)} · ${usd(totals.sessions === 0 ? 0 : r.cost / totals.sessions)}`],
-        ['Costo per commit · per 100 righe', `${r.commits === 0 ? '–' : usd(r.cost / r.commits)} · ${r.add + r.del === 0 ? '–' : usd((r.cost * 100) / (r.add + r.del))}`],
-        ['Token totali', compact(r.in + r.out + r.cr + r.cw)],
-        ['Input non in cache · output', `${compact(r.in)} · ${compact(r.out)}`],
-        ['Cache letta · scritta', `${compact(r.cr)} · ${compact(r.cw)}`],
-        ['Cache hit', ratio(r.cr, r.in + r.cr + r.cw)],
-        ['Token dei subagent', `${compact(totalTokens(s.tokensSub))} (${ratio(totalTokens(s.tokensSub), tokensAll)})`],
-        ['Richieste API', int(s.requests.n)],
+      L.t('Costo e token'),
+      pairs(L, [
+        [L.t('Costo'), usd(r.cost)],
+        [L.t('Costo fuori dai turni (subagent in background, servizi, uscita)'), `${usd(s.cost.outsideTurns ?? 0)} (${ratio(s.cost.outsideTurns ?? 0, s.cost.usd)})`],
+        [L.t('Costo per turno · per sessione'), `${usd(turns === 0 ? 0 : r.cost / turns)} · ${usd(totals.sessions === 0 ? 0 : r.cost / totals.sessions)}`],
+        [L.t('Costo per commit · per 100 righe'), `${r.commits === 0 ? '–' : usd(r.cost / r.commits)} · ${r.add + r.del === 0 ? '–' : usd((r.cost * 100) / (r.add + r.del))}`],
+        [L.t('Token totali'), compact(r.in + r.out + r.cr + r.cw)],
+        [L.t('Input non in cache · output'), `${compact(r.in)} · ${compact(r.out)}`],
+        [L.t('Cache letta · scritta'), `${compact(r.cr)} · ${compact(r.cw)}`],
+        [L.t('Cache hit'), ratio(r.cr, r.in + r.cr + r.cw)],
+        [L.t('Token dei subagent'), `${compact(totalTokens(s.tokensSub))} (${ratio(totalTokens(s.tokensSub), tokensAll)})`],
+        [L.t('Richieste API'), int(s.requests.n)],
       ]) +
         '\n\n' +
         table(
-          ['Modello', 'Richieste', 'Input', 'Output', 'Cache letta', 'Cache scritta', 'Hit'],
+          L,
+          [L.t('Modello'), L.t('Richieste'), 'Input', 'Output', L.t('Cache letta'), L.t('Cache scritta'), 'Hit'],
           Object.entries(s.byModel)
             .sort((a, b) => totalTokens(b[1]) - totalTokens(a[1]))
             .map(([model, agg]) => [model, int(agg.req), compact(agg.in), compact(agg.out), compact(agg.cr), compact(agg.cw), pct(cacheHit(agg))]),
           [1, 2, 3, 4, 5, 6],
         ) +
-        '\n\n_Il costo è quello calcolato da Claude Code (comprende le sue chiamate di servizio); non esiste un costo per modello._',
+        `\n\n_${L.t('Il costo è quello calcolato da Claude Code (comprende le sue chiamate di servizio); non esiste un costo per modello.')}_`,
     ),
   )
 
   out.push(
     section(
-      'Richieste e latenza',
-      pairs([
-        ['Richieste per turno (media)', fixed(meanOf(s.turns.steps), 1)],
-        ['Tempo al primo token p50 · p90', s.requests.ttft.n === 0 ? '–' : `${dur(percentileOf(s.requests.ttft, 0.5))} · ${dur(percentileOf(s.requests.ttft, 0.9))}`],
-        ['Latenza richiesta p50 · p90', s.requests.latency.n === 0 ? '–' : `${dur(percentileOf(s.requests.latency, 0.5))} · ${dur(percentileOf(s.requests.latency, 0.9))}`],
-        ['Velocità di output (token/s, media)', s.requests.tps.n === 0 ? '–' : fixed(meanOf(s.requests.tps), 1)],
-        ['Motivi di stop', counts(s.requests.byStop)],
-        ['Fallback di modello', int(s.requests.fallback)],
-        ['Effort', counts(s.effort)],
-        ['Cambi di modello', int(s.models.switches)],
-        ['Tool lato server', counts(Object.fromEntries(Object.entries(s.requests.server).map(([name, agg]) => [name, agg.n])))],
+      L.t('Richieste e latenza'),
+      pairs(L, [
+        [L.t('Richieste per turno (media)'), fixed(meanOf(s.turns.steps), 1)],
+        [L.t('Tempo al primo token p50 · p90'), p50p90(s.requests.ttft)],
+        [L.t('Latenza richiesta p50 · p90'), p50p90(s.requests.latency)],
+        [L.t('Velocità di output (token/s, media)'), s.requests.tps.n === 0 ? '–' : fixed(meanOf(s.requests.tps), 1)],
+        [L.t('Motivi di stop'), counts(L, s.requests.byStop)],
+        [L.t('Fallback di modello'), int(s.requests.fallback)],
+        ['Effort', counts(L, s.effort)],
+        [L.t('Cambi di modello'), int(s.models.switches)],
+        [L.t('Tool lato server'), counts(L, Object.fromEntries(Object.entries(s.requests.server).map(([name, agg]) => [name, agg.n])))],
       ]),
     ),
   )
 
   out.push(
     section(
-      'Contesto, compattazioni e rate limit',
-      pairs([
-        ['Contesto massimo', `${pct100(s.context.maxPct)}${s.context.window > 0 ? ` di ${compact(s.context.window)}` : ''}`],
-        ['Contesto medio a fine turno', s.context.pctEnd.n === 0 ? '–' : pct100(meanOf(s.context.pctEnd))],
-        ['Compattazioni', `${int(s.compactions.n)} (${counts(s.compactions.byTrigger)})`],
-        ['Riduzione media', s.compactions.before > 0 ? pct(1 - s.compactions.after / s.compactions.before) : '–'],
-        ['Turni per compattazione', s.compactions.n === 0 ? '–' : fixed(turns / s.compactions.n, 1)],
+      L.t('Contesto, compattazioni e rate limit'),
+      pairs(L, [
+        [L.t('Contesto massimo'), `${pct100(s.context.maxPct)}${s.context.window > 0 ? ` ${L.t('di {window}', { window: compact(s.context.window) })}` : ''}`],
+        [L.t('Contesto medio a fine turno'), s.context.pctEnd.n === 0 ? '–' : pct100(meanOf(s.context.pctEnd))],
+        [L.t('Compattazioni'), `${int(s.compactions.n)} (${counts(L, s.compactions.byTrigger)})`],
+        [L.t('Riduzione media'), s.compactions.before > 0 ? pct(1 - s.compactions.after / s.compactions.before) : '–'],
+        [L.t('Turni per compattazione'), s.compactions.n === 0 ? '–' : fixed(turns / s.compactions.n, 1)],
         ['/clear', int(s.commands.clear ?? 0)],
-        ...Object.entries(s.rate).map(([kind, value]) => [`Rate limit ${kind === 'five_hour' ? '5 ore' : kind === 'seven_day' ? '7 giorni' : kind} (max)`, pct100(value.max)] as [string, string]),
-        ['Blocchi per rate limit', int(s.errors.api.rate_limit ?? 0)],
+        ...Object.entries(s.rate).map(([kind, value]) => [`Rate limit ${rateName(L, kind, true)} (max)`, pct100(value.max)] as [string, string]),
+        [L.t('Blocchi per rate limit'), int(s.errors.api.rate_limit ?? 0)],
       ]),
     ),
   )
@@ -180,16 +192,16 @@ export function statsReport(totals: Totals, rows: readonly SessionRow[], filter:
   out.push(
     section(
       'Prompt',
-      pairs([
-        ['Prompt per origine', counts(s.prompts.byOrigin)],
-        ['Prompt per sorgente', counts(s.prompts.bySource)],
-        ['Accodati durante un turno', int(s.prompts.queued)],
-        ['Lunghezza media (caratteri · parole)', `${int(meanOf(s.prompts.chars))} · ${int(meanOf(s.prompts.words))}`],
-        ['Lunghezza massima (caratteri)', int(s.prompts.chars.max)],
-        ['Allegati', counts(s.prompts.att)],
-        ['Menzioni @', `${int(s.mentions.n)} (${counts(s.mentions.byType)})`],
-        ['Tempo di risposta utente p50 · p90', s.prompts.think.n === 0 ? '–' : `${dur(percentileOf(s.prompts.think, 0.5))} · ${dur(percentileOf(s.prompts.think, 0.9))}`],
-        ['Esiti dei turni', counts(s.turns.byReason)],
+      pairs(L, [
+        [L.t('Prompt per origine'), counts(L, s.prompts.byOrigin)],
+        [L.t('Prompt per sorgente'), counts(L, s.prompts.bySource)],
+        [L.t('Accodati durante un turno'), int(s.prompts.queued)],
+        [L.t('Lunghezza media (caratteri · parole)'), `${int(meanOf(s.prompts.chars))} · ${int(meanOf(s.prompts.words))}`],
+        [L.t('Lunghezza massima (caratteri)'), int(s.prompts.chars.max)],
+        [L.t('Allegati'), counts(L, s.prompts.att)],
+        [L.t('Menzioni @'), `${int(s.mentions.n)} (${counts(L, s.mentions.byType)})`],
+        [L.t('Tempo di risposta utente p50 · p90'), p50p90(s.prompts.think)],
+        [L.t('Esiti dei turni'), counts(L, s.turns.byReason)],
       ]),
     ),
   )
@@ -198,9 +210,10 @@ export function statsReport(totals: Totals, rows: readonly SessionRow[], filter:
 
   out.push(
     section(
-      `Tool (${int(s.tools.n)} chiamate)`,
+      L.t('Tool ({n} chiamate)', { n: int(s.tools.n) }),
       table(
-        ['Tool', 'Chiamate', 'Errori', 'Negate', 'Interrotte', 'Durata media', 'p90', 'Read-only', 'Subagent'],
+        L,
+        ['Tool', L.t('Chiamate'), L.t('Errori'), L.t('Negate'), L.t('Interrotte'), L.t('Durata media'), 'p90', 'Read-only', 'Subagent'],
         tools.slice(0, 20).map(([name, agg]) => [
           name,
           int(agg.n),
@@ -214,53 +227,70 @@ export function statsReport(totals: Totals, rows: readonly SessionRow[], filter:
         ]),
         [1, 2, 3, 4, 5, 6, 7, 8],
       ) +
-        `\n\nParallelismo medio ${fixed(meanOf(s.tools.batches), 1)} tool per batch · in background ${int(s.tools.bg)} · MCP ${counts(Object.fromEntries(Object.entries(s.tools.mcp).map(([server, agg]) => [server, agg.n])))}`,
+        `\n\n${L.t('Parallelismo medio {mean} tool per batch · in background {bg} · MCP {mcp}', {
+          mean: fixed(meanOf(s.tools.batches), 1),
+          bg: int(s.tools.bg),
+          mcp: counts(L, Object.fromEntries(Object.entries(s.tools.mcp).map(([server, agg]) => [server, agg.n]))),
+        })}`,
     ),
   )
 
   out.push(
     section(
-      `Bash (${int(s.bash.n)} comandi)`,
+      L.t('Bash ({n} comandi)', { n: int(s.bash.n) }),
       table(
-        ['Categoria', 'Comandi', 'Ok', 'Errori', 'Interrotti', 'Timeout', 'Background'],
+        L,
+        [L.t('Categoria'), L.t('Comandi'), 'Ok', L.t('Errori'), L.t('Interrotti'), 'Timeout', 'Background'],
         Object.entries(s.bash.byCat)
           .sort((a, b) => b[1].n - a[1].n)
-          .map(([cat, agg]) => [cat, int(agg.n), int(agg.ok), int(agg.err), int(agg.intr), int(agg.to), int(agg.bg)]),
+          .map(([cat, agg]) => [L.code(cat), int(agg.n), int(agg.ok), int(agg.err), int(agg.intr), int(agg.to), int(agg.bg)]),
         [1, 2, 3, 4, 5, 6],
       ) +
         '\n\n' +
         table(
-          ['Comando', 'Volte', 'Ok', 'Errori'],
+          L,
+          [L.t('Comando'), L.t('Volte'), 'Ok', L.t('Errori')],
           Object.entries(s.bash.byCmd)
             .sort((a, b) => b[1].n - a[1].n)
             .slice(0, 15)
             .map(([cmd, agg]) => [cmd, int(agg.n), int(agg.ok), int(agg.err)]),
           [1, 2, 3],
         ) +
-        `\n\nTest: ${int(s.tests.n)} esecuzioni, ${int(s.tests.ok)} superate, ${int(s.tests.err)} fallite (pass rate ${ratio(s.tests.ok, s.tests.ok + s.tests.err)}) · Build: ${int(s.builds.n)}, ${int(s.builds.ok)} ok, ${int(s.builds.err)} ko · comandi con pipe ${int(s.bash.pipes)} · sandbox disattivata ${int(s.bash.sandboxOff)}`,
+        `\n\n${L.t('Test: {n} esecuzioni, {ok} superate, {err} fallite (pass rate {rate}) · Build: {builds}, {bok} ok, {bko} ko · comandi con pipe {pipes} · sandbox disattivata {sbx}', {
+          n: int(s.tests.n),
+          ok: int(s.tests.ok),
+          err: int(s.tests.err),
+          rate: ratio(s.tests.ok, s.tests.ok + s.tests.err),
+          builds: int(s.builds.n),
+          bok: int(s.builds.ok),
+          bko: int(s.builds.err),
+          pipes: int(s.bash.pipes),
+          sbx: int(s.bash.sandboxOff),
+        })}`,
     ),
   )
 
   out.push(
     section(
-      'File e codice',
-      pairs([
-        ['Righe aggiunte · rimosse · nette', `+${int(r.add)} · −${int(r.del)} · ${int(r.add - r.del)}`],
-        ['File creati · modificati (unici) · letti (unici)', `${int(s.files.created)} · ${int(s.files.uniqueModified)} · ${int(s.files.uniqueRead)}`],
-        ['Modifiche (Edit) · scritture (Write)', `${int(s.files.edited)} · ${int(s.files.written)}`],
-        ['Righe lette', compact(s.files.linesRead)],
-        ['Modifiche ritoccate dall\'utente', int(s.files.userModified)],
-        ['File fuori dal progetto', int(s.files.outside)],
-        ['File modificati 3+ volte (churn)', int(s.files.churn)],
-        ['Per classe', Object.entries(s.files.byClass).map(([cls, agg]) => `${cls} +${int(agg.add)} −${int(agg.del)}`).join(' · ') || '–'],
+      L.t('File e codice'),
+      pairs(L, [
+        [L.t('Righe aggiunte · rimosse · nette'), `+${int(r.add)} · −${int(r.del)} · ${int(r.add - r.del)}`],
+        [L.t('File creati · modificati (unici) · letti (unici)'), `${int(s.files.created)} · ${int(s.files.uniqueModified)} · ${int(s.files.uniqueRead)}`],
+        [L.t('Modifiche (Edit) · scritture (Write)'), `${int(s.files.edited)} · ${int(s.files.written)}`],
+        [L.t('Righe lette'), compact(s.files.linesRead)],
+        [L.t('Modifiche ritoccate dall\'utente'), int(s.files.userModified)],
+        [L.t('File fuori dal progetto'), int(s.files.outside)],
+        [L.t('File modificati 3+ volte (churn)'), int(s.files.churn)],
+        [L.t('Per classe'), Object.entries(s.files.byClass).map(([cls, agg]) => `${L.code(cls)} +${int(agg.add)} −${int(agg.del)}`).join(' · ') || '–'],
       ]) +
         '\n\n' +
         table(
-          ['Estensione', 'Modifiche', 'Righe +', 'Righe −'],
+          L,
+          [L.t('Estensione'), L.t('Modifiche'), L.t('Righe +'), L.t('Righe −')],
           Object.entries(s.files.byExt)
             .sort((a, b) => b[1].add + b[1].del - (a[1].add + a[1].del))
             .slice(0, 12)
-            .map(([ext, agg]) => [ext, int(agg.n), int(agg.add), int(agg.del)]),
+            .map(([ext, agg]) => [L.code(ext), int(agg.n), int(agg.add), int(agg.del)]),
           [1, 2, 3],
         ),
     ),
@@ -269,92 +299,117 @@ export function statsReport(totals: Totals, rows: readonly SessionRow[], filter:
   out.push(
     section(
       'Git',
-      pairs([
-        ['Commit', `${int(s.git.commits)} (${counts(s.git.byKind)})`],
+      pairs(L, [
+        ['Commit', `${int(s.git.commits)} (${counts(L, s.git.byKind)})`],
         ['Push', int(s.git.pushes)],
-        ['Merge / rebase', counts(s.git.branchOps)],
-        ['Pull request', counts(s.git.prs)],
-        ['Branch', counts(s.git.branches, 8)],
-        ['Righe per commit', s.git.commits === 0 ? '–' : int((r.add + r.del) / s.git.commits)],
+        ['Merge / rebase', counts(L, s.git.branchOps)],
+        ['Pull request', counts(L, s.git.prs)],
+        ['Branch', counts(L, s.git.branches, 8)],
+        [L.t('Righe per commit'), s.git.commits === 0 ? '–' : int((r.add + r.del) / s.git.commits)],
       ]),
     ),
   )
 
   out.push(
     section(
-      'Permessi',
-      pairs([
-        ['Decisioni', counts(s.perms.byDecision)],
-        ['Chi ha deciso', counts(s.perms.byWho)],
-        ['Dialoghi di permesso mostrati', int(s.perms.dialogs)],
-        ['Negati dal classificatore', int(s.perms.denied)],
-        ['Tool call negate', int(s.perms.toolDenied)],
+      L.t('Permessi'),
+      pairs(L, [
+        [L.t('Decisioni'), counts(L, s.perms.byDecision)],
+        [L.t('Chi ha deciso'), counts(L, s.perms.byWho)],
+        [L.t('Dialoghi di permesso mostrati'), int(s.perms.dialogs)],
+        [L.t('Negati dal classificatore'), int(s.perms.denied)],
+        [L.t('Tool call negate'), int(s.perms.toolDenied)],
       ]),
     ),
   )
 
   out.push(
     section(
-      `Subagent e workflow (${int(s.agents.n)} avviati)`,
+      L.t('Subagent e workflow ({n} avviati)', { n: int(s.agents.n) }),
       table(
-        ['Tipo', 'Avviati', 'In background', 'Durata totale', 'Token', 'Tool', 'Errori'],
+        L,
+        [L.t('Tipo'), L.t('Avviati'), L.t('In background'), L.t('Durata totale'), 'Token', 'Tool', L.t('Errori')],
         Object.entries(s.agents.byType)
           .sort((a, b) => b[1].n - a[1].n)
-          .map(([type, agg]) => [type, int(agg.n), int(agg.bg), dur(agg.ms), compact(agg.tok), int(agg.tools), int(agg.err)]),
+          .map(([type, agg]) => [L.code(type), int(agg.n), int(agg.bg), dur(agg.ms), compact(agg.tok), int(agg.tools), int(agg.err)]),
         [1, 2, 3, 4, 5, 6],
-      ) + `\n\nWorkflow ${int(s.agents.workflows)} · massimo concorrenti ${int(s.agents.maxConcurrent)} · modelli ${counts(s.agents.byModel)}`,
+      ) + `\n\n${L.t('Workflow {wf} · massimo concorrenti {max} · modelli {models}', { wf: int(s.agents.workflows), max: int(s.agents.maxConcurrent), models: counts(L, s.agents.byModel) })}`,
     ),
   )
 
   out.push(
     section(
-      'Skill, comandi e web',
-      pairs([
-        ['Skill', counts(Object.fromEntries(Object.entries(s.skills).map(([name, agg]) => [name, agg.n])))],
-        ['Comandi slash', counts(s.commands)],
-        ['Espansioni', counts(s.expansions)],
-        ['WebFetch · domini', `${int(s.web.fetch)} · ${counts(s.web.domains, 8)}`],
+      L.t('Skill, comandi e web'),
+      pairs(L, [
+        ['Skill', counts(L, Object.fromEntries(Object.entries(s.skills).map(([name, agg]) => [name, agg.n])))],
+        [L.t('Comandi slash'), counts(L, s.commands)],
+        [L.t('Espansioni'), counts(L, s.expansions)],
+        [L.t('WebFetch · domini'), `${int(s.web.fetch)} · ${counts(L, s.web.domains, 8)}`],
         ['WebSearch', int(s.web.search)],
-        ['File di istruzioni caricati', counts(s.instr)],
-        ['Todo (ultima lista)', s.todos.writes === 0 ? '–' : `${int(s.todos.done)}/${int(s.todos.total)} completati`],
-        ['Task creati · completati', `${int(s.tasks.created)} · ${int(s.tasks.completed)}`],
+        [L.t('File di istruzioni caricati'), counts(L, s.instr)],
+        [L.t('Todo (ultima lista)'), s.todos.writes === 0 ? '–' : L.t('{done}/{total} completati', { done: int(s.todos.done), total: int(s.todos.total) })],
+        [L.t('Task creati · completati'), `${int(s.tasks.created)} · ${int(s.tasks.completed)}`],
       ]),
     ),
   )
 
   out.push(
     section(
-      'Errori e interruzioni',
-      pairs([
-        ['Errori API', counts(s.errors.api)],
-        ['Turni in errore · rifiutati', `${int(s.errors.turnErr)} · ${int(s.errors.refusals)}`],
-        ['Errori dei tool', `${int(s.errors.toolErr)} (${ratio(s.errors.toolErr, s.tools.n)})`],
-        ['Interruzioni', int(s.errors.interrupts)],
-        ['Stop per max_tokens', int(s.errors.maxTokens)],
-        ['Notifiche', counts(s.notif)],
+      L.t('Errori e interruzioni'),
+      pairs(L, [
+        [L.t('Errori API'), counts(L, s.errors.api)],
+        [L.t('Turni in errore · rifiutati'), `${int(s.errors.turnErr)} · ${int(s.errors.refusals)}`],
+        [L.t('Errori dei tool'), `${int(s.errors.toolErr)} (${ratio(s.errors.toolErr, s.tools.n)})`],
+        [L.t('Interruzioni'), int(s.errors.interrupts)],
+        [L.t('Stop per max_tokens'), int(s.errors.maxTokens)],
+        [L.t('Notifiche'), counts(L, s.notif)],
       ]),
     ),
   )
 
-  out.push(section('Attività per ora', heatmap(s.byHour)))
+  out.push(section(L.t('Attività per ora'), heatmap(L, s.byHour)))
 
   if (by !== null) {
-    out.push(section(`Per ${by}`, groupTable(groupBy(rows, filter, by), by)))
+    out.push(section(L.t('Per {group}', { group: L.t(GROUP_NAMES[by]) }), groupTable(L, groupBy(rows, filter, by), by)))
   }
 
   return out.join('\n\n')
 }
 
+/** Il nome di un raggruppamento nel titolo della sezione (`Per giorno`). */
+const GROUP_NAMES: Record<GroupKey, MsgKey> = {
+  giorno: 'giorno',
+  settimana: 'settimana',
+  mese: 'mese',
+  progetto: 'progetto',
+  modello: 'modello',
+  branch: 'branch',
+  tipo: 'tipo',
+  sessione: 'sessione',
+}
+
+/** Il titolo della colonna di un raggruppamento. */
+const GROUP_TITLES: Record<GroupKey, MsgKey> = {
+  giorno: 'Giorno',
+  settimana: 'Settimana (dal)',
+  mese: 'Mese',
+  progetto: 'Progetto',
+  modello: 'Modello',
+  branch: 'Branch',
+  tipo: 'Tipo',
+  sessione: 'Sessione',
+}
+
 /** Tabella ora × giorno della settimana in forma compatta. */
-export function heatmap(byHour: readonly number[]): string {
+export function heatmap(L: I18n, byHour: readonly number[]): string {
   const max = Math.max(0, ...byHour)
 
   if (max === 0) {
-    return '_nessun turno_'
+    return `_${L.t('nessun turno')}_`
   }
 
   const shades = [' ', '░', '▒', '▓', '█']
-  const lines = WEEKDAYS.map((day, weekday) => {
+  const lines = L.weekdays.map((day, weekday) => {
     const cells = Array.from({ length: 24 }, (_, hour) => {
       const value = byHour[weekday * 24 + hour] ?? 0
 
@@ -368,21 +423,23 @@ export function heatmap(byHour: readonly number[]): string {
 }
 
 /** La tabella di un raggruppamento. */
-export function groupTable(groups: ReturnType<typeof groupBy>, by: GroupKey): string {
+export function groupTable(L: I18n, groups: ReturnType<typeof groupBy>, by: GroupKey): string {
+  const { int, compact, dur, usd, pct } = L
+
   if (by === 'modello') {
     return table(
-      ['Modello', 'Sessioni', 'Richieste', 'Input', 'Output', 'Cache letta', 'Hit'],
+      L,
+      [L.t('Modello'), L.t('Sessioni'), L.t('Richieste'), 'Input', 'Output', L.t('Cache letta'), 'Hit'],
       groups.map(group => [group.key, int(group.sessions), int(group.agg.req), compact(group.agg.in), compact(group.agg.out), compact(group.agg.cr), pct(cacheHit(group.agg))]),
       [1, 2, 3, 4, 5, 6],
     )
   }
 
-  const label = by === 'giorno' ? 'Giorno' : by === 'settimana' ? 'Settimana (dal)' : by === 'mese' ? 'Mese' : by === 'progetto' ? 'Progetto' : by === 'branch' ? 'Branch' : by === 'tipo' ? 'Tipo' : 'Sessione'
-
   return table(
-    [label, 'Sessioni', 'Turni', 'Attivo', 'Costo', 'Token', 'Tool', 'Righe', 'Commit'],
+    L,
+    [L.t(GROUP_TITLES[by]), L.t('Sessioni'), L.t('Turni'), L.t('Attivo'), L.t('Costo'), 'Token', 'Tool', L.t('Righe'), 'Commit'],
     groups.map(group => [
-      by === 'giorno' || by === 'settimana' ? dayLabel(group.key) : group.key,
+      by === 'giorno' || by === 'settimana' ? L.dayLabel(group.key) : by === 'tipo' ? L.code(group.key) : group.key,
       int(group.sessions),
       int(group.agg.turns),
       dur(group.agg.active),
@@ -397,31 +454,33 @@ export function groupTable(groups: ReturnType<typeof groupBy>, by: GroupKey): st
 }
 
 /** L'elenco delle sessioni, dalla più recente. */
-export function sessionsReport(rows: readonly SessionRow[], filter: KpiFilter, limit: number, now: number, description: string): string {
+export function sessionsReport(L: I18n, rows: readonly SessionRow[], filter: KpiFilter, limit: number, now: number, description: string): string {
   const recent = [...rows].sort((a, b) => b.file.createdAt - a.file.createdAt).slice(0, limit)
+  const { int, compact, dur, usd } = L
 
   return [
-    `## Sessioni · ${description}`,
-    `${int(rows.length)} sessioni${rows.length > limit ? `, le ${int(limit)} più recenti (\`--limite\` per vederne di più)` : ''}.`,
+    `## ${L.t('Sessioni')} · ${description}`,
+    `${L.count(rows.length, 'sessione', 'sessioni')}${rows.length > limit ? L.t(', le {n} più recenti (`--limite` per vederne di più)', { n: int(limit) }) : ''}.`,
     table(
-      ['Inizio', 'Progetto', 'ID', 'Tipo', 'Durata', 'Turni', 'Costo', 'Token', 'Righe', 'Commit', 'Branch', 'Stato'],
+      L,
+      [L.t('Inizio'), L.t('Progetto'), 'ID', L.t('Tipo'), L.t('Durata'), L.t('Turni'), L.t('Costo'), 'Token', L.t('Righe'), 'Commit', 'Branch', L.t('Stato')],
       recent.map(row => {
         const s = row.file.summary
         const range = rangeOf(row, filter)
 
         return [
-          dateTime(row.file.createdAt),
-          cut(row.projectName, 28),
+          L.dateTime(row.file.createdAt),
+          L.cut(row.projectName, 28),
           row.file.sessionId.slice(0, 8),
-          row.file.kind,
+          L.code(row.file.kind),
           dur(Math.max(0, s.lastAt - row.file.createdAt)),
           int(range.turns),
           usd(range.cost),
           compact(range.in + range.out + range.cr + range.cw),
           `+${int(range.add)} −${int(range.del)}`,
           int(range.commits),
-          cut(row.file.meta.branches.at(-1) ?? '–', 20),
-          displayStatus(row.file, now),
+          L.cut(row.file.meta.branches.at(-1) ?? '–', 20),
+          L.code(displayStatus(row.file, now)),
         ]
       }),
       [4, 5, 6, 7, 9],
@@ -430,7 +489,7 @@ export function sessionsReport(rows: readonly SessionRow[], filter: KpiFilter, l
 }
 
 /** I totali per progetto. */
-export function projectsReport(rows: readonly SessionRow[], filter: KpiFilter, description: string): string {
+export function projectsReport(L: I18n, rows: readonly SessionRow[], filter: KpiFilter, description: string): string {
   const byProject = new Map<string, SessionRow[]>()
 
   for (const row of rows) {
@@ -460,12 +519,14 @@ export function projectsReport(rows: readonly SessionRow[], filter: KpiFilter, d
       return { path, name: list[0]?.projectName ?? path, sessions: list.length, last, ...range }
     })
     .sort((a, b) => b.cost - a.cost)
+  const { int, compact, dur, usd } = L
 
   return [
-    `## Progetti · ${description}`,
+    `## ${L.t('Progetti')} · ${description}`,
     table(
-      ['Progetto', 'Percorso', 'Sessioni', 'Ultima attività', 'Turni', 'Attivo', 'Costo', 'Token', 'Righe', 'Commit'],
-      lines.map(line => [line.name, cut(line.path, 60), int(line.sessions), date(line.last), int(line.turns), dur(line.active), usd(line.cost), compact(line.tokens), `+${int(line.add)} −${int(line.del)}`, int(line.commits)]),
+      L,
+      [L.t('Progetto'), L.t('Percorso'), L.t('Sessioni'), L.t('Ultima attività'), L.t('Turni'), L.t('Attivo'), L.t('Costo'), 'Token', L.t('Righe'), 'Commit'],
+      lines.map(line => [line.name, L.cut(line.path, 60), int(line.sessions), L.date(line.last), int(line.turns), dur(line.active), usd(line.cost), compact(line.tokens), `+${int(line.add)} −${int(line.del)}`, int(line.commits)]),
       [2, 4, 5, 6, 7, 9],
     ),
   ].join('\n\n')
@@ -475,24 +536,25 @@ export function projectsReport(rows: readonly SessionRow[], filter: KpiFilter, d
  * Il dettaglio di una sessione: statistiche complete e dettagli. `ledgerUsd`,
  * per la sessione in corso, è il costo come lo totalizza Claude Code (/cost).
  */
-export function sessionReport(row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number, ledgerUsd?: number): string {
+export function sessionReport(L: I18n, row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number, ledgerUsd?: number): string {
   const file = row.file
+  const { int, compact, dur, usd, dateTime } = L
   const head = [
-    `## Sessione ${file.sessionId}`,
-    pairs([
-      ['Progetto', `${row.projectName} (${row.projectPath})`],
-      ['Cartella dati', row.dir],
-      ['Tipo · stato', `${file.kind} · ${displayStatus(file, now)}`],
-      ...(ledgerUsd === undefined ? [] : [['Costo KPI · secondo Claude Code (/cost)', `${usd(file.summary.cost.usd)} · ${usd(ledgerUsd)}`] as [string, string]]),
-      ['Inizio · ultima attività', `${dateTime(file.createdAt)} · ${dateTime(file.summary.lastAt)}`],
-      ['Segmenti', file.segments.map(segment => `${segment.source} ${dateTime(segment.startedAt)}${segment.endReason !== undefined ? ` → ${segment.endReason}` : ''}`).join(' · ')],
-      ['Versioni · modelli', `${file.meta.versions.join(', ') || '–'} · ${file.meta.models.join(', ') || '–'}`],
+    `## ${L.t('Sessione')} ${file.sessionId}`,
+    pairs(L, [
+      [L.t('Progetto'), `${row.projectName} (${row.projectPath})`],
+      [L.t('Cartella dati'), row.dir],
+      [L.t('Tipo · stato'), `${L.code(file.kind)} · ${L.code(displayStatus(file, now))}`],
+      ...(ledgerUsd === undefined ? [] : [[L.t('Costo KPI · secondo Claude Code (/cost)'), `${usd(file.summary.cost.usd)} · ${usd(ledgerUsd)}`] as [string, string]]),
+      [L.t('Inizio · ultima attività'), `${dateTime(file.createdAt)} · ${dateTime(file.summary.lastAt)}`],
+      [L.t('Segmenti'), file.segments.map(segment => `${L.code(segment.source)} ${dateTime(segment.startedAt)}${segment.endReason !== undefined ? ` → ${L.code(segment.endReason)}` : ''}`).join(' · ')],
+      [L.t('Versioni · modelli'), `${file.meta.versions.join(', ') || '–'} · ${file.meta.models.join(', ') || '–'}`],
       ['Branch · repo', `${file.meta.branches.join(', ') || '–'} · ${file.meta.repo?.name ?? file.meta.repo?.remote ?? '–'}`],
-      ['Sessione precedente · successiva', `${file.links.previousSessionId?.slice(0, 8) ?? '–'} · ${file.links.nextSessionId?.slice(0, 8) ?? '–'}`],
+      [L.t('Sessione precedente · successiva'), `${file.links.previousSessionId?.slice(0, 8) ?? '–'} · ${file.links.nextSessionId?.slice(0, 8) ?? '–'}`],
     ]),
   ]
 
-  const parts = [...head, statsReport(totals, [row], filter, 'sessione', null)]
+  const parts = [...head, statsReport(L, totals, [row], filter, L.t('sessione'), null)]
 
   if (details !== null) {
     const files = Object.entries(details.files)
@@ -502,21 +564,22 @@ export function sessionReport(row: SessionRow, details: KpiDetails | null, total
 
     parts.push(
       section(
-        'File modificati',
+        L.t('File modificati'),
         table(
-          ['File', 'Modifiche', 'Righe +', 'Righe −', 'Classe'],
-          files.map(([path, agg]) => [cut(path, 90), int(agg.e + agg.w), int(agg.add), int(agg.del), agg.cls]),
+          L,
+          ['File', L.t('Modifiche'), L.t('Righe +'), L.t('Righe −'), L.t('Classe')],
+          files.map(([path, agg]) => [L.cut(path, 90), int(agg.e + agg.w), int(agg.add), int(agg.del), L.code(agg.cls)]),
           [1, 2, 3],
         ),
       ),
     )
 
     if (details.commits.length > 0) {
-      parts.push(section('Commit', table(['Quando', 'SHA', 'Tipo', 'Branch'], details.commits.map(commit => [dateTime(commit.t), commit.sha, commit.kind, commit.branch ?? '–']))))
+      parts.push(section('Commit', table(L, [L.t('Quando'), 'SHA', L.t('Tipo'), 'Branch'], details.commits.map(commit => [dateTime(commit.t), commit.sha, commit.kind, commit.branch ?? '–']))))
     }
 
     if (details.prs.length > 0) {
-      parts.push(section('Pull request', table(['Quando', 'PR', 'Azione', 'URL'], details.prs.map(pr => [dateTime(pr.t), `#${pr.n}`, pr.action, pr.url ?? '–']))))
+      parts.push(section('Pull request', table(L, [L.t('Quando'), 'PR', L.t('Azione'), 'URL'], details.prs.map(pr => [dateTime(pr.t), `#${pr.n}`, pr.action, pr.url ?? '–']))))
     }
 
     const agents = Object.values(details.agents)
@@ -526,8 +589,9 @@ export function sessionReport(row: SessionRow, details: KpiDetails | null, total
         section(
           'Subagent',
           table(
-            ['Avvio', 'Tipo', 'Modello', 'Durata', 'Token', 'Tool', 'Esito'],
-            agents.slice(-30).map(agent => [dateTime(agent.start), agent.type, agent.model ?? '–', agent.ms !== undefined ? dur(agent.ms) : '–', agent.tok !== undefined ? compact(agent.tok) : '–', int(agent.tools ?? 0), agent.st ?? '–']),
+            L,
+            [L.t('Avvio'), L.t('Tipo'), L.t('Modello'), L.t('Durata'), 'Token', 'Tool', L.t('Esito')],
+            agents.slice(-30).map(agent => [dateTime(agent.start), L.code(agent.type), agent.model ?? '–', agent.ms !== undefined ? dur(agent.ms) : '–', agent.tok !== undefined ? compact(agent.tok) : '–', int(agent.tools ?? 0), agent.st ?? '–']),
             [3, 4, 5],
           ),
         ),
@@ -537,14 +601,14 @@ export function sessionReport(row: SessionRow, details: KpiDetails | null, total
     if (details.compactions.length > 0) {
       parts.push(
         section(
-          'Compattazioni',
-          table(['Quando', 'Trigger', 'Token prima', 'Token dopo'], details.compactions.map(one => [dateTime(one.t), one.tr, one.b !== undefined ? compact(one.b) : '–', one.af !== undefined ? compact(one.af) : '–']), [2, 3]),
+          L.t('Compattazioni'),
+          table(L, [L.t('Quando'), 'Trigger', L.t('Token prima'), L.t('Token dopo')], details.compactions.map(one => [dateTime(one.t), one.tr, one.b !== undefined ? compact(one.b) : '–', one.af !== undefined ? compact(one.af) : '–']), [2, 3]),
         ),
       )
     }
 
     if (details.switches.length > 0) {
-      parts.push(section('Cambi di modello', table(['Quando', 'Da', 'A', 'Origine'], details.switches.map(one => [dateTime(one.t), one.from, one.to, one.src]))))
+      parts.push(section(L.t('Cambi di modello'), table(L, [L.t('Quando'), L.t('Da'), L.t('A'), L.t('Origine')], details.switches.map(one => [dateTime(one.t), one.from, one.to, one.src]))))
     }
   }
 
@@ -553,5 +617,3 @@ export function sessionReport(row: SessionRow, details: KpiDetails | null, total
 
 /** Somma dei valori di una mappa (esportata per i test). */
 export const totalOf = sumValues
-
-export type { KpiSummary }

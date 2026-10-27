@@ -1,7 +1,7 @@
 {
   "name": "kpi-tracker",
   "version": "0.3.0",
-  "description": "Registra e mostra tutti i KPI misurabili di utilizzo di Claude Code (token, costo, contesto, rate limit, tool, codice, git, permessi, subagent), salvati per progetto e sessione: barra live, pannello, /kpi con filtri, report HTML ed export CSV/JSON.",
+  "description": "Records and shows every measurable Claude Code usage KPI (tokens, cost, context, rate limits, tools, code, git, permissions, subagents), stored per project and session: live band, panel, /kpi with filters, HTML report and CSV/JSON export. In English or Italian.",
   "author": {
     "name": "Thomas Amerio",
     "url": "https://github.com/tommy6134"
@@ -18,28 +18,38 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language / Lingua",
+      "description": "Language of the band, panel, /kpi, HTML reports and CSV/JSON exports: en = English, it = italiano. `/kpi … --lang it|en` overrides it for one command.",
+      "options": [
+        "en",
+        "it"
+      ],
+      "default": "en"
+    },
     "dataDir": {
       "type": "string",
-      "title": "Cartella dati KPI",
-      "description": "Dove salvare i KPI. Vuoto = <cartella di configurazione di Claude Code>/kpi. In sviluppo usa una cartella separata per non mescolare i dati di prova a quelli reali.",
+      "title": "KPI data folder",
+      "description": "Where to store the KPIs. Empty = <Claude Code config folder>/kpi. During development use a separate folder so test data does not mix with real data.",
       "default": ""
     },
     "reportDir": {
       "type": "string",
-      "title": "Cartella report ed export",
-      "description": "Dove salvare report HTML ed export CSV/JSON. Vuoto = _reports e _exports nella cartella dati. Su Linux i browser snap e flatpak non leggono le cartelle nascoste: con una cartella visibile (es. ~/Documenti/kpi) il report si apre direttamente da lì.",
+      "title": "Reports and exports folder",
+      "description": "Where to save HTML reports and CSV/JSON exports. Empty = _reports and _exports in the data folder. On Linux snap and flatpak browsers cannot read hidden folders: with a visible folder (e.g. ~/Documents/kpi) the report opens straight from there.",
       "default": ""
     },
     "streamTiming": {
       "type": "boolean",
-      "title": "Metriche per richiesta (TTFT)",
-      "description": "Intercetta lo streaming delle risposte per misurare tempo al primo token, latenza e token per singola richiesta. Disattiva se noti rallentamenti.",
+      "title": "Per-request metrics (TTFT)",
+      "description": "Hooks the response stream to measure time to first token, latency and tokens of each request. Turn it off if you notice slowdowns.",
       "default": true
     },
     "autoUpdate": {
       "type": "string",
-      "title": "Aggiornamenti automatici",
-      "description": "auto = installa da solo le versioni nuove compatibili con il tuo Claude Code; avviso = le segnala soltanto (installi con /kpi aggiorna); off = nessun controllo. Una versione che richiede un Claude Code più recente non si installa mai: compare un avviso.",
+      "title": "Automatic updates",
+      "description": "auto = installs new versions compatible with your Claude Code by itself; avviso (or notify) = only reports them (install with /kpi update); off = no check. A version that requires a newer Claude Code is never installed: a warning appears.",
       "default": "auto"
     }
   }

@@ -1,180 +1,190 @@
 # kpi-tracker
 
-Mod per **Claude Code CLI** che registra, salva e mostra **tutti i KPI misurabili** di utilizzo: token, costo, contesto, rate limit, richieste e latenza, turni, tool, comandi Bash, righe di codice, git, permessi, subagent, skill, errori.
+_Italiano: [README.it.md](README.it.md)_
 
-I dati restano in locale, organizzati per **progetto** (cartella di avvio) e **sessione**. Si consultano in quattro modi:
+A mod for **Claude Code CLI** that records, stores and shows **every measurable usage KPI**: tokens, cost, context, rate limits, requests and latency, turns, tools, Bash commands, lines of code, git, permissions, subagents, skills, errors.
 
-- **barra live** sopra il prompt: costo, token, cache hit, contesto e rate limit della sessione;
-- **pannello** con il dettaglio della sessione corrente (`/kpi live`);
-- **`/kpi`**: report testuali con filtri per progetto, sessione, date, modello, tipo, branch e repo;
-- **report HTML** offline con grafici e filtri interattivi (`/kpi report`), più **export** CSV/JSON.
+The data stays local, organised by **project** (launch folder) and **session**. You can look at it in four ways:
 
-Non salva mai il testo di prompt o risposte, né gli argomenti dei comandi: vedi [docs/privacy.md](docs/privacy.md).
+- a **live band** above the prompt: the session's cost, tokens, cache hit, context and rate limits;
+- a **panel** with the detail of the current session (`/kpi live`);
+- **`/kpi`**: text reports with filters by project, session, dates, model, kind, branch and repo;
+- an offline **HTML report** with charts and interactive filters (`/kpi report`), plus CSV/JSON **exports**.
 
-Si aggiorna da solo, e solo a versioni compatibili con il tuo Claude Code: vedi [Aggiornamenti](#aggiornamenti).
+It speaks **English and Italian**: pick the language at install time or from `/config` (the `language` option), and any command can switch it with `--lang en|it`.
 
-> Richiede Claude Code **2.1.287 o successivo** (i mod sono attivi da quella versione; il minimo di ogni versione è in [`.claude-plugin/compat.json`](.claude-plugin/compat.json)). Sviluppato e provato su macOS (2.1.296), Linux (Ubuntu 25.10, 2.1.299) e Windows.
+It never stores the text of prompts or responses, nor command arguments: see [docs/privacy.md](docs/privacy.md).
 
-## Requisiti
+It updates itself, and only to versions compatible with your Claude Code: see [Updates](#updates).
 
-- **Claude Code 2.1.287 o successivo** (CLI da terminale); il minimo esatto di ogni versione è in `.claude-plugin/compat.json`.
-- **`git`** installato: Claude Code lo usa per scaricare il plugin da GitHub.
+> Requires Claude Code **2.1.287 or later** (mods are active from that version; the minimum of each version is in [`.claude-plugin/compat.json`](.claude-plugin/compat.json)). Developed and tested on macOS (2.1.296), Linux (Ubuntu 25.10, 2.1.299) and Windows.
 
-Nient'altro: niente Node, Python, npm né compilazione, il codice gira dentro Claude Code. Se `git` non c'è nel progetto o il browser non si apre, il plugin continua a funzionare (manca solo il branch nei metadati, e il report va aperto a mano).
+## Requirements
 
-## Installazione
+- **Claude Code 2.1.287 or later** (terminal CLI); the exact minimum of each version is in `.claude-plugin/compat.json`.
+- **`git`** installed: Claude Code uses it to download the plugin from GitHub.
 
-Dal terminale, in una sessione di Claude Code:
+Nothing else: no Node, Python, npm or build step, the code runs inside Claude Code. If the project has no `git` or the browser does not open, the plugin keeps working (only the branch is missing from the metadata, and you open the report by hand).
+
+## Installation
+
+From the terminal, in a Claude Code session:
 
 ```
 /plugin install kpi-tracker --marketplace tommy6134/kpi-tracker
 ```
 
-Rispondi `y` per aggiungere il marketplace e scegli lo scope **user**, così il tracker registra tutte le sessioni in tutti i progetti. Il plugin è attivo subito, anche nella sessione in cui lo installi.
+Answer `y` to add the marketplace and choose the **user** scope, so the tracker records every session in every project. The install screen asks for the options too, the language among them (`en` by default). The plugin is active right away, even in the session you install it from.
 
-In alternativa, in due passi (anche da shell con `claude plugin …`):
+Alternatively, in two steps (also from a shell with `claude plugin …`):
 
 ```
 /plugin marketplace add tommy6134/kpi-tracker
 /plugin install kpi-tracker@tommy6134
 ```
 
-### App desktop (scheda Code)
+### Desktop app (Code tab)
 
-I plugin installati da terminale con scope **user** si caricano anche nelle sessioni della scheda Code dell'app. In alternativa puoi caricare il plugin come zip dalle impostazioni dell'app (scarica lo zip della release da GitHub, oppure crealo con `git archive --format=zip -o kpi-tracker.zip HEAD`).
+Plugins installed from the terminal with the **user** scope also load in the sessions of the app's Code tab. Alternatively you can upload the plugin as a zip from the app's settings (download the release zip from GitHub, or build it with `git archive --format=zip -o kpi-tracker.zip HEAD`).
 
-## Aggiornamenti
+## Updates
 
-Dalla 0.3.0 kpi-tracker **si aggiorna da solo**. Una volta al giorno (e subito dopo che hai aggiornato Claude Code), una decina di secondi dopo l'avvio di una sessione interattiva, aggiorna il catalogo del marketplace e guarda se c'è una versione nuova:
+Since 0.3.0 kpi-tracker **updates itself**. Once a day (and right after you update Claude Code), about ten seconds after an interactive session starts, it refreshes the marketplace catalogue and checks for a new version:
 
-- **compatibile** con il tuo Claude Code: la installa e te lo dice; si attiva con `/reload-plugins` o al prossimo avvio;
-- **richiede un Claude Code più recente**: **non la installa** e ti avvisa (toast, riga nella barra, `/kpi` e transcript) con la versione richiesta. Aggiorna Claude Code con `claude update`: al primo avvio dopo l'aggiornamento il plugin si aggiorna.
+- **compatible** with your Claude Code: it installs it and tells you; it becomes active with `/reload-plugins` or at the next start;
+- **requires a newer Claude Code**: it **does not install it** and warns you (toast, a line in the band, `/kpi` and the transcript) with the required version. Update Claude Code with `claude update`: at the first start after that, the plugin updates.
 
-Se la versione installata richiede un Claude Code più recente di quello in uso (per esempio dopo un aggiornamento manuale), il plugin continua a registrare quello che può e mostra lo stesso avviso.
+If the installed version requires a newer Claude Code than the one in use (for example after a manual update), the plugin keeps recording what it can and shows the same warning.
 
-`/kpi aggiorna` mostra lo stato (versione installata, ultima disponibile, Claude Code richiesto e in uso, ultimo controllo) e installa subito l'ultima versione se compatibile; `/kpi aggiorna --verifica` controlla soltanto. Il comportamento si sceglie con l'opzione `autoUpdate` (`auto`, `avviso`, `off`, vedi [Configurazione](#configurazione)). Se il controllo non riesce (rete assente, `git` mancante) si riprova dopo un'ora, in silenzio: dopo tre tentativi falliti compare una riga nel transcript.
+`/kpi update` shows the status (installed version, latest available, Claude Code required and in use, last check) and installs the latest version right away if compatible; `/kpi update --check` only checks. The behaviour is set with the `autoUpdate` option (`auto`, `avviso`, `off`, see [Configuration](#configuration)). If the check fails (no network, `git` missing) it retries after an hour, silently: after three failures in a row a line appears in the transcript.
 
-> **Lascia spento l'aggiornamento automatico nativo** del marketplace (`/plugin` → Marketplaces, spento di default per i marketplace di terze parti): installa le versioni nuove senza controllare quale Claude Code richiedono. Se lo trovi acceso, kpi-tracker te lo segnala una volta e lascia fare a lui.
+> **Keep the marketplace's native auto-update off** (`/plugin` → Marketplaces, off by default for third-party marketplaces): it installs new versions without checking which Claude Code they require. If it is on, kpi-tracker tells you once and leaves the updates to it.
 
-Gli aggiornamenti automatici funzionano da CLI (servono i comandi `claude plugin …`). Con `--plugin-dir` (sviluppo) sono disattivati.
+Automatic updates work from the CLI (they need the `claude plugin …` commands). With `--plugin-dir` (development) they are off.
 
-**Marketplace propri** (per esempio un catalogo aziendale su GitLab): funzionano senza modifiche, anche con un altro nome di marketplace o di plugin e con qualunque `CLAUDE_CONFIG_DIR`. Il catalogo può indicare il plugin:
+**Your own marketplaces** (for example a company catalogue on GitLab): they work unchanged, also with another marketplace or plugin name and with any `CLAUDE_CONFIG_DIR`. The catalogue can list the plugin:
 
-- con un percorso (`"source": "./"`, un mirror di questo repo): versione e `compat.json` si leggono dal clone del catalogo;
-- con un repo git (`"source": { "source": "url", "url": "…" }`, `github` o `git-subdir`, con l'eventuale `ref`): si leggono con un `git fetch --depth 1` in `_meta/upstream.git` tra i dati KPI, usando le credenziali git già configurate (git non le chiede mai a terminale);
-- con un commit fissato (`sha`) o da npm: le versioni le decide chi gestisce il catalogo, e il plugin non interviene.
+- with a path (`"source": "./"`, a mirror of this repo): version and `compat.json` are read from the catalogue's clone;
+- with a git repo (`"source": { "source": "url", "url": "…" }`, `github` or `git-subdir`, with an optional `ref`): they are read with a `git fetch --depth 1` into `_meta/upstream.git` among the KPI data, using the git credentials already configured (git never asks for them in the terminal);
+- with a pinned commit (`sha`) or from npm: whoever manages the catalogue decides the versions, and the plugin does not step in.
 
-**Dalla 0.2.0** serve un ultimo aggiornamento a mano, da shell:
+**From 0.2.0** one last manual update is needed, from a shell:
 
 ```bash
 claude plugin marketplace update tommy6134
 claude plugin update kpi-tracker@tommy6134
 ```
 
-Poi riavvia Claude Code (o `/reload-plugins` nelle sessioni aperte).
+Then restart Claude Code (or `/reload-plugins` in the open sessions).
 
-## Disinstallazione
+## Uninstalling
 
-Per disattivarlo o disinstallarlo: `/plugin`, scheda Installed, oppure `claude plugin uninstall kpi-tracker@tommy6134`. I dati raccolti restano in `<configurazione>/kpi/` finché non li cancelli.
+To disable or uninstall it: `/plugin`, Installed tab, or `claude plugin uninstall kpi-tracker@tommy6134`. The collected data stays in `<config>/kpi/` until you delete it.
 
-## Dove finiscono i dati
+## Where the data goes
 
 ```
-<cartella di configurazione di Claude Code>/kpi/        es. ~/.claude/kpi/ oppure $CLAUDE_CONFIG_DIR/kpi/
+<Claude Code config folder>/kpi/        e.g. ~/.claude/kpi/ or $CLAUDE_CONFIG_DIR/kpi/
   _meta/kpi-root.json
-  _reports/            report HTML generati (oppure in reportDir)
-  _exports/            export CSV/JSON (oppure in reportDir)
-  -Users-nome-lavoro-progetto/                 un progetto (cartella di avvio, / e . diventano -)
-    project.json                               percorso reale, repo
-    2026-10-12_10-31-07_3f9a1c2e/              una sessione: data-ora locale + inizio dell'id
-      session.json                             metadati e KPI aggregati
-      details.json                             file toccati, turni, commit, PR, subagent…
-      events/s01-7f3a-0001.jsonl               eventi grezzi (fonte di verità)
+  _reports/            generated HTML reports (or in reportDir)
+  _exports/            CSV/JSON exports (or in reportDir)
+  -Users-name-work-project/                    a project (launch folder, / and . become -)
+    project.json                               real path, repo
+    2026-10-12_10-31-07_3f9a1c2e/              a session: local date-time + start of the id
+      session.json                             metadata and aggregated KPIs
+      details.json                             files touched, turns, commits, PRs, subagents…
+      events/s01-7f3a-0001.jsonl               raw events (source of truth)
 ```
 
-Il formato completo è in [docs/storage.md](docs/storage.md).
+The full format is in [docs/storage.md](docs/storage.md).
 
-## Comandi
+## Commands
 
-| Comando | Cosa fa |
+| Command | What it does |
 | --- | --- |
-| `/kpi` | Riepilogo: sessione corrente, oggi, ultimi 7 giorni |
-| `/kpi live` | Pannello con i KPI della sessione |
-| `/kpi barra on\|off` | Barra sopra il prompt, in modo permanente ("Nascondi" sulla barra vale per la sessione) |
-| `/kpi statistiche [filtri] [--per giorno\|settimana\|mese\|progetto\|modello\|branch\|tipo\|sessione]` | Tutti i KPI dell'insieme filtrato |
-| `/kpi sessioni [filtri] [--limite N]` | Elenco delle sessioni |
-| `/kpi progetti [filtri]` | Totali per progetto |
-| `/kpi sessione <id\|corrente>` | Dettaglio di una sessione |
-| `/kpi report [filtri] [--no-apri]` | Dashboard HTML offline, aperta nel browser |
-| `/kpi esporta csv\|json [filtri] [--livello sessioni\|giorni\|turni\|eventi] [--standard]` | Export (CSV per Excel italiano; `--standard` per `,` e `.`) |
-| `/kpi pulisci --piu-vecchie-di 180d [--si]` | Elenca, e con `--si` cancella, le sessioni più vecchie |
-| `/kpi ricostruisci [filtri]` | Ricalcola i KPI dagli eventi grezzi |
-| `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
-| `/kpi aiuto` | Guida |
+| `/kpi` | Summary: current session, today, last 7 days |
+| `/kpi live` | Panel with the session's KPIs |
+| `/kpi band on\|off` | Band above the prompt, permanently ("Hide" on the band applies to the session) |
+| `/kpi stats [filters] [--by day\|week\|month\|project\|model\|branch\|kind\|session]` | Every KPI of the filtered set |
+| `/kpi sessions [filters] [--limit N]` | List of sessions |
+| `/kpi projects [filters]` | Totals per project |
+| `/kpi session <id\|current>` | Detail of one session |
+| `/kpi report [filters] [--no-open]` | Offline HTML dashboard, opened in the browser |
+| `/kpi export csv\|json [filters] [--level sessions\|days\|turns\|events] [--standard\|--excel]` | Export, with columns and values in the chosen language. The CSV follows the language: standard (`,` and `.`) in English, Italian Excel (`;` and decimal comma) in Italian; `--standard` and `--excel` force one |
+| `/kpi prune --older-than 180d [--yes]` | Lists, and with `--yes` deletes, the older sessions |
+| `/kpi rebuild [filters]` | Recomputes the KPIs from the raw events |
+| `/kpi update [--check]` | Update status; installs the latest version right away if compatible (`--check` only checks) |
+| `/kpi help` | Help |
 
-**Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--modello`, `--tipo interattiva|print|sdk`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--project`, `--by`…).
+**Filters:** `--project <text|.>`, `--session <id>`, `--since` / `--until` (`today`, `yesterday`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026` day/month/year), `--model`, `--kind interactive|print|sdk|desktop|vscode`, `--branch`, `--repo`. Every subcommand and option also has its Italian name (`statistiche`, `sessioni`, `esporta`, `pulisci`, `--da`, `--progetto`, `--per`…), whatever the language.
 
-Il report di `/kpi` lo vedi solo tu: a Claude arriva una riga breve, così non consuma contesto. Con `--ctx` il report completo va anche a Claude, per esempio per fargli analizzare i tuoi KPI.
+**Language:** `--lang en|it` (`--lingua`) picks the language of one command: text reports, HTML report, CSV and JSON (columns, values, file name). Without it, the `language` option applies. The HTML report also has an English/Italiano selector next to the theme, and opens in Italian with `#it` in the address (`#en` for English).
 
-## Configurazione
+Only you see the `/kpi` report: Claude gets a short line, so it does not use up context. With `--ctx` the full report goes to Claude too, for example so it can analyse your KPIs.
 
-Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
+## Configuration
 
-| Opzione | Default | Significato |
+From `/config` (the plugin's section) or in `settings.json` under `pluginConfigs`:
+
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
-| `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
-| `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
-| `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
+| `language` | `"en"` | Language of the band, panel, `/kpi`, reports and exports: `en` or `it`. Whoever updates from 0.3.0 with recorded data and never chose a language stays in Italian (the plugin sets `it` once) |
+| `dataDir` | `""` | Absolute data folder (`~/…` works too); empty = `<config>/kpi` |
+| `reportDir` | `""` | Absolute folder (`~/…` works too) for HTML reports and exports; empty = `_reports/` and `_exports/` in the data folder |
+| `streamTiming` | `true` | Hooks the response stream for TTFT, latency and per-request tokens; turn it off if you notice slowdowns |
+| `autoUpdate` | `"auto"` | `auto` installs compatible new versions by itself; `avviso` (notify) only reports them (install with `/kpi update`); `off` no automatic check |
 
-## Sviluppo
+## Development
 
-Il plugin è un **mod**: un modulo TypeScript che gira dentro Claude Code (`hooks/register.ts`). Non serve compilare né installare dipendenze.
+The plugin is a **mod**: a TypeScript module that runs inside Claude Code (`hooks/register.ts`). No build step, no dependencies.
 
 ```bash
-claude plugin validate . --strict   # manifest, modulo, contratto di stato
-claude plugin test .                # test (tests/*.test.ts) con fs, sessione e clock in memoria
-claude --plugin-dir .               # una sessione con il mod caricato dal repo (hot reload ai salvataggi)
+claude plugin validate . --strict   # manifest, module, state contract
+claude plugin test .                # tests (tests/*.test.ts) with in-memory fs, session and clock
+claude --plugin-dir .               # a session with the mod loaded from the repo (hot reload on save)
 ```
 
-In sviluppo imposta `dataDir` su una cartella **fuori dal repo**: il repo è osservato per il hot reload, e scriverci i dati ricaricherebbe il modulo a ogni salvataggio. Per esempio, in `~/.claude/settings.json`:
+During development set `dataDir` to a folder **outside the repo**: the repo is watched for hot reload, and writing data into it would reload the module on every save. For example, in `~/.claude/settings.json`:
 
 ```json
 { "pluginConfigs": { "kpi-tracker@inline": { "options": { "dataDir": "~/.claude/kpi-dev" } } } }
 ```
 
-Struttura del codice:
+Code layout:
 
-| Cartella | Contenuto |
+| Folder | Contents |
 | --- | --- |
-| `hooks/register.ts` | L'unico file che usa `$`: lega il motore (`hostOf`) e registra tutti gli hook |
-| `hooks/tracker.ts` | Stato del modulo, aggancio delle sessioni, coda degli eventi, flush |
-| `hooks/core/` | Percorsi, tempo, eventi, writer, aggancio e ripristino su disco |
-| `hooks/collect/` | Traduzione dei risultati dei tool in metadati (mai testo) |
-| `hooks/analysis/` | Reducer puro, statistiche, classificatore Bash, righe di codice, merge |
-| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Lettura con filtri, aggregati, `/kpi` e report testuali |
-| `hooks/report/`, `assets/report/` | Report HTML (dataset + template, stile e app in JS puro) |
-| `hooks/export/`, `hooks/maintenance/` | Export CSV/JSON, pulizia, ricostruzione |
-| `hooks/ui/` | Barra, pannello, sparkline |
-| `hooks/update/` | Aggiornamenti: confronto di versioni, installazione e catalogo del marketplace, lettura della release dai repo git, controllo di compatibilità |
-| `types/index.d.ts` | Contratto di `$.state` |
+| `hooks/register.ts` | The only file that uses `$`: binds the engine (`hostOf`) and registers every hook |
+| `hooks/tracker.ts` | Module state, session binding, event queue, flush |
+| `hooks/core/` | Paths, time, events, writer, on-disk binding and recovery |
+| `hooks/collect/` | Translation of tool results into metadata (never text) |
+| `hooks/analysis/` | Pure reducer, statistics, Bash classifier, lines of code, merge |
+| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Filtered reads, aggregates, `/kpi` and text reports |
+| `hooks/report/`, `assets/report/` | HTML report (dataset + template, style and plain-JS app) |
+| `hooks/export/`, `hooks/maintenance/` | CSV/JSON export, pruning, rebuild |
+| `hooks/ui/` | Band, panel, sparklines |
+| `hooks/i18n/` | Languages: English catalogue (the key is the Italian text in the code), labels of stored codes, language migration |
+| `hooks/update/` | Updates: version comparison, marketplace install and catalogue, reading the release from git repos, compatibility check |
+| `types/index.d.ts` | `$.state` contract |
 
-### Pubblicare una versione
+Texts are written in Italian in the code, with `L.t('…')`, and translated in `hooks/i18n/en.ts`: a text without a translation does not compile (`tsc`). The codes stored on disk (`interattiva`, `ricarica`, `altro`…) stay Italian and are only translated when shown (`hooks/i18n/codes.ts`). The HTML report's texts live in the `EN` dictionary of `assets/report/app.js`. Code comments are in Italian.
 
-1. Aumenta `version` in `.claude-plugin/plugin.json`, altrimenti né gli aggiornamenti automatici né `claude plugin update` vedono nulla di nuovo.
-2. Se il codice usa eventi o API del motore arrivati dopo il minimo attuale, alza `minClaudeCode` in `.claude-plugin/compat.json`. Claude Code non ha un campo per la versione minima e una versione che usa API assenti passa la validazione ma si rompe in silenzio: è questo file che impedisce alle installazioni con un Claude Code più vecchio di aggiornarsi. Allinea anche i requisiti in questo README.
-3. Aggiorna il CHANGELOG, poi porta la versione su `main`: il marketplace segue il branch predefinito.
+### Releasing a version
 
-Documentazione: [catalogo dei KPI](docs/kpi.md) · [formati su disco](docs/storage.md) · [privacy](docs/privacy.md) · [CHANGELOG](CHANGELOG.md).
+1. Bump `version` in `.claude-plugin/plugin.json`, otherwise neither automatic updates nor `claude plugin update` see anything new.
+2. If the code uses engine events or APIs newer than the current minimum, raise `minClaudeCode` in `.claude-plugin/compat.json`. Claude Code has no field for a minimum version, and a version that uses missing APIs passes validation but breaks silently: this file is what stops installs with an older Claude Code from updating. Align the requirements in this README too.
+3. Update the CHANGELOG, then bring the version to `main`: the marketplace follows the default branch.
 
-## Limiti noti
+Documentation (in Italian in [docs/it/](docs/it/)): [KPI catalogue](docs/kpi.md) · [on-disk formats](docs/storage.md) · [privacy](docs/privacy.md) · [CHANGELOG](CHANGELOG.md).
 
-- Il **costo** è quello calcolato da Claude Code (equivalente API, comprese le sue chiamate di servizio); non esiste un costo per modello o per subagent. Dalla 0.4.0 coincide con `/cost`, compreso quanto speso fuori dai turni; resta escluso solo quanto Claude Code spende dopo la chiusura di una sessione che non viene più ripresa.
-- La **risposta dell'utente** in un dialogo di permesso non è esposta: si contano decisioni, dialoghi e negazioni.
-- L'esito dei comandi Bash **con pipe** riflette solo l'ultimo comando.
-- Su **Linux** i browser installati come snap o flatpak (Firefox su Ubuntu, Brave, Chromium) non leggono le cartelle nascoste come `~/.claude`: `/kpi report` apre allora una copia del report nella cartella Scaricati (`kpi-report.html`, sovrascritta ogni volta). Per evitare la copia imposta `reportDir` su una cartella visibile, per esempio `~/Documenti/kpi`.
-- Le sessioni precedenti all'installazione non vengono importate.
+## Known limits
 
-## Licenza
+- The **cost** is the one Claude Code computes (API equivalent, its service calls included); there is no cost per model or per subagent. Since 0.4.0 it matches `/cost`, including what is spent outside turns; only what Claude Code spends after closing a session that is never resumed is left out.
+- The **user's answer** in a permission dialog is not exposed: decisions, dialogs and denials are counted.
+- The outcome of **piped** Bash commands reflects only the last command.
+- On **Linux** browsers installed as snap or flatpak (Firefox on Ubuntu, Brave, Chromium) cannot read hidden folders such as `~/.claude`: `/kpi report` then opens a copy of the report in the Downloads folder (`kpi-report.html`, overwritten each time). To avoid the copy set `reportDir` to a visible folder, for example `~/Documents/kpi`.
+- Sessions from before the install are not imported.
+
+## License
 
 [MIT](LICENSE) © 2026 Thomas Amerio

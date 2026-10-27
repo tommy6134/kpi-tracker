@@ -1,7 +1,8 @@
 /**
- * Export CSV e JSON a quattro livelli: sessioni, giorni, turni, eventi.
- * CSV "Excel italiano" (default): `;`, virgola decimale, BOM, CRLF.
- * CSV standard (RFC 4180): `,`, punto decimale, LF.
+ * Export CSV e JSON a quattro livelli: sessioni, giorni, turni, eventi, con
+ * colonne e valori nella lingua scelta.
+ * CSV "Excel italiano" (default in italiano): `;`, virgola decimale, BOM, CRLF.
+ * CSV standard (RFC 4180, default in inglese): `,`, punto decimale, LF.
  * Oltre ~3,5 MB il file si divide in parti (limite di scrittura di 4 MiB).
  */
 
@@ -10,6 +11,7 @@ import { allEventsOf, readJson } from '../core/recover'
 import { join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
 import type { HostFs } from '../host'
+import type { I18n, Lang } from '../i18n'
 import { inRange, type KpiFilter } from '../query/filters'
 import { rangeOf } from '../query/aggregate'
 import type { SessionRow } from '../query/load'
@@ -27,6 +29,14 @@ export const LEVELS: Record<string, ExportLevel> = {
   events: 'eventi',
 }
 
+/** Il nome di un livello nella lingua (nel nome del file e nel JSON). */
+export const LEVEL_NAMES: Record<ExportLevel, Record<Lang, string>> = {
+  sessioni: { it: 'sessioni', en: 'sessions' },
+  giorni: { it: 'giorni', en: 'days' },
+  turni: { it: 'turni', en: 'turns' },
+  eventi: { it: 'eventi', en: 'events' },
+}
+
 export const PART_MAX = 3_500_000
 
 type Value = string | number | boolean | null | undefined
@@ -35,15 +45,82 @@ type Table = { columns: string[]; rows: Value[][] }
 const iso = (ms: number): string => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : '')
 const min = (ms: number): number => Math.round((ms / 60_000) * 10) / 10
 
-/** La tabella di un livello. */
-export async function tableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table> {
+/** I nomi inglesi delle colonne (quelli nel codice sono gli italiani). */
+const COLUMNS_EN: Readonly<Record<string, string>> = {
+  inizio: 'start',
+  progetto: 'project',
+  percorso: 'path',
+  sessione: 'session',
+  tipo: 'kind',
+  stato: 'status',
+  durata_min: 'duration_min',
+  attivo_min: 'active_min',
+  turni: 'turns',
+  prompt: 'prompts',
+  richieste: 'requests',
+  costo_usd: 'cost_usd',
+  costo_fuori_turni_usd: 'cost_outside_turns_usd',
+  token_input: 'input_tokens',
+  token_output: 'output_tokens',
+  cache_letta: 'cache_read',
+  cache_scritta: 'cache_write',
+  cache_hit: 'cache_hit',
+  tool: 'tools',
+  errori_tool: 'tool_errors',
+  bash: 'bash',
+  test_ok: 'tests_ok',
+  test_ko: 'tests_failed',
+  righe_aggiunte: 'lines_added',
+  righe_rimosse: 'lines_removed',
+  file_creati: 'files_created',
+  file_modificati: 'files_modified',
+  commit: 'commits',
+  push: 'pushes',
+  pr: 'prs',
+  subagent: 'subagents',
+  compattazioni: 'compactions',
+  contesto_max_pct: 'context_max_pct',
+  rate_5h_max_pct: 'rate_5h_max_pct',
+  rate_7g_max_pct: 'rate_7d_max_pct',
+  branch: 'branches',
+  modelli: 'models',
+  versione: 'version',
+  giorno: 'day',
+  turno: 'turn',
+  fine: 'end',
+  durata_s: 'duration_s',
+  token: 'tokens',
+  esito: 'outcome',
+  contesto_pct: 'context_pct',
+  compattazione: 'compaction',
+  seq: 'seq',
+  istante: 'time',
+  evento: 'event',
+  agente: 'agent',
+  dati: 'data',
+}
+
+/** Le colonne nella lingua di `L`. */
+const columnsIn = (L: I18n, columns: readonly string[]): string[] => (L.lang === 'en' ? columns.map(column => COLUMNS_EN[column] ?? column) : [...columns])
+
+/** La tabella di un livello, con colonne e valori nella lingua di `L`. */
+export async function tableOf(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table> {
+  const table = await italianTableOf(fs, rows, filter, level)
+
+  return { columns: columnsIn(L, table.columns), rows: table.rows.map(row => row.map((value, index) => (CODE_COLUMNS.has(table.columns[index] as string) && typeof value === 'string' ? L.code(value) : value))) }
+}
+
+/** Le colonne che contengono codici salvati (tipo, stato): si traducono come le etichette. */
+const CODE_COLUMNS = new Set(['tipo', 'stato'])
+
+async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table> {
   const now = Date.now()
 
   if (level === 'sessioni') {
     return {
       columns: [
         'inizio', 'progetto', 'percorso', 'sessione', 'tipo', 'stato', 'durata_min', 'attivo_min', 'turni', 'prompt', 'richieste', 'costo_usd',
-        'token_input', 'token_output', 'cache_letta', 'cache_scritta', 'cache_hit', 'tool', 'errori_tool', 'bash', 'test_ok', 'test_ko',
+        'costo_fuori_turni_usd', 'token_input', 'token_output', 'cache_letta', 'cache_scritta', 'cache_hit', 'tool', 'errori_tool', 'bash', 'test_ok', 'test_ko',
         'righe_aggiunte', 'righe_rimosse', 'file_creati', 'file_modificati', 'commit', 'push', 'pr', 'subagent', 'compattazioni',
         'contesto_max_pct', 'rate_5h_max_pct', 'rate_7g_max_pct', 'branch', 'modelli', 'versione',
       ],
@@ -53,7 +130,7 @@ export async function tableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
 
         return [
           iso(row.file.createdAt), row.projectName, row.projectPath, row.file.sessionId, row.file.kind, displayStatus(row.file, now),
-          min(Math.max(0, s.lastAt - row.file.createdAt)), min(r.active), r.turns, r.prompts, r.req, r.cost, r.in, r.out, r.cr, r.cw,
+          min(Math.max(0, s.lastAt - row.file.createdAt)), min(r.active), r.turns, r.prompts, r.req, r.cost, s.cost.outsideTurns ?? 0, r.in, r.out, r.cr, r.cw,
           Math.round(cacheHit(r) * 1000) / 10, r.tools, r.toolErr, s.bash.n, s.tests.ok, s.tests.err, r.add, r.del, s.files.created,
           s.files.uniqueModified, r.commits, s.git.pushes, Object.values(s.git.prs).reduce((a, b) => a + b, 0), s.agents.n, s.compactions.n,
           s.context.maxPct, s.rate.five_hour?.max ?? null, s.rate.seven_day?.max ?? null, row.file.meta.branches.join(' '),
@@ -191,14 +268,14 @@ export function jsonParts(table: Table, meta: Record<string, unknown>): string[]
 
 export type ExportResult = { parts: string[]; count: number }
 
-export async function exportCsv(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, excel: boolean): Promise<ExportResult> {
-  const table = await tableOf(fs, rows, filter, level)
+export async function exportCsv(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, excel: boolean): Promise<ExportResult> {
+  const table = await tableOf(fs, L, rows, filter, level)
 
   return { parts: csvParts(table, excel), count: table.rows.length }
 }
 
-export async function exportJson(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, meta: { description: string; generatedAt: number }): Promise<ExportResult> {
-  const table = await tableOf(fs, rows, filter, level)
+export async function exportJson(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, meta: { description: string; generatedAt: number }): Promise<ExportResult> {
+  const table = await tableOf(fs, L, rows, filter, level)
 
-  return { parts: jsonParts(table, { plugin: 'kpi-tracker', level, filter: meta.description, generatedAt: iso(meta.generatedAt) }), count: table.rows.length }
+  return { parts: jsonParts(table, { plugin: 'kpi-tracker', language: L.lang, level: LEVEL_NAMES[level][L.lang], filter: meta.description, generatedAt: iso(meta.generatedAt) }), count: table.rows.length }
 }

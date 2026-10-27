@@ -1,33 +1,35 @@
 # Privacy
 
-kpi-tracker salva **metriche e metadati**, mai contenuti. Tutto resta sul tuo disco: il plugin non invia dati da nessuna parte.
+_Italiano: [docs/it/privacy.md](it/privacy.md)_
 
-L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`, salvo `off`). Al massimo una volta al giorno il plugin lancia `claude plugin marketplace update`, cioè un `git fetch` del marketplace da cui l'hai installato. Se il catalogo indica il plugin con un URL, fa anche un `git fetch --depth 1` di quel repo per leggerne la versione. Se c'è una versione nuova compatibile, lancia `claude plugin update`. Sono gli stessi comandi che lanceresti a mano, e scaricano soltanto: non partono con `--plugin-dir` né nelle sessioni `-p`/SDK.
+kpi-tracker stores **metrics and metadata**, never content. Everything stays on your disk: the plugin sends data nowhere.
 
-## Cosa si salva
+The only network traffic comes from **updates** (the `autoUpdate` option, unless `off`). At most once a day the plugin runs `claude plugin marketplace update`, that is a `git fetch` of the marketplace you installed it from. If the catalogue lists the plugin with a URL, it also runs a `git fetch --depth 1` of that repo to read its version. If there is a compatible new version, it runs `claude plugin update`. These are the same commands you would run by hand, and they only download: they do not run with `--plugin-dir` nor in `-p`/SDK sessions.
 
-- numeri: token, costi, durate, conteggi, percentuali, righe aggiunte e rimosse;
-- nomi: tool, skill, subagent, server MCP, comandi slash (solo il nome), modelli;
-- percorsi assoluti dei file letti e modificati, cartella di avvio, repo e branch git;
-- comandi Bash ridotti a `programma sottocomando` (es. `git commit`, `mvn test`), con una categoria;
-- per i commit: sha a 7 caratteri, tipo, branch; per le PR: numero, azione, URL senza query;
-- per WebFetch: solo l'host (es. `docs.spring.io`).
+## What is stored
 
-## Cosa non si salva mai
+- numbers: tokens, costs, durations, counts, percentages, lines added and removed;
+- names: tools, skills, subagents, MCP servers, slash commands (name only), models;
+- absolute paths of the files read and modified, launch folder, git repo and branch;
+- Bash commands reduced to `program subcommand` (e.g. `git commit`, `mvn test`), with a category;
+- for commits: 7-character sha, kind, branch; for PRs: number, action, URL without query;
+- for WebFetch: the host only (e.g. `docs.spring.io`).
 
-- il testo di prompt e risposte (solo la loro **lunghezza**);
-- gli argomenti dei comandi Bash: niente messaggi di commit, header, token, password, URL;
-- gli argomenti dei comandi slash e delle skill;
-- query e percorsi degli URL;
-- il contenuto dei file, l'output dei tool, i messaggi di errore;
-- il titolo della sessione (generato dal testo del prompt).
+## What is never stored
 
-## Come è garantito
+- the text of prompts and responses (only their **length**);
+- the arguments of Bash commands: no commit messages, headers, tokens, passwords, URLs;
+- the arguments of slash commands and skills;
+- URL queries and paths;
+- file contents, tool output, error messages;
+- the session title (generated from the prompt text).
 
-- Il classificatore Bash (`hooks/analysis/bash-classify.ts`) scarta virgolette, heredoc, sostituzioni `$(…)` e assegnazioni. Un sottocomando esce solo se è in un elenco noto per quel programma, altrimenti diventa `*`.
-- I nomi passano da `safeName`: un valore che non sembra un identificatore diventa `altro`.
-- I test (`tests/units.test.ts`, `tests/ui-commands.test.ts`) verificano che nessun file scritto, export compresi, contenga il testo di prompt, gli argomenti segreti dei comandi o i messaggi di commit.
+## How it is guaranteed
 
-## Contesto del modello
+- The Bash classifier (`hooks/analysis/bash-classify.ts`) drops quotes, heredocs, `$(…)` substitutions and assignments. A subcommand comes out only if it is in a known list for that program, otherwise it becomes `*`.
+- Names go through `safeName`: a value that does not look like an identifier becomes `altro` (shown as "other").
+- The tests (`tests/units.test.ts`, `tests/ui-commands.test.ts`) check that no written file, exports included, contains prompt text, secret command arguments or commit messages.
 
-Il report di `/kpi` lo vedi solo tu: nel transcript, e quindi al modello, arriva una riga breve. Il report completo va al modello solo se aggiungi `--ctx`.
+## Model context
+
+Only you see the `/kpi` report: the transcript, and so the model, gets a short line. The full report goes to the model only if you add `--ctx`.

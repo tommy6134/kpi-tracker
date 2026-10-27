@@ -12,8 +12,9 @@ import { configDirOf, encodeProject, encodeProjectAlt, extOf, hasHiddenSegment, 
 import { dayKey, hourSlot, stampOf } from '../hooks/core/time'
 import { csvParts } from '../hooks/export/export'
 import { compact, dur, fixed, usd } from '../hooks/format/fmt'
+import { i18nOf, langOf } from '../hooks/i18n'
 import { embedJson, escapeHtml } from '../hooks/report/html'
-import { filterOf, matchesProject } from '../hooks/query/filters'
+import { describeFilter, filterOf, matchesProject } from '../hooks/query/filters'
 import { hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
 import { kindOf } from '../hooks/tracker'
 import { toneOf, worstOf } from '../hooks/ui/palette'
@@ -434,10 +435,26 @@ describe('argomenti e filtri', () => {
   })
 
   test('filtro di progetto', () => {
-    const { filter } = filterOf(parseArgs('stats --progetto .'), Date.now(), '/work/x')
+    const { filter } = filterOf(i18nOf('it'), parseArgs('stats --progetto .'), Date.now(), '/work/x')
 
     expect(matchesProject(filter, '/work/x', 'x')).toBe(true)
     expect(matchesProject(filter, '/work/x2', 'x2')).toBe(false)
+  })
+
+  test('errori e descrizione del filtro nella lingua, con l\'opzione come l\'ha scritta l\'utente', () => {
+    const now = Date.UTC(2026, 9, 12, 12)
+    const it = filterOf(i18nOf('it'), parseArgs('stats --da domani --tipo boh'), now, null)
+    const en = filterOf(i18nOf('en'), parseArgs('stats --since tomorrow --kind interactive'), now, null)
+
+    expect(it.errors).toEqual(['tipo di sessione sconosciuto: boh', 'data non valida per --da: domani'])
+    expect(en.errors).toEqual(['invalid date for --since: tomorrow'])
+    expect(describeFilter(i18nOf('en'), en.filter)).toBe('kind interactive')
+    expect(describeFilter(i18nOf('it'), { ...en.filter, sinceDay: '2026-10-01' })).toBe('periodo 2026-10-01 → oggi · tipo interattiva')
+    expect(parseArgs('stats --lang en --since').errors).toEqual([{ kind: 'valore', name: 'since' }])
+    expect(parseArgs('report --lingua en').flags.lingua).toEqual(['en'])
+    expect(langOf('English')).toBe('en')
+    expect(langOf('italiano')).toBe('it')
+    expect(langOf('fr')).toBe(null)
   })
 })
 
@@ -450,6 +467,27 @@ describe('formattazione', () => {
     expect(usd(0.0791)).toBe('$0,079')
     expect(dur(72_000)).toBe('1m 12s')
     expect(dur(4_320_000)).toBe('1h 12m')
+    expect(dur(97_200_000)).toBe('1g 3h')
+  })
+
+  test('numeri, date e durate in inglese; codici salvati tradotti', () => {
+    const en = i18nOf('en')
+    const t = Date.UTC(2026, 9, 12, 10, 31)
+
+    expect(en.fixed(12345.678, 2)).toBe('12,345.68')
+    expect(en.compact(2_100_000)).toBe('2.1M')
+    expect(en.usd(1.4234)).toBe('$1.42')
+    expect(en.dur(97_200_000)).toBe('1d 3h')
+    expect(en.dateTime(t, 0)).toBe('2026-10-12 10:31')
+    expect(i18nOf('it').dateTime(t, 0)).toBe('12/10/2026 10:31')
+    expect(en.dayLabel('2026-10-12')).toBe('2026-10-12')
+    expect(en.count(1, 'sessione', 'sessioni')).toBe('1 session')
+    expect(en.count(3, 'sessione', 'sessioni')).toBe('3 sessions')
+    expect(en.t('Esportate {rows} ({level}) in {where}{kind}.', { rows: '3 rows', level: 'days', where: '/x', kind: '' })).toBe('Exported 3 rows (days) to /x.')
+    expect(en.code('interattiva')).toBe('interactive')
+    expect(en.code('ricarica')).toBe('reload')
+    expect(en.code('Bash')).toBe('Bash')
+    expect(i18nOf('it').code('interattiva')).toBe('interattiva')
   })
 
   test('CSV Excel italiano e standard', () => {

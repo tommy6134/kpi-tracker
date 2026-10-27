@@ -1,14 +1,14 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import type { KpiProjectFile, KpiSessionFile } from '../hooks/core/session-file'
-import { classicStart, HEADLESS, SESSION } from './fixtures/inputs'
+import { classicStart, HEADLESS, IT, SESSION } from './fixtures/inputs'
 import { CWD, PROJECT_DIR, ROOT, SESSION_ID, usageOf, worldOf } from './fixtures/world'
 
 const sessionDirs = (world: ReturnType<typeof worldOf>): string[] =>
   [...new Set(world.under(PROJECT_DIR).map(path => path.slice(PROJECT_DIR.length + 1).split('/')[0] ?? ''))].filter(name => /_\w{8}$/.test(name))
 
 describe('ciclo di vita della sessione', () => {
-  test('session.start crea marcatore, project.json e la cartella della sessione', async ($, on) => {
+  test('session.start crea marcatore, project.json e la cartella della sessione', IT, async ($, on) => {
     const world = worldOf(on)
 
     mock.clock(on)
@@ -36,7 +36,7 @@ describe('ciclo di vita della sessione', () => {
     expect(world.commands).toEqual(['kpi'])
   })
 
-  test('un turno completo finisce negli eventi e nel summary', async ($, on) => {
+  test('un turno completo finisce negli eventi e nel summary', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -78,7 +78,7 @@ describe('ciclo di vita della sessione', () => {
     expect(world.written()).not.toContain('segreto')
   })
 
-  test('una ripresa riusa la cartella con un nuovo segmento; /clear ne crea una collegata', async ($, on) => {
+  test('una ripresa riusa la cartella con un nuovo segmento; /clear ne crea una collegata', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -120,7 +120,7 @@ describe('ciclo di vita della sessione', () => {
     expect(previous?.segments.at(-1)?.endReason).toBe('clear')
   })
 
-  test('il costo speso fuori dai turni si legge dal ledger: subagent finito dopo il turno e uscita', async ($, on) => {
+  test('il costo speso fuori dai turni si legge dal ledger: subagent finito dopo il turno e uscita', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
     const stop = { session_id: SESSION_ID, transcript_path: '/tmp/t.jsonl', cwd: CWD, hook_event_name: 'SubagentStop', agent_id: 'ag1', agent_type: 'Explore' }
@@ -149,7 +149,7 @@ describe('ciclo di vita della sessione', () => {
     expect(cost.perTurn.n).toBe(1)
   })
 
-  test('con /clear l\'ultima lettura del ledger non si fa: può essere già della sessione nuova', async ($, on) => {
+  test('con /clear l\'ultima lettura del ledger non si fa: può essere già della sessione nuova', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -165,7 +165,7 @@ describe('ciclo di vita della sessione', () => {
     expect(Math.abs(cost.usd - 0.2) < 1e-9).toBe(true)
   })
 
-  test('dopo l\'aggiornamento le sessioni passate si ricalcolano una volta sola', async ($, on) => {
+  test('dopo l\'aggiornamento le sessioni passate si ricalcolano una volta sola', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -202,7 +202,7 @@ describe('ciclo di vita della sessione', () => {
     expect(world.json<KpiSessionFile>(path).summary.cost.usd).toBe(0.1)
   })
 
-  test('una sessione -p è di tipo print e salva a fine turno', async ($, on) => {
+  test('una sessione -p è di tipo print e salva a fine turno', IT, async ($, on) => {
     const world = worldOf(on)
 
     mock.clock(on)

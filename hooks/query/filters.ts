@@ -3,6 +3,7 @@
 import { dayOfArg, type ParsedArgs } from '../commands/args'
 import type { KpiSessionFile } from '../core/session-file'
 import { dayKey } from '../core/time'
+import type { I18n } from '../i18n'
 
 export type KpiFilter = {
   projects: string[]
@@ -31,8 +32,8 @@ const KIND_ALIASES: Record<string, string> = {
   unknown: 'sconosciuta',
 }
 
-/** Il filtro dagli argomenti; gli errori (date non valide) finiscono in `errors`. */
-export function filterOf(args: ParsedArgs, now: number, currentProject: string | null): { filter: KpiFilter; errors: string[] } {
+/** Il filtro dagli argomenti; gli errori (date non valide) finiscono in `errors`, nella lingua di `L`. */
+export function filterOf(L: I18n, args: ParsedArgs, now: number, currentProject: string | null): { filter: KpiFilter; errors: string[] } {
   const filter = emptyFilter()
   const errors: string[] = []
 
@@ -49,7 +50,7 @@ export function filterOf(args: ParsedArgs, now: number, currentProject: string |
     const kind = KIND_ALIASES[value.toLowerCase()]
 
     if (kind === undefined) {
-      errors.push(`tipo di sessione sconosciuto: ${value}`)
+      errors.push(L.t('tipo di sessione sconosciuto: {value}', { value }))
     } else {
       filter.kinds.push(kind)
     }
@@ -62,7 +63,7 @@ export function filterOf(args: ParsedArgs, now: number, currentProject: string |
     const day = dayOfArg(since, now)
 
     if (day === null) {
-      errors.push(`data non valida per --da: ${since}`)
+      errors.push(L.t('data non valida per --{flag}: {value}', { flag: args.typed.da ?? 'da', value: since }))
     } else {
       filter.sinceDay = day
     }
@@ -72,7 +73,7 @@ export function filterOf(args: ParsedArgs, now: number, currentProject: string |
     const day = dayOfArg(until, now)
 
     if (day === null) {
-      errors.push(`data non valida per --a: ${until}`)
+      errors.push(L.t('data non valida per --{flag}: {value}', { flag: args.typed.a ?? 'a', value: until }))
     } else {
       filter.untilDay = day
     }
@@ -147,19 +148,19 @@ export function matchesSession(filter: KpiFilter, file: KpiSessionFile): boolean
 }
 
 /** Una descrizione leggibile del filtro, per l'intestazione dei report. */
-export function describeFilter(filter: KpiFilter): string {
+export function describeFilter(L: I18n, filter: KpiFilter): string {
   const parts: string[] = []
 
   if (filter.sinceDay !== undefined || filter.untilDay !== undefined) {
-    parts.push(`periodo ${filter.sinceDay ?? 'inizio'} → ${filter.untilDay ?? 'oggi'}`)
+    parts.push(L.t('periodo {since} → {until}', { since: filter.sinceDay ?? L.t('inizio'), until: filter.untilDay ?? L.t('oggi') }))
   }
 
-  if (filter.projects.length > 0) parts.push(`progetto ${filter.projects.map(value => value.replace(/^=/, '')).join(', ')}`)
-  if (filter.sessions.length > 0) parts.push(`sessione ${filter.sessions.join(', ')}`)
-  if (filter.models.length > 0) parts.push(`modello ${filter.models.join(', ')}`)
-  if (filter.kinds.length > 0) parts.push(`tipo ${filter.kinds.join(', ')}`)
+  if (filter.projects.length > 0) parts.push(`${L.t('progetto')} ${filter.projects.map(value => value.replace(/^=/, '')).join(', ')}`)
+  if (filter.sessions.length > 0) parts.push(`${L.t('sessione')} ${filter.sessions.join(', ')}`)
+  if (filter.models.length > 0) parts.push(`${L.t('modello')} ${filter.models.join(', ')}`)
+  if (filter.kinds.length > 0) parts.push(`${L.t('tipo')} ${filter.kinds.map(L.code).join(', ')}`)
   if (filter.branches.length > 0) parts.push(`branch ${filter.branches.join(', ')}`)
   if (filter.repos.length > 0) parts.push(`repo ${filter.repos.join(', ')}`)
 
-  return parts.length === 0 ? 'tutti i dati' : parts.join(' · ')
+  return parts.length === 0 ? L.t('tutti i dati') : parts.join(' · ')
 }

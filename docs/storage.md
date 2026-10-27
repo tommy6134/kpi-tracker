@@ -1,70 +1,72 @@
-# Formati su disco
+# On-disk formats
 
-## Radice
+_Italiano: [docs/it/storage.md](it/storage.md)_
 
-`<configDir>/kpi/`, dove `<configDir>` è `$CLAUDE_CONFIG_DIR` se definita, altrimenti `$HOME/.claude` (`%USERPROFILE%\.claude` su Windows). L'opzione `dataDir` la sostituisce.
+## Root
 
-| Percorso | Contenuto |
+`<configDir>/kpi/`, where `<configDir>` is `$CLAUDE_CONFIG_DIR` if set, otherwise `$HOME/.claude` (`%USERPROFILE%\.claude` on Windows). The `dataDir` option replaces it.
+
+| Path | Contents |
 | --- | --- |
-| `_meta/kpi-root.json` | marcatore della radice (`schemaVersion`, `plugin`, `createdAt`): la pulizia rifiuta di cancellare se manca |
-| `_meta/upstream.git/` | repo git bare con l'ultimo commit del plugin, senza checkout: c'è solo se il marketplace indica il plugin con un URL, e serve agli aggiornamenti per leggere versione e `compat.json` (si può cancellare, si ricrea) |
-| `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata) |
-| `_exports/kpi-<livello>-<data-ora>.csv\|json` | export (in parti `-parteN` oltre ~3,5 MB; nella cartella `reportDir`, se impostata, o nel file di `--out`) |
-| `<progetto>/project.json` | un progetto |
-| `<progetto>/<sessione>/` | una sessione |
+| `_meta/kpi-root.json` | root marker (`schemaVersion`, `plugin`, `createdAt`): pruning refuses to delete without it |
+| `_meta/upstream.git/` | bare git repo with the plugin's latest commit, no checkout: present only if the marketplace lists the plugin with a URL, used by updates to read the version and `compat.json` (can be deleted, it is recreated) |
+| `_reports/report-<date-time>.html`, `latest.html` | HTML reports (in the `reportDir` folder, if set) |
+| `_exports/kpi-<level>-<date-time>.csv\|json` | exports (split into `-partN` parts beyond ~3.5 MB; in the `reportDir` folder, if set, or in the `--out` file). Level and parts are named in the export's language: `kpi-sessions-…`, `-part2` in English; `kpi-sessioni-…`, `-parte2` in Italian |
+| `<project>/project.json` | a project |
+| `<project>/<session>/` | a session |
 
-Le cartelle di servizio iniziano con `_`: un nome di progetto codificato contiene solo `[A-Za-z0-9-]`, quindi non collidono mai.
+Service folders start with `_`: an encoded project name only contains `[A-Za-z0-9-]`, so they never collide.
 
-Unico file fuori dalla radice: su Linux, quando il report sta in una cartella nascosta, `/kpi report` ne scrive una copia in `$(xdg-user-dir DOWNLOAD)/kpi-report.html` (sovrascritta ogni volta) e apre quella, perché i browser snap e flatpak non leggono le cartelle nascoste della home.
+The only file outside the root: on Linux, when the report is in a hidden folder, `/kpi report` writes a copy to `$(xdg-user-dir DOWNLOAD)/kpi-report.html` (overwritten each time) and opens that, because snap and flatpak browsers cannot read hidden folders in the home.
 
-## Progetto
+## Project
 
-Nome della cartella: il percorso di avvio con ogni carattere non alfanumerico sostituito da `-`, come fa Claude Code in `projects/`; oltre 200 caratteri si accorcia e si aggiunge un hash. La codifica non è reversibile (`/a/b-c` e `/a/b/c` danno lo stesso nome): se la cartella appartiene già a un altro percorso si usa `<nome>-<hash>`.
+Folder name: the launch path with every non-alphanumeric character replaced by `-`, as Claude Code does in `projects/`; beyond 200 characters it is shortened and a hash is added. The encoding is not reversible (`/a/b-c` and `/a/b/c` give the same name): if the folder already belongs to another path, `<name>-<hash>` is used.
 
 ```jsonc
 // project.json
-{ "schemaVersion": 1, "path": "/Users/me/lavoro/app", "encoded": "-Users-me-lavoro-app", "name": "app",
+{ "schemaVersion": 1, "path": "/Users/me/work/app", "encoded": "-Users-me-work-app", "name": "app",
   "firstSeenAt": 1791800000000, "lastSeenAt": 1791900000000, "repo": { "root": "…", "remote": "…", "name": "app" } }
 ```
 
-## Sessione
+## Session
 
-Nome della cartella: `YYYY-MM-DD_HH-mm-ss_<primi 8 caratteri dell'id>`, in ora locale dall'inizio della sessione. Una ripresa (`--resume`) ritrova la cartella dal suffisso e verifica l'id in `session.json`.
+Folder name: `YYYY-MM-DD_HH-mm-ss_<first 8 characters of the id>`, in local time from the start of the session. A resume (`--resume`) finds the folder from the suffix and checks the id in `session.json`.
 
 ### session.json
 
-Metadati e KPI aggregati, riscritto a ogni salvataggio (5–20 KB):
+Metadata and aggregated KPIs, rewritten at every save (5–20 KB):
 
-| Campo | Significato |
+| Field | Meaning |
 | --- | --- |
-| `sessionId`, `dir`, `project` | identità |
-| `createdAt`, `updatedAt`, `heartbeatAt`, `tzOffsetMin` | tempi (ms epoch) e fuso |
-| `status` | `active` o `ended`; un `active` senza heartbeat da 10 minuti si mostra come "interrotta" |
-| `kind`, `interactive` | tipo di sessione |
-| `links` | `previousSessionId` / `nextSessionId` (catena di `/clear`) |
-| `segments[]` | un elemento per processo: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (il ledger del costo all'aggancio; la differenza dall'ultima lettura del segmento precedente si conta come costo fuori dai turni quando il ledger è della stessa sessione) |
+| `sessionId`, `dir`, `project` | identity |
+| `createdAt`, `updatedAt`, `heartbeatAt`, `tzOffsetMin` | times (ms epoch) and time zone |
+| `status` | `active` or `ended`; an `active` one without a heartbeat for 10 minutes is shown as "interrupted" |
+| `kind` and the other codes | stay Italian on disk (`interattiva`, `ricarica`, `altro`…) whatever the language: reports and exports translate them when they show them |
+| `links` | `previousSessionId` / `nextSessionId` (chain of `/clear`) |
+| `segments[]` | one item per process: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (the cost ledger at binding time; the difference from the last reading of the previous segment counts as cost outside turns when the ledger belongs to the same session) |
 | `meta` | `branches`, `repo`, `models`, `versions`, `permissionModes` |
-| `diag` | salvataggi, errori di scrittura, byte scritti |
-| `summary` | tutti i KPI aggregati (vedi `hooks/analysis/summary-types.ts`) |
+| `diag` | saves, write errors, bytes written |
+| `summary` | every aggregated KPI (see `hooks/analysis/summary-types.ts`) |
 
 ### details.json
 
-Dettagli illimitati (con tetti di sicurezza): `files` (per percorso assoluto: letture, modifiche, righe, classe), `turns` (ultimi 2.000 turni: durata, token, tool, errori, esito, costo, contesto), `agents`, `compactions`, `commits`, `prs`, `bashCmds`, `domains`, `switches`.
+Unbounded details (with safety caps): `files` (by absolute path: reads, edits, lines, class), `turns` (last 2,000 turns: duration, tokens, tools, errors, outcome, cost, context), `agents`, `compactions`, `commits`, `prs`, `bashCmds`, `domains`, `switches`.
 
 ### events/
 
-Gli eventi grezzi, **fonte di verità**: un file JSONL per segmento, ruotato oltre 512 KiB (`<segmento>-0001.jsonl`, `-0002.jsonl`…). Una riga per evento:
+The raw events, **source of truth**: one JSONL file per segment, rotated beyond 512 KiB (`<segment>-0001.jsonl`, `-0002.jsonl`…). One line per event:
 
 ```json
 {"q":12,"t":1791900000123,"e":"tool","id":"toolu_01…","tool":"Bash","st":"ok","wall":840,"x":{"k":"bash","cmds":["mvn test"],"cat":"test"}}
 ```
 
-`q` è la sequenza nel segmento, `t` l'istante in ms, `a` l'id del subagent (se c'è), `e` il tipo. I tipi sono definiti in `hooks/core/events.ts`.
+`q` is the sequence in the segment, `t` the instant in ms, `a` the subagent id (if any), `e` the type. The types are defined in `hooks/core/events.ts`.
 
-## Coerenza
+## Consistency
 
-- `$.fs.write` riscrive il file intero: ogni salvataggio fotografa insieme eventi in attesa, summary e `lastSeq`, poi scrive **prima i chunk e poi** `session.json`. Così `session.json` non conta mai eventi che non siano già su disco.
-- Al riaggancio (ripresa, crash) gli eventi con `q > lastSeq` si rigiocano sul summary.
-- `/kpi ricostruisci` rifà summary e dettagli da zero dagli eventi (anche dopo un cambio di `schemaVersion`).
-- Salvataggi: 250 ms dopo la fine di ogni turno, ogni 5 s se ci sono novità, heartbeat ogni 60 s, prima di `/kpi` e alla chiusura della sessione. In `claude -p` a ogni fine turno.
-- Ogni processo scrive solo i propri chunk: due processi sulla stessa sessione non si sovrascrivono gli eventi.
+- `$.fs.write` rewrites the whole file: each save snapshots pending events, summary and `lastSeq` together, then writes **the chunks first and then** `session.json`. So `session.json` never counts events that are not already on disk.
+- On rebinding (resume, crash) the events with `q > lastSeq` are replayed onto the summary.
+- `/kpi rebuild` redoes summary and details from scratch from the events (also after a `schemaVersion` change).
+- Saves: 250 ms after the end of each turn, every 5 s if there is something new, a heartbeat every 60 s, before `/kpi` and when the session closes. In `claude -p` at the end of each turn.
+- Each process writes only its own chunks: two processes on the same session do not overwrite each other's events.

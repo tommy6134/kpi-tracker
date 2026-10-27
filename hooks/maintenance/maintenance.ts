@@ -3,8 +3,8 @@
 import { join, isInside, parseSessionDir, ROOT_MARKER } from '../core/paths'
 import { readJson, rebuildFrom } from '../core/recover'
 import { displayStatus, type KpiSessionFile } from '../core/session-file'
-import { date, int, plural, usd } from '../format/fmt'
 import type { Host, HostFs } from '../host'
+import type { I18n } from '../i18n'
 import { emptyFilter } from '../query/filters'
 import { loadProjects, loadSessions, type SessionRow } from '../query/load'
 
@@ -20,9 +20,9 @@ export type PruneOptions = { olderThanDays: number; now: number; apply: boolean;
  * `apply` le elenca soltanto. Cancella solo cartelle col nome di una
  * sessione, dentro una radice che porta il marcatore di kpi-tracker.
  */
-export async function pruneSessions(host: Host, root: string, options: PruneOptions): Promise<string> {
+export async function pruneSessions(host: Host, L: I18n, root: string, options: PruneOptions): Promise<string> {
   if (!(await host.fs.exists(join(root, ROOT_MARKER)))) {
-    return `Pulizia annullata: ${root} non porta il marcatore di kpi-tracker (${ROOT_MARKER}).`
+    return L.t('Pulizia annullata: {root} non porta il marcatore di kpi-tracker ({marker}).', { root, marker: ROOT_MARKER })
   }
 
   const cutoff = options.now - options.olderThanDays * 86_400_000
@@ -57,18 +57,26 @@ export async function pruneSessions(host: Host, root: string, options: PruneOpti
     }
   }
 
+  const before = L.date(cutoff)
+
   if (victims.length === 0) {
-    return `Nessuna sessione con ultima attività prima del ${date(cutoff)}.`
+    return L.t('Nessuna sessione con ultima attività prima del {date}.', { date: before })
   }
 
   const list = victims
     .slice(0, 15)
-    .map(victim => `- ${victim.project} · ${victim.id.slice(0, 8)} · ${date(victim.last)}`)
+    .map(victim => `- ${victim.project} · ${victim.id.slice(0, 8)} · ${L.date(victim.last)}`)
     .join('\n')
-  const more = victims.length > 15 ? `\n- … e altre ${int(victims.length - 15)}` : ''
+  const more = victims.length > 15 ? `\n- ${L.t('… e altre {n}', { n: L.int(victims.length - 15) })}` : ''
 
   if (!options.apply) {
-    return `${int(victims.length)} sessioni hanno l'ultima attività prima del ${date(cutoff)}:\n${list}${more}\n\nNon ho cancellato nulla. Per cancellarle: \`/kpi pulisci --piu-vecchie-di ${options.olderThanDays}d --si\`.`
+    return L.t('Sessioni con l\'ultima attività prima del {date}: {n}.\n{list}{more}\n\nNon ho cancellato nulla. Per cancellarle: `/kpi pulisci --piu-vecchie-di {days}d --si`.', {
+      date: before,
+      n: L.int(victims.length),
+      list,
+      more,
+      days: options.olderThanDays,
+    })
   }
 
   let removed = 0
@@ -84,7 +92,7 @@ export async function pruneSessions(host: Host, root: string, options: PruneOpti
     }
   }
 
-  return `Cancellate ${int(removed)} sessioni su ${int(victims.length)} (ultima attività prima del ${date(cutoff)}).${failed.length > 0 ? ` Non cancellate: ${failed.join(', ')}.` : ''}`
+  return `${L.t('Sessioni cancellate: {removed} su {total} (ultima attività prima del {date}).', { removed: L.int(removed), total: L.int(victims.length), date: before })}${failed.length > 0 ? ` ${L.t('Non cancellate: {ids}.', { ids: failed.join(', ') })}` : ''}`
 }
 
 /** L'esito di una ricostruzione: sessioni rifatte, eventi letti, saltate, costo totale prima e dopo. */
@@ -122,10 +130,10 @@ export async function rebuildAll(fs: HostFs, rows: readonly SessionRow[], skip: 
 }
 
 /** Ricalcola summary e dettagli dagli eventi di ogni sessione (tranne quella in corso). */
-export async function rebuildSessions(fs: HostFs, rows: readonly SessionRow[], current: string | null): Promise<string> {
+export async function rebuildSessions(fs: HostFs, L: I18n, rows: readonly SessionRow[], current: string | null): Promise<string> {
   const { done, events, skipped } = await rebuildAll(fs, rows, row => row.file.sessionId === current)
 
-  return `Ricostruite ${int(done)} sessioni da ${int(events)} eventi.${skipped.length > 0 ? ` Saltate (in corso o senza eventi): ${skipped.join(', ')}.` : ''}`
+  return `${L.t('Ricostruite {sessions} da {events}.', { sessions: L.count(done, 'sessione', 'sessioni'), events: L.count(events, 'evento', 'eventi') })}${skipped.length > 0 ? ` ${L.t('Saltate (in corso o senza eventi): {ids}.', { ids: skipped.join(', ') })}` : ''}`
 }
 
 /** La chiave di `$.store` che segna la ricostruzione dopo il nuovo calcolo del costo (0.4.0). */
@@ -138,7 +146,7 @@ export const REBUILD_KEY = 'rebuild-0.4.0'
  * fanno insieme; restano fuori la sessione in corso e quelle attive altrove.
  * Restituisce la riga per il transcript, o `null` se non c'era nulla da fare.
  */
-export async function rebuildOnce(host: Host, root: string, current: string | null): Promise<string | null> {
+export async function rebuildOnce(host: Host, L: I18n, root: string, current: string | null): Promise<string | null> {
   if ((await host.storeGet(REBUILD_KEY).catch(() => null)) !== undefined) {
     return null
   }
@@ -156,5 +164,5 @@ export async function rebuildOnce(host: Host, root: string, current: string | nu
 
   const recovered = result.costAfter - result.costBefore
 
-  return `kpi-tracker: ricalcolati i KPI di ${plural(result.done, 'sessione passata', 'sessioni passate')} col nuovo calcolo del costo${recovered > 0.0005 ? ` (+${usd(recovered)} di costo prima non registrato)` : ''}.`
+  return `${L.t('kpi-tracker: ricalcolati i KPI di {sessions} col nuovo calcolo del costo', { sessions: L.count(result.done, 'sessione passata', 'sessioni passate') })}${recovered > 0.0005 ? ` ${L.t('(+{usd} di costo prima non registrato)', { usd: L.usd(recovered) })}` : ''}.`
 }

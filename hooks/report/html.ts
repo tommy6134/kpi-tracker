@@ -9,13 +9,16 @@ import { percentileOf } from '../analysis/stats'
 import { join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
 import type { HostFs } from '../host'
-import type { KpiFilter } from '../query/filters'
+import { i18nOf, type Lang } from '../i18n'
+import { CODES_EN } from '../i18n/codes'
+import { describeFilter, type KpiFilter } from '../query/filters'
 import type { SessionRow } from '../query/load'
 
 /** Limite del dato incorporato (il file si scrive con `$.fs.write`, massimo 4 MiB). */
 export const DATA_BUDGET = 3_500_000
 
-export type ReportMeta = { description: string; generatedAt: number; filter: KpiFilter }
+/** `lang` è la lingua con cui si apre il report; la pagina passa all'altra senza rigenerarlo. */
+export type ReportMeta = { lang: Lang; generatedAt: number; filter: KpiFilter }
 
 type Dict = { list: string[]; index: Map<string, number> }
 
@@ -34,6 +37,9 @@ function idx(dict: Dict, value: string): number {
 }
 
 const r6 = (value: number): number => Math.round(value * 1e6) / 1e6
+
+/** La descrizione del filtro in entrambe le lingue, per il selettore della pagina. */
+const descriptionsOf = (filter: KpiFilter): Record<Lang, string> => ({ it: describeFilter(i18nOf('it'), filter), en: describeFilter(i18nOf('en'), filter) })
 
 /** Il dataset del report. */
 export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data: Record<string, unknown>; trimmed: boolean } {
@@ -136,8 +142,9 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
 
   const data: Record<string, unknown> = {
     v: 1,
-    meta: { description: meta.description, generatedAt: meta.generatedAt, sessions: rows.length },
+    meta: { lang: meta.lang, description: descriptionsOf(meta.filter), generatedAt: meta.generatedAt, sessions: rows.length },
     dict: Object.fromEntries(Object.entries(dicts).map(([name, dict]) => [name, dict.list])),
+    codes: CODES_EN,
     sessions,
     maps,
     days,
@@ -180,9 +187,10 @@ async function asset(fs: HostFs, pluginRoot: string, name: string): Promise<stri
 }
 
 /** Assembla l'HTML: template + stile + dati + app. */
-export function assemble(template: string, style: string, app: string, data: Record<string, unknown>, title: string): string {
+export function assemble(template: string, style: string, app: string, data: Record<string, unknown>, title: string, lang: Lang = 'it'): string {
   // Sostituzione con funzione: nessuna interpretazione dei `$` nei contenuti.
   return template
+    .replace('__LANG__', () => lang)
     .replace('__TITLE__', () => escapeHtml(title))
     .replace('/*__STYLE__*/', () => style)
     .replace('__DATA__', () => embedJson(data))
@@ -193,14 +201,15 @@ export function assemble(template: string, style: string, app: string, data: Rec
 export async function buildReport(fs: HostFs, pluginRoot: string, rows: readonly SessionRow[], meta: ReportMeta): Promise<{ html: string; trimmed: boolean }> {
   const { data, trimmed } = datasetOf(rows, meta)
   const [template, style, app] = await Promise.all([asset(fs, pluginRoot, 'template.html'), asset(fs, pluginRoot, 'style.css'), asset(fs, pluginRoot, 'app.js')])
-  const title = `KPI Claude Code · ${meta.description}`
+  const L = i18nOf(meta.lang)
+  const title = `KPI Claude Code · ${describeFilter(L, meta.filter)}`
 
   if (template === null || style === null || app === null) {
     return {
-      html: `<!doctype html><html lang="it"><meta charset="utf-8"><title>${escapeHtml(title)}</title><body><h1>${escapeHtml(title)}</h1><p>Asset del report non trovati in ${escapeHtml(pluginRoot)}/assets/report: dati grezzi qui sotto.</p><script type="application/json" id="kpi-data">${embedJson(data)}</script></body></html>`,
+      html: `<!doctype html><html lang="${meta.lang}"><meta charset="utf-8"><title>${escapeHtml(title)}</title><body><h1>${escapeHtml(title)}</h1><p>${escapeHtml(L.t('Asset del report non trovati in {dir}: dati grezzi qui sotto.', { dir: `${pluginRoot}/assets/report` }))}</p><script type="application/json" id="kpi-data">${embedJson(data)}</script></body></html>`,
       trimmed,
     }
   }
 
-  return { html: assemble(template, style, app, data, title), trimmed }
+  return { html: assemble(template, style, app, data, title, meta.lang), trimmed }
 }

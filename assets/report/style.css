@@ -90,6 +90,7 @@ h1 { font-size: 22px; font-weight: 600; margin: 0; }
 h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
 .sub, .hint { color: var(--text-secondary); margin: 2px 0 0; font-size: 13px; }
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .theme { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13px; }
 
 select, input, button {
@@ -210,7 +211,7 @@ tbody tr.clickable { cursor: pointer; }
 
 @media print {
   body { background: #fff; padding: 0; }
-  .filters, .theme, .card-head button { display: none; }
+  .filters, .controls, .card-head button { display: none; }
   .card, .tile { break-inside: avoid; border-color: #ccc; }
 }
 @media (forced-colors: active) {

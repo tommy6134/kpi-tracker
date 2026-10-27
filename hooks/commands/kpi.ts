@@ -4,9 +4,9 @@ import { hasHiddenSegment, isAbsolute, join, resolvePath, trimSlash, REPORTS_DIR
 import { readJson } from '../core/recover'
 import type { KpiDetails } from '../analysis/summary-types'
 import { addDays, dayKey, stampOf } from '../core/time'
-import { exportCsv, exportJson, LEVELS, type ExportLevel } from '../export/export'
-import { int, usd } from '../format/fmt'
+import { exportCsv, exportJson, LEVEL_NAMES, LEVELS } from '../export/export'
 import type { Host } from '../host'
+import { i18nOf, langOf, type I18n } from '../i18n'
 import { pruneSessions, rebuildSessions } from '../maintenance/maintenance'
 import { GROUP_ALIASES, totalsOf, type GroupKey } from '../query/aggregate'
 import { describeFilter, emptyFilter, filterOf } from '../query/filters'
@@ -14,8 +14,8 @@ import { loadSessions } from '../query/load'
 import { buildReport } from '../report/html'
 import { flushNow, noticeOf, pollCost, type Tracker } from '../tracker'
 import { checkForUpdates, updateReport } from '../update/update'
-import { daysOfAge, parseArgs } from './args'
-import { HELP } from './help'
+import { daysOfAge, parseArgs, type ArgError } from './args'
+import { helpOf } from './help'
 import { projectsReport, sessionReport, sessionsReport, statsReport, summaryReport } from './report-text'
 
 export type KpiCommandContext = {
@@ -28,11 +28,12 @@ export type KpiCommandContext = {
 /**
  * `text` è il report completo; `short`, quando c'è, è la riga che va al
  * modello al posto del report (che vede solo la persona). `toModel` chiede di
- * mandare il report completo anche al modello (`--ctx`).
+ * mandare il report completo anche al modello (`--ctx`). `lang` è la lingua
+ * in cui è scritto, per il riferimento che lo accompagna nel transcript.
  */
-export type KpiCommandResult = { text: string; short?: string; toModel?: boolean }
+export type KpiCommandResult = { text: string; short?: string; toModel?: boolean; lang?: I18n['lang'] }
 
-const privateNote = (what: string): string => `${what} mostrato all'utente, non incluso nel contesto (usa /kpi … --ctx per includerlo).`
+const privateNote = (L: I18n, what: string): string => L.t('{what}: mostrato all\'utente, non incluso nel contesto (usa /kpi … --ctx per includerlo).', { what })
 
 /** L'argv per aprire un file con l'applicazione predefinita del sistema. */
 export function openArgv(os: string, path: string): string[] {
@@ -46,7 +47,7 @@ export function openArgv(os: string, path: string): string[] {
 /** Il nome fisso della copia del report che il browser apre su Linux. */
 export const BROWSER_COPY = 'kpi-report.html'
 
-const BAD_REPORT_DIR = 'L\'opzione reportDir non è un percorso assoluto (anche `~/…`): correggila da /config.'
+const badReportDir = (L: I18n): string => L.t('L\'opzione reportDir non è un percorso assoluto (anche `~/…`): correggila da /config.')
 
 /** Dove vanno report ed export: l'opzione `reportDir`, altrimenti `sub` nella cartella dati. `null` se `reportDir` non è assoluta. */
 function outDirOf(tracker: Tracker, root: string, sub: string): string | null {
@@ -78,46 +79,59 @@ async function browserCopy(host: Host, os: string, path: string, html: string): 
   )
 }
 
+/** Un errore degli argomenti nella lingua di `L`. */
+const argError = (L: I18n, error: ArgError): string =>
+  error.kind === 'valore' ? L.t('--{name} richiede un valore', { name: error.name }) : L.t('opzione sconosciuta --{name}', { name: error.name })
+
 export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<KpiCommandResult> {
   const { host, tracker } = ctx
   const args = parseArgs(argsText)
   const toModel = args.bools.has('ctx')
+  const rawLang = args.flags.lingua?.at(-1)
+  const lang = rawLang === undefined ? tracker.options.language : langOf(rawLang)
+
+  if (lang === null) {
+    return { text: tracker.i18n.t('Lingua sconosciuta: {value}. Valori: it, en.', { value: rawLang ?? '' }) }
+  }
+
+  const L = i18nOf(lang)
+  const done = (result: KpiCommandResult): KpiCommandResult => ({ ...result, lang })
 
   if (args.unknown !== undefined) {
-    return { text: `Sottocomando sconosciuto: \`${args.unknown}\`. Scrivi \`/kpi aiuto\` per l'elenco dei comandi.` }
+    return done({ text: L.t('Sottocomando sconosciuto: `{name}`. Scrivi `/kpi aiuto` per l\'elenco dei comandi.', { name: args.unknown }) })
   }
 
   if (args.sub === 'aiuto') {
-    return { text: HELP, short: privateNote('Guida di /kpi'), toModel }
+    return done({ text: helpOf(lang), short: privateNote(L, L.t('Guida di /kpi')), toModel })
   }
 
   if (args.errors.length > 0) {
-    return { text: `Argomenti non validi: ${args.errors.join('; ')}.\n\nScrivi \`/kpi aiuto\` per la guida.` }
+    return done({ text: L.t('Argomenti non validi: {errors}.\n\nScrivi `/kpi aiuto` per la guida.', { errors: args.errors.map(error => argError(L, error)).join('; ') }) })
   }
 
   if (args.sub === 'aggiorna') {
     const outcome = await checkForUpdates(tracker, { force: true, install: !args.bools.has('verifica') })
 
-    return { text: await updateReport(tracker, host, outcome) }
+    return done({ text: await updateReport(tracker, host, outcome, L) })
   }
 
   const root = tracker.root
 
   if (root === null) {
-    return { text: 'kpi-tracker: cartella dati non disponibile (né CLAUDE_CONFIG_DIR né HOME sono definite, oppure dataDir non è un percorso assoluto).' }
+    return done({ text: L.t('kpi-tracker: cartella dati non disponibile (né CLAUDE_CONFIG_DIR né HOME sono definite, oppure dataDir non è un percorso assoluto).') })
   }
 
   if (args.sub === 'live') {
     const opened = await ctx.openPane()
 
-    return { text: opened.isPlaced ? 'Pannello KPI aperto.' : `Il pannello non si può mostrare ora: ${opened.reason ?? 'motivo sconosciuto'}.` }
+    return done({ text: opened.isPlaced ? L.t('Pannello KPI aperto.') : L.t('Il pannello non si può mostrare ora: {reason}.', { reason: opened.reason ?? L.t('motivo sconosciuto') }) })
   }
 
   if (args.sub === 'barra') {
     const value = (args.positional[0] ?? '').toLowerCase()
 
     if (value !== 'on' && value !== 'off') {
-      return { text: `La barra KPI è ${tracker.ui.bandDisabled ? 'disattivata' : 'attiva'}. Usa \`/kpi barra on\` o \`/kpi barra off\`.` }
+      return done({ text: tracker.ui.bandDisabled ? L.t('La barra KPI è disattivata. Usa `/kpi barra on` o `/kpi barra off`.') : L.t('La barra KPI è attiva. Usa `/kpi barra on` o `/kpi barra off`.') })
     }
 
     tracker.ui.bandDisabled = value === 'off'
@@ -125,7 +139,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     await host.storeSet('band', value).catch(() => undefined)
     host.invalidate()
 
-    return { text: value === 'off' ? 'Barra KPI disattivata (anche nelle prossime sessioni).' : 'Barra KPI attivata.' }
+    return done({ text: value === 'off' ? L.t('Barra KPI disattivata (anche nelle prossime sessioni).') : L.t('Barra KPI attivata.') })
   }
 
   await pollCost(tracker)
@@ -134,13 +148,13 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
   const now = Date.now()
   const current = tracker.store?.file ?? null
   const override = current === null ? [] : [current]
-  const { filter, errors } = filterOf(args, now, tracker.launchCwd)
+  const { filter, errors } = filterOf(L, args, now, tracker.launchCwd)
 
   if (errors.length > 0) {
-    return { text: `Filtri non validi: ${errors.join('; ')}.` }
+    return done({ text: L.t('Filtri non validi: {errors}.', { errors: errors.join('; ') }) })
   }
 
-  const description = describeFilter(filter)
+  const description = describeFilter(L, filter)
 
   switch (args.sub) {
     case 'riepilogo': {
@@ -154,11 +168,11 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
 
       const notice = noticeOf(tracker)
 
-      return {
-        text: summaryReport(current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now, notice === null ? undefined : `${notice.tone === 'warn' ? '⚠ ' : ''}${notice.text}`),
-        short: privateNote(`Riepilogo KPI (oggi ${usd(todayTotals.range.cost)}, 7 giorni ${usd(weekTotals.range.cost)})`),
+      return done({
+        text: summaryReport(L, current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now, notice === null ? undefined : `${notice.tone === 'warn' ? '⚠ ' : ''}${notice.text}`),
+        short: privateNote(L, L.t('Riepilogo KPI (oggi {today}, 7 giorni {week})', { today: L.usd(todayTotals.range.cost), week: L.usd(weekTotals.range.cost) })),
         toModel,
-      }
+      })
     }
 
     case 'statistiche': {
@@ -167,29 +181,29 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const by: GroupKey | null = rawBy === undefined ? null : (GROUP_ALIASES[rawBy.toLowerCase()] ?? null)
 
       if (rawBy !== undefined && by === null) {
-        return { text: `Raggruppamento sconosciuto: ${rawBy}. Valori: giorno, settimana, mese, progetto, modello, branch, tipo, sessione.` }
+        return done({ text: L.t('Raggruppamento sconosciuto: {value}. Valori: giorno, settimana, mese, progetto, modello, branch, tipo, sessione.', { value: rawBy }) })
       }
 
       const totals = totalsOf(rows, filter)
 
-      return {
-        text: statsReport(totals, rows, filter, description, by),
-        short: privateNote(`Statistiche KPI (${int(rows.length)} sessioni, ${usd(totals.range.cost)})`),
+      return done({
+        text: statsReport(L, totals, rows, filter, description, by),
+        short: privateNote(L, L.t('Statistiche KPI ({sessions}, {cost})', { sessions: L.count(rows.length, 'sessione', 'sessioni'), cost: L.usd(totals.range.cost) })),
         toModel,
-      }
+      })
     }
 
     case 'sessioni': {
       const rows = await loadSessions(host.fs, root, filter, override)
       const limit = Math.max(1, Math.min(1000, Number(args.flags.limite?.at(-1) ?? 20) || 20))
 
-      return { text: sessionsReport(rows, filter, limit, now, description), short: privateNote(`Elenco di ${int(rows.length)} sessioni`), toModel }
+      return done({ text: sessionsReport(L, rows, filter, limit, now, description), short: privateNote(L, L.t('Elenco di {sessions}', { sessions: L.count(rows.length, 'sessione', 'sessioni') })), toModel })
     }
 
     case 'progetti': {
       const rows = await loadSessions(host.fs, root, filter, override)
 
-      return { text: projectsReport(rows, filter, description), short: privateNote('Elenco dei progetti'), toModel }
+      return done({ text: projectsReport(L, rows, filter, description), short: privateNote(L, L.t('Elenco dei progetti')), toModel })
     }
 
     case 'sessione': {
@@ -197,18 +211,18 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const id = wanted === 'corrente' || wanted === 'current' ? current?.sessionId : wanted
 
       if (id === undefined) {
-        return { text: 'Nessuna sessione corrente registrata. Indica un id: `/kpi sessione <id>`.' }
+        return done({ text: L.t('Nessuna sessione corrente registrata. Indica un id: `/kpi sessione <id>`.') })
       }
 
       const rows = await loadSessions(host.fs, root, { ...emptyFilter(), sessions: [id.toLowerCase()] }, override)
       const row = rows[0]
 
       if (row === undefined) {
-        return { text: `Nessuna sessione con id che inizia per \`${id}\`.` }
+        return done({ text: L.t('Nessuna sessione con id che inizia per `{id}`.', { id }) })
       }
 
       if (rows.length > 1) {
-        return { text: `Più sessioni iniziano per \`${id}\`: ${rows.map(one => one.file.sessionId.slice(0, 12)).join(', ')}. Usa più caratteri.` }
+        return done({ text: L.t('Più sessioni iniziano per `{id}`: {ids}. Usa più caratteri.', { id, ids: rows.map(one => one.file.sessionId.slice(0, 12)).join(', ') }) })
       }
 
       const isCurrent = row.file.sessionId === current?.sessionId
@@ -216,25 +230,31 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const ledger = isCurrent ? (await host.usage().catch(() => null))?.cost?.usd : undefined
       const all = emptyFilter()
 
-      return { text: sessionReport(row, details, totalsOf([row], all), all, now, ledger), short: privateNote(`Dettaglio della sessione ${row.file.sessionId.slice(0, 8)}`), toModel }
+      return done({ text: sessionReport(L, row, details, totalsOf([row], all), all, now, ledger), short: privateNote(L, L.t('Dettaglio della sessione {id}', { id: row.file.sessionId.slice(0, 8) })), toModel })
     }
 
     case 'report': {
       const dir = outDirOf(tracker, root, REPORTS_DIR)
 
       if (dir === null) {
-        return { text: BAD_REPORT_DIR }
+        return done({ text: badReportDir(L) })
       }
 
       const rows = await loadSessions(host.fs, root, filter, override)
       const stamp = stampOf(now)
       const path = join(dir, `report-${stamp}.html`)
-      const built = await buildReport(host.fs, host.pluginRoot, rows, { description, generatedAt: now, filter })
+      const built = await buildReport(host.fs, host.pluginRoot, rows, { lang, generatedAt: now, filter })
 
       await host.fs.write(path, built.html)
       await host.fs.write(join(dir, 'latest.html'), built.html)
 
-      const lines = [`Report HTML generato: ${path} (${int(rows.length)} sessioni${built.trimmed ? ', dettagli delle sessioni più vecchie ridotti per stare nel limite di dimensione' : ''}).`]
+      const lines = [
+        L.t('Report HTML generato: {path} ({sessions}{trimmed}).', {
+          path,
+          sessions: L.count(rows.length, 'sessione', 'sessioni'),
+          trimmed: built.trimmed ? L.t(', dettagli delle sessioni più vecchie ridotti per stare nel limite di dimensione') : '',
+        }),
+      ]
 
       if (!args.bools.has('no-apri') && tracker.interactive !== false) {
         const { os } = await ctx.platform()
@@ -242,58 +262,61 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
         const opened = await host.run(openArgv(os, copy ?? path), { timeoutMs: 10_000 }).catch(() => null)
 
         if (copy !== null) {
-          lines.push(`Copia per il browser: ${copy} (i browser snap e flatpak non leggono le cartelle nascoste; per evitare la copia imposta reportDir).`)
+          lines.push(L.t('Copia per il browser: {copy} (i browser snap e flatpak non leggono le cartelle nascoste; per evitare la copia imposta reportDir).', { copy }))
         } else if (os === 'Linux' && hasHiddenSegment(path)) {
-          lines.push('Se il browser nega l\'accesso al file (snap o flatpak), imposta reportDir su una cartella visibile.')
+          lines.push(L.t('Se il browser nega l\'accesso al file (snap o flatpak), imposta reportDir su una cartella visibile.'))
         }
 
-        lines.push(opened !== null && opened.exitCode === 0 ? 'Aperto nel browser.' : 'Aprilo nel browser dal percorso indicato.')
+        lines.push(opened !== null && opened.exitCode === 0 ? L.t('Aperto nel browser.') : L.t('Aprilo nel browser dal percorso indicato.'))
       }
 
-      return { text: lines.join(' ') }
+      return done({ text: lines.join(' ') })
     }
 
     case 'esporta': {
       const format = (args.positional[0] ?? '').toLowerCase()
 
       if (format !== 'csv' && format !== 'json') {
-        return { text: 'Indica il formato: `/kpi esporta csv` oppure `/kpi esporta json`.' }
+        return done({ text: L.t('Indica il formato: `/kpi esporta csv` oppure `/kpi esporta json`.') })
       }
 
       const rawLevel = (args.flags.livello?.at(-1) ?? 'sessioni').toLowerCase()
       const level = LEVELS[rawLevel]
 
       if (level === undefined) {
-        return { text: `Livello sconosciuto: ${rawLevel}. Valori: sessioni, giorni, turni, eventi.` }
+        return done({ text: L.t('Livello sconosciuto: {value}. Valori: sessioni, giorni, turni, eventi.', { value: rawLevel }) })
       }
 
       const out = args.flags.out?.at(-1)
       const outPath = out === undefined ? undefined : resolvePath(tracker.env, out)
 
       if (outPath === null) {
-        return { text: `\`--out\` vuole un percorso assoluto (anche \`~/…\`): ${out}.` }
+        return done({ text: L.t('`--out` vuole un percorso assoluto (anche `~/…`): {out}.', { out: out ?? '' }) })
       }
 
       const dir = outDirOf(tracker, root, EXPORTS_DIR)
 
       if (outPath === undefined && dir === null) {
-        return { text: BAD_REPORT_DIR }
+        return done({ text: badReportDir(L) })
       }
 
       const rows = await loadSessions(host.fs, root, filter, override)
       const stamp = stampOf(now)
-      const path = outPath ?? join(dir as string, `kpi-${level}-${stamp}.${format}`)
-      const excel = !args.bools.has('standard')
-      const result = format === 'csv' ? await exportCsv(host.fs, rows, filter, level as ExportLevel, excel) : await exportJson(host.fs, rows, filter, level as ExportLevel, { description, generatedAt: now })
-      const paths = result.parts.map((_, index) => (index === 0 ? path : path.replace(/(\.[a-z]+)?$/, `-parte${index + 1}$1`)))
+      const levelName = LEVEL_NAMES[level][lang]
+      const path = outPath ?? join(dir as string, `kpi-${levelName}-${stamp}.${format}`)
+      // Il CSV segue la lingua (Excel italiano o standard); --standard e --excel lo forzano.
+      const excel = args.bools.has('excel') || (!args.bools.has('standard') && lang === 'it')
+      const result = format === 'csv' ? await exportCsv(host.fs, L, rows, filter, level, excel) : await exportJson(host.fs, L, rows, filter, level, { description, generatedAt: now })
+      const paths = result.parts.map((_, index) => (index === 0 ? path : path.replace(/(\.[a-z]+)?$/, `-${L.t('parte')}${index + 1}$1`)))
 
       for (const [index, part] of result.parts.entries()) {
         await host.fs.write(paths[index] as string, part)
       }
 
-      const where = paths.length === 1 ? path : `${paths.length} file (${paths.join(', ')})`
+      const where = paths.length === 1 ? path : L.t('{n} file ({paths})', { n: paths.length, paths: paths.join(', ') })
+      const kind = format === 'csv' ? (excel ? L.t(' — formato Excel italiano') : L.t(' — formato standard')) : ''
 
-      return { text: `Esportate ${int(result.count)} righe (${level}) in ${where}${format === 'csv' ? (excel ? ' — formato Excel italiano' : ' — formato standard') : ''}.` }
+      return done({ text: L.t('Esportate {rows} ({level}) in {where}{kind}.', { rows: L.count(result.count, 'riga', 'righe'), level: levelName, where, kind }) })
     }
 
     case 'pulisci': {
@@ -301,22 +324,22 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const days = rawAge === undefined ? null : daysOfAge(rawAge)
 
       if (days === null || days < 1) {
-        return { text: 'Indica l\'età: `/kpi pulisci --piu-vecchie-di 180d` (giorni d, settimane w, mesi m, anni y). Aggiungi `--si` per cancellare davvero.' }
+        return done({ text: L.t('Indica l\'età: `/kpi pulisci --piu-vecchie-di 180d` (giorni d, settimane w, mesi m, anni y). Aggiungi `--si` per cancellare davvero.') })
       }
 
-      const result = await pruneSessions(host, root, { olderThanDays: days, now, apply: args.bools.has('si') && !args.bools.has('prova'), current: current?.sessionId ?? null, os: (await ctx.platform()).os })
+      const result = await pruneSessions(host, L, root, { olderThanDays: days, now, apply: args.bools.has('si') && !args.bools.has('prova'), current: current?.sessionId ?? null, os: (await ctx.platform()).os })
 
-      return { text: result }
+      return done({ text: result })
     }
 
     case 'ricostruisci': {
       const rows = await loadSessions(host.fs, root, filter, [])
-      const result = await rebuildSessions(host.fs, rows, current?.sessionId ?? null)
+      const result = await rebuildSessions(host.fs, L, rows, current?.sessionId ?? null)
 
-      return { text: result }
+      return done({ text: result })
     }
 
     default:
-      return { text: HELP }
+      return done({ text: helpOf(lang) })
   }
 }

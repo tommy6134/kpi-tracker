@@ -3,11 +3,12 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { parseArgs } from '../hooks/commands/args'
 import { optionsOf, type UpdateMode } from '../hooks/config'
 import type { Host } from '../hooks/host'
+import { keepsItalian, LANGUAGE_KEY, setItalian } from '../hooks/i18n/migrate'
 import { newTracker, noticeOf, type Tracker } from '../hooks/tracker'
 import { installationOf, releaseAt, sourceOf, type Release } from '../hooks/update/install'
 import { compareVersions, engineOf, isVersion, partsOf } from '../hooks/update/semver'
 import { CHECK_DELAY_MS, CHECK_EVERY_MS, checkForUpdates, decide, FAILURES_TO_SHOW, isDue, loadState, RETRY_MS, startUpdates, updateReport } from '../hooks/update/update'
-import { BAND, command, commandOutput, SESSION } from './fixtures/inputs'
+import { BAND, command, commandOutput, IT, SESSION } from './fixtures/inputs'
 import { textOf, worldOf } from './fixtures/world'
 
 const T0 = Date.UTC(2026, 9, 21, 8, 0, 0)
@@ -26,6 +27,8 @@ const gitFetch = (url: string, ref = 'HEAD') => ['git', '--git-dir', UPSTREAM, '
 const gitShow = (file: string) => ['git', '--git-dir', UPSTREAM, 'show', `FETCH_HEAD:${file}`]
 
 type Setup = {
+  /** La lingua del plugin (default `it`, come i testi dei test). */
+  language?: 'it' | 'en'
   engine?: string
   local?: Release
   remote?: Release
@@ -165,7 +168,7 @@ function installed(setup: Setup = {}) {
     pluginRoot: setup.pluginRoot ?? root,
   } as unknown as Host
 
-  const tracker: Tracker = newTracker(optionsOf({ autoUpdate: setup.mode ?? 'auto' }))
+  const tracker: Tracker = newTracker(optionsOf({ autoUpdate: setup.mode ?? 'auto', language: setup.language ?? 'it' }))
 
   tracker.host = host
   tracker.env = { CLAUDE_CONFIG_DIR: CONFIG, HOME: '/home/tester', ...(setup.execPath !== null && { CLAUDE_CODE_EXECPATH: setup.execPath ?? EXEC }) }
@@ -536,7 +539,7 @@ describe('avvio', () => {
 })
 
 describe('nel plugin', () => {
-  test('da una cartella: /kpi aggiorna non lancia comandi e lo spiega', async ($, on) => {
+  test('da una cartella: /kpi aggiorna non lancia comandi e lo spiega', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
@@ -549,7 +552,7 @@ describe('nel plugin', () => {
     expect(world.runs.some(argv => argv.includes('plugin'))).toBe(false)
   })
 
-  test('versione che richiede un Claude Code più recente: barra, /kpi, toast e transcript', async ($, on) => {
+  test('versione che richiede un Claude Code più recente: barra, /kpi, toast e transcript', IT, async ($, on) => {
     const world = worldOf(on, { release: { version: '0.3.0', minClaudeCode: '9.0.0' } })
     const clock = mock.clock(on)
 
@@ -572,5 +575,67 @@ describe('nel plugin', () => {
 
     expect(drawn).toContain('## KPI di Claude Code')
     expect(drawn).toContain('> ⚠ Questa versione di kpi-tracker (0.3.0) richiede Claude Code ≥ 9.0.0')
+  })
+})
+
+describe('lingua di chi aggiorna dalla 0.3.0', () => {
+  /** Un host con o senza dati KPI, con o senza `language` nei settings, installato da marketplace o da una cartella. */
+  function migrating(options: { data: boolean; language?: string; dev?: boolean }) {
+    const root = `${CONFIG}/kpi`
+    const store = new Map<string, unknown>()
+    const sets: [string, string][] = []
+    const host = {
+      fs: {
+        list: async (path: string) => {
+          if (path !== root || !options.data) {
+            throw new Error(`ENOENT: ${path}`)
+          }
+
+          return [
+            { name: '_meta', kind: 'dir' },
+            { name: '-work-progetto', kind: 'dir' },
+          ]
+        },
+        read: async (path: string) => {
+          throw new Error(`ENOENT: ${path}`)
+        },
+      },
+      now: async () => T0,
+      storeGet: async (key: string) => store.get(key),
+      storeSet: async (key: string, value: unknown) => {
+        store.set(key, value)
+      },
+      settingsRead: async (key: string) =>
+        key === 'pluginConfigs' ? { [`kpi-tracker@${MKT}`]: { options: { autoUpdate: 'auto', ...(options.language !== undefined && { language: options.language }) } } } : undefined,
+      configKeys: async () => ['theme', 'kpi-tracker.language', 'kpi-tracker.dataDir'],
+      configSet: async (key: string, value: string) => {
+        sets.push([key, value])
+
+        return {}
+      },
+      pluginName: 'kpi-tracker',
+      pluginRoot: options.dev === true ? '/src/kpi-tracker' : `${CONFIG}/plugins/cache/${MKT}/kpi-tracker/0.4.0`,
+    } as unknown as Host
+
+    return { host, root, store, sets }
+  }
+
+  test('con dati e lingua mai scelta resta in italiano, una volta sola', async () => {
+    const { host, root, sets } = migrating({ data: true })
+
+    expect(await keepsItalian(host, root)).toBe(true)
+    expect(await setItalian(host)).toBe(true)
+    expect(sets).toEqual([['kpi-tracker.language', 'it']])
+    expect(await keepsItalian(host, root)).toBe(false)
+  })
+
+  test('installazione nuova, lingua già scelta o cartella di sviluppo: niente da fare', async () => {
+    for (const options of [{ data: false }, { data: true, language: 'en' }, { data: true, dev: true }]) {
+      const { host, root, store } = migrating(options)
+
+      expect(await keepsItalian(host, root)).toBe(false)
+      // Il controllo si segna comunque: una sessione successiva con dati non lo rifà.
+      expect(store.has(LANGUAGE_KEY)).toBe(true)
+    }
   })
 })

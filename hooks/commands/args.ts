@@ -1,6 +1,7 @@
 /**
- * Argomenti di /kpi: sottocomando (nomi italiani con alias inglesi), opzioni
- * con valore, opzioni booleane, date relative o assolute.
+ * Argomenti di /kpi: sottocomando, opzioni con valore, opzioni booleane, date
+ * relative o assolute. Ogni nome si scrive in italiano o in inglese, qualunque
+ * sia la lingua del plugin; i nomi canonici (interni) sono quelli italiani.
  */
 
 import { addDays, dayKey } from '../core/time'
@@ -77,6 +78,9 @@ const VALUE_FLAGS: Record<string, string> = {
   'più-vecchie-di': 'piu-vecchie-di',
   'older-than': 'piu-vecchie-di',
   out: 'out',
+  lingua: 'lingua',
+  lang: 'lingua',
+  language: 'lingua',
 }
 
 /** Opzioni booleane: nome canonico per ogni alias. */
@@ -99,14 +103,19 @@ const BOOL_FLAGS: Record<string, string> = {
   check: 'verifica',
 }
 
+/** Un'opzione senza il valore che richiede, o sconosciuta; `name` è come l'ha scritta l'utente. */
+export type ArgError = { kind: 'valore' | 'sconosciuta'; name: string }
+
 export type ParsedArgs = {
   sub: Subcommand
   /** Il sottocomando scritto non era riconosciuto. */
   unknown?: string
   positional: string[]
   flags: Record<string, string[]>
+  /** Per ogni opzione con valore, il nome con cui l'utente l'ha scritta (`since` per `da`), per i messaggi. */
+  typed: Record<string, string>
   bools: Set<string>
-  errors: string[]
+  errors: ArgError[]
 }
 
 /** Divide la riga in parole, rispettando virgolette singole e doppie. */
@@ -125,7 +134,7 @@ export function words(text: string): string[] {
 /** Analizza gli argomenti di /kpi. */
 export function parseArgs(text: string): ParsedArgs {
   const list = words(text.trim())
-  const parsed: ParsedArgs = { sub: 'riepilogo', positional: [], flags: {}, bools: new Set(), errors: [] }
+  const parsed: ParsedArgs = { sub: 'riepilogo', positional: [], flags: {}, typed: {}, bools: new Set(), errors: [] }
   let index = 0
   const first = list[0]
 
@@ -159,12 +168,13 @@ export function parseArgs(text: string): ParsedArgs {
       const value = inline ?? list[index + 1]
 
       if (value === undefined || (inline === undefined && value.startsWith('--'))) {
-        parsed.errors.push(`--${name} richiede un valore`)
+        parsed.errors.push({ kind: 'valore', name })
         index += 1
         continue
       }
 
       ;(parsed.flags[valueFlag] ??= []).push(...value.split(',').map(part => part.trim()).filter(part => part !== ''))
+      parsed.typed[valueFlag] = name
       index += inline === undefined ? 2 : 1
       continue
     }
@@ -175,7 +185,7 @@ export function parseArgs(text: string): ParsedArgs {
       continue
     }
 
-    parsed.errors.push(`opzione sconosciuta --${name}`)
+    parsed.errors.push({ kind: 'sconosciuta', name })
     index += 1
   }
 

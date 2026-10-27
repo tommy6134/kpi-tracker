@@ -18,6 +18,7 @@ import { kpiRootOf, type EnvValues } from './core/paths'
 import type { KpiRepo } from './core/session-file'
 import type { SessionStore } from './core/writer'
 import type { Host } from './host'
+import { i18nOf, type I18n } from './i18n'
 
 export type TrackerEnv = EnvValues & { CLAUDE_CODE_ENTRYPOINT?: string | undefined; CLAUDE_CODE_EXECPATH?: string | undefined }
 
@@ -28,6 +29,8 @@ export type UpdateNotice = { tone: 'warn' | 'info'; band: string; text: string }
 
 export type Tracker = {
   options: KpiOptions
+  /** Testi e formati della lingua configurata (barra, pannello, avvisi; /kpi può cambiarla con --lingua). */
+  i18n: I18n
   host: Host | null
   env: TrackerEnv
   root: string | null
@@ -73,6 +76,7 @@ export const HEARTBEAT_MS = 60_000
 export function newTracker(options: KpiOptions): Tracker {
   return {
     options,
+    i18n: i18nOf(options.language),
     host: null,
     env: {},
     root: null,

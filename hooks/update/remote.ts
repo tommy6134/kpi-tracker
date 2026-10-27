@@ -8,6 +8,7 @@
 
 import { join } from '../core/paths'
 import type { Host } from '../host'
+import type { I18n } from '../i18n'
 import { COMPAT_FILE, MANIFEST_FILE, type PluginSource, type Release } from './install'
 import { isVersion } from './semver'
 
@@ -20,11 +21,11 @@ const LOCAL_TIMEOUT_MS = 15_000
 type GitSource = Extract<PluginSource, { kind: 'git' }>
 
 /** Lancia git; rifiuta con quanto ha scritto su stderr se esce con errore. */
-async function git(host: Host, args: string[], timeoutMs = LOCAL_TIMEOUT_MS): Promise<string> {
+async function git(host: Host, L: I18n, args: string[], timeoutMs = LOCAL_TIMEOUT_MS): Promise<string> {
   const result = await host.run(['git', ...args], { timeoutMs, env: NO_PROMPT })
 
   if (result.exitCode !== 0) {
-    throw new Error(result.stderr.trim() === '' ? `git: codice di uscita ${result.exitCode}` : result.stderr)
+    throw new Error(result.stderr.trim() === '' ? `git: ${L.t('codice di uscita {code}', { code: result.exitCode })}` : result.stderr)
   }
 
   return result.stdout
@@ -39,22 +40,22 @@ const field = (json: string, key: string): unknown => {
 }
 
 /** La release all'ultimo commit di `source` (o al suo `ref`), scaricato nel repo bare `gitDir`. */
-export async function releaseInRepo(host: Host, gitDir: string, source: GitSource): Promise<Release> {
+export async function releaseInRepo(host: Host, L: I18n, gitDir: string, source: GitSource): Promise<Release> {
   if (!(await host.fs.exists(join(gitDir, 'HEAD')).catch(() => false))) {
-    await git(host, ['init', '--bare', '-q', gitDir])
+    await git(host, L, ['init', '--bare', '-q', gitDir])
   }
 
-  await git(host, ['--git-dir', gitDir, 'fetch', '--depth', '1', '--no-tags', '-q', source.url, source.ref ?? 'HEAD'], FETCH_TIMEOUT_MS)
+  await git(host, L, ['--git-dir', gitDir, 'fetch', '--depth', '1', '--no-tags', '-q', source.url, source.ref ?? 'HEAD'], FETCH_TIMEOUT_MS)
 
   const prefix = source.path === undefined ? '' : `${source.path}/`
-  const version = field(await git(host, ['--git-dir', gitDir, 'show', `FETCH_HEAD:${prefix}${MANIFEST_FILE}`]), 'version')
+  const version = field(await git(host, L, ['--git-dir', gitDir, 'show', `FETCH_HEAD:${prefix}${MANIFEST_FILE}`]), 'version')
 
   if (!isVersion(version)) {
-    throw new Error(`versione illeggibile in ${prefix}${MANIFEST_FILE} di ${source.url}`)
+    throw new Error(L.t('versione illeggibile in {file} di {url}', { file: `${prefix}${MANIFEST_FILE}`, url: source.url }))
   }
 
   // compat.json manca nelle release precedenti alla 0.3.0: nessun vincolo.
-  const min = await git(host, ['--git-dir', gitDir, 'show', `FETCH_HEAD:${prefix}${COMPAT_FILE}`]).then(
+  const min = await git(host, L, ['--git-dir', gitDir, 'show', `FETCH_HEAD:${prefix}${COMPAT_FILE}`]).then(
     json => field(json, 'minClaudeCode'),
     () => undefined,
   )

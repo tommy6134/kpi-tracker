@@ -4,7 +4,7 @@
 import type { Elements, RenderChildren, RenderElement } from 'claude-code'
 
 import { clockOf } from '../core/time'
-import { compact, cut, dur, fixed, int, pct, pct100, plural, usd } from '../format/fmt'
+import type { I18n } from '../i18n'
 import type { LiveView, RateView } from './live'
 import { ACCENT, BAD, GOOD, RASTER, toneColor, toneOf, WARN, worstOf, type Tone } from './palette'
 import { DEFAULT_COLOR, glyphsOf, lastOf, packCells, type Cell } from './sparkline'
@@ -55,7 +55,7 @@ function meter(kit: PaneKit, fraction: number, width: number, color: string): Ro
  * Il titolo è un fratello assoluto dopo il riquadro, non un suo figlio: il terminale dipinge il
  * bordo sopra i figli, mentre un elemento assoluto si dipinge sopra quelli che lo precedono.
  */
-function card(kit: PaneKit, title: string, width: number, rows: readonly Row[], tone: Tone = 'ok'): Row {
+function card(kit: PaneKit, L: I18n, title: string, width: number, rows: readonly Row[], tone: Tone = 'ok'): Row {
   const { Box, Text } = kit
   const color = tone === 'ok' ? undefined : toneColor(tone)
 
@@ -65,7 +65,7 @@ function card(kit: PaneKit, title: string, width: number, rows: readonly Row[], 
         {rows.filter(row => row !== null)}
       </Box>
       <Box position="absolute" top={0} left={1}>
-        <Text bold color={color}>{` ${cut(title, Math.max(1, width - 6))} `}</Text>
+        <Text bold color={color}>{` ${L.cut(title, Math.max(1, width - 6))} `}</Text>
       </Box>
     </Box>
   )
@@ -103,7 +103,7 @@ function line(kit: PaneKit, label: string, value: RenderChildren, color?: string
 }
 
 /** Una quantità: attenuata a zero, nel colore `hot` sopra zero. */
-function amount(kit: PaneKit, label: string, value: number, text = int(value), hot?: string): Row {
+function amount(kit: PaneKit, L: I18n, label: string, value: number, text = L.int(value), hot?: string): Row {
   return line(kit, label, text, value > 0 ? hot : undefined, value === 0)
 }
 
@@ -168,16 +168,17 @@ function spark(kit: PaneKit, key: string, label: string, values: readonly (numbe
 }
 
 /** Il pannello della sessione corrente: card in testa, poi una card per sezione; il corpo scorre. */
-export function paneView(kit: PaneKit, live: LiveView | null, columns: number, actions: PaneActions): RenderElement {
+export function paneView(kit: PaneKit, L: I18n, live: LiveView | null, columns: number, actions: PaneActions): RenderElement {
   const { Box, Text, Button } = kit
+  const { compact, dur, fixed, int, pct, pct100, usd } = L
   const width = Math.max(30, columns - 1)
 
   if (live === null) {
     return (
       <Box flexDirection="column">
-        <Text dimColor>Nessuna sessione registrata in questo momento.</Text>
+        <Text dimColor>{L.t('Nessuna sessione registrata in questo momento.')}</Text>
         <Box gap={1}>
-          <Button key="kpi-close" label="Chiudi" role="dismiss" onPress={actions.close} />
+          <Button key="kpi-close" label={L.t('Chiudi')} role="dismiss" onPress={actions.close} />
         </Box>
       </Box>
     )
@@ -189,12 +190,13 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
   const perRow = width >= TWO_COLUMNS_MIN ? 2 : 1
   const cardWidth = Math.floor((width - perRow + 1) / perRow)
   const inner = cardWidth - CARD_CHROME
-  const section = (title: string, rows: readonly Row[], tone?: Tone): Row => card(kit, title, cardWidth, rows, tone)
+  const section = (title: string, rows: readonly Row[], tone?: Tone): Row => card(kit, L, title, cardWidth, rows, tone)
+  const count = (label: string, value: number, text?: string, hot?: string): Row => amount(kit, L, label, value, text, hot)
 
   // ------------------------------------------------------------ intestazione
 
   const title = [live.project, live.branch].filter(part => part !== null && part !== '').join(' · ')
-  const meta = [live.model, live.id8, live.kind].filter(part => part !== null && part !== '').join(' · ')
+  const meta = [live.model, live.id8, L.code(live.kind)].filter(part => part !== null && part !== '').join(' · ')
   const header = (
     <Box flexDirection="column">
       <Box justifyContent="space-between" gap={1}>
@@ -203,18 +205,18 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
             KPI
           </Text>
           {'  '}
-          <Text bold>{cut(title, Math.max(10, width - 30))}</Text>
+          <Text bold>{L.cut(title, Math.max(10, width - 30))}</Text>
         </Text>
         <Box gap={1} flexShrink={0}>
-          <Button key="kpi-report" label="Report HTML" onPress={actions.report} />
-          <Button key="kpi-close" label="Chiudi" role="dismiss" onPress={actions.close} />
+          <Button key="kpi-report" label={L.t('Report HTML')} onPress={actions.report} />
+          <Button key="kpi-close" label={L.t('Chiudi')} role="dismiss" onPress={actions.close} />
         </Box>
       </Box>
       <Text dimColor wrap="truncate-end">
         {meta}
       </Text>
       <Text dimColor wrap="truncate-end">
-        avviata {clockOf(live.startedAt)} · {plural(live.segments, 'segmento', 'segmenti')}
+        {L.t('avviata {time}', { time: clockOf(live.startedAt) })} · {L.count(live.segments, 'segmento', 'segmenti')}
         {live.version !== '' ? ` · v${live.version}` : ''}
       </Text>
     </Box>
@@ -224,49 +226,50 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
 
   const ctxTone = toneOf(live.ctxPct)
   const activeShare = live.durationMs > 0 ? pct(Math.min(1, live.activeMs / live.durationMs)) : null
-  const activeLong = `attivo ${dur(live.activeMs)}${activeShare !== null ? ` (${activeShare})` : ''}`
+  const activeLong = `${L.t('attivo {time}', { time: dur(live.activeMs) })}${activeShare !== null ? ` (${activeShare})` : ''}`
   const turnNote =
     live.turns.errors > 0 ? (
-      <Text color={BAD}>{plural(live.turns.errors, 'errore', 'errori')}</Text>
+      <Text color={BAD}>{L.count(live.turns.errors, 'errore', 'errori')}</Text>
     ) : live.turns.aborted > 0 ? (
-      <Text color={WARN}>{plural(live.turns.aborted, 'interrotto', 'interrotti')}</Text>
+      <Text color={WARN}>{L.count(live.turns.aborted, 'interrotto', 'interrotti')}</Text>
     ) : (
-      <Text dimColor>0 errori</Text>
+      <Text dimColor>{L.count(0, 'errore', 'errori')}</Text>
     )
 
   const hero: Row[] = [
-    card(kit, 'Costo', heroWidth, [
+    card(kit, L, L.t('Costo'), heroWidth, [
       <Text bold wrap="truncate-end">
         {usd(live.cost)}
       </Text>,
       <Text dimColor wrap="truncate-end">
-        {live.turns.n > 0 ? `${usd(live.costPerTurn)}/turno` : 'nessun turno'}
+        {live.turns.n > 0 ? L.t('{cost}/turno', { cost: usd(live.costPerTurn) }) : L.t('nessun turno')}
       </Text>,
     ]),
     card(
       kit,
-      'Contesto',
+      L,
+      L.t('Contesto'),
       heroWidth,
       [
         <Text wrap="truncate-end">
           <Text bold color={live.ctxPct === null ? undefined : toneColor(ctxTone)}>
             {live.ctxPct === null ? '–' : pct100(live.ctxPct)}
           </Text>
-          <Text dimColor>{live.ctxWindow > 0 ? ` di ${compact(live.ctxWindow)}` : ''}</Text>
+          <Text dimColor>{live.ctxWindow > 0 ? ` ${L.t('di {window}', { window: compact(live.ctxWindow) })}` : ''}</Text>
         </Text>,
         meter(kit, (live.ctxPct ?? 0) / 100, Math.max(1, Math.min(heroInner, 20)), toneColor(ctxTone)),
       ],
       ctxTone,
     ),
-    card(kit, 'Durata', heroWidth, [
+    card(kit, L, L.t('Durata'), heroWidth, [
       <Text bold wrap="truncate-end">
         {dur(live.durationMs)}
       </Text>,
       <Text dimColor wrap="truncate-end">
-        {activeLong.length <= heroInner || activeShare === null ? activeLong : `attivo ${activeShare}`}
+        {activeLong.length <= heroInner || activeShare === null ? activeLong : L.t('attivo {time}', { time: activeShare })}
       </Text>,
     ]),
-    card(kit, 'Turni', heroWidth, [
+    card(kit, L, L.t('Turni'), heroWidth, [
       <Text bold wrap="truncate-end">
         {int(live.turns.n)}
       </Text>,
@@ -278,34 +281,33 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
 
   const errorTotal = live.errors.tool + live.errors.api + live.errors.refusals + live.errors.interrupts
   const errorCard = section(
-    'Errori',
+    L.t('Errori'),
     [
-      amount(kit, 'Tool', live.errors.tool, undefined, BAD),
-      amount(kit, 'API', live.errors.api, undefined, BAD),
-      amount(kit, 'Rifiuti', live.errors.refusals, undefined, BAD),
-      amount(kit, 'Interruzioni', live.errors.interrupts, undefined, BAD),
+      count('Tool', live.errors.tool, undefined, BAD),
+      count('API', live.errors.api, undefined, BAD),
+      count(L.t('Rifiuti'), live.errors.refusals, undefined, BAD),
+      count(L.t('Interruzioni'), live.errors.interrupts, undefined, BAD),
     ],
     errorTotal > 0 ? 'bad' : 'ok',
   )
 
   const tokenCard = section('Token', [
-    amount(kit, 'Input', live.tokens.in, compact(live.tokens.in)),
-    amount(kit, 'Output', live.tokens.out, compact(live.tokens.out)),
-    amount(kit, 'Cache lettura', live.tokens.cr, compact(live.tokens.cr)),
-    amount(kit, 'Cache scrittura', live.tokens.cw, compact(live.tokens.cw)),
-    amount(kit, 'Cache hit', live.cacheHit, pct(live.cacheHit)),
+    count('Input', live.tokens.in, compact(live.tokens.in)),
+    count('Output', live.tokens.out, compact(live.tokens.out)),
+    count(L.t('Cache lettura'), live.tokens.cr, compact(live.tokens.cr)),
+    count(L.t('Cache scrittura'), live.tokens.cw, compact(live.tokens.cw)),
+    count('Cache hit', live.cacheHit, pct(live.cacheHit)),
   ])
 
   const rateLine = (label: string, view: RateView | null): Row =>
     view === null ? line(kit, label, '–', undefined, true) : line(kit, label, pct100(view.pct), toneColor(toneOf(view.pct)))
   const limitCard = section(
-    'Limiti',
+    L.t('Limiti'),
     [
       rateLine('Rate limit 5h', live.rate5h),
-      rateLine('Rate limit 7g', live.rate7d),
-      amount(
-        kit,
-        'Compattazioni',
+      rateLine(`Rate limit ${L.t('7g')}`, live.rate7d),
+      count(
+        L.t('Compattazioni'),
         live.compactions.n,
         live.compactions.n > 0
           ? `${int(live.compactions.n)} (${int(live.compactions.auto)} auto${live.compactions.reduction !== null ? `, −${pct(live.compactions.reduction)}` : ''})`
@@ -317,22 +319,26 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
 
   const series = live.series
   const marks = series.map(point => (point.err > 0 || point.r === 'error' || point.r === 'aborted' ? 'err' : point.cpt === 1 ? 'cpt' : null) as 'err' | 'cpt' | null)
-  const turnCard = section(`Turni · ${int(live.turns.n)}`, [
-    spark(kit, 'kpi-spark-cost', 'costo ', series.map(point => point.cost), marks, inner),
-    spark(kit, 'kpi-spark-dur', 'durata', series.map(point => point.ms), marks, inner),
-    line(kit, 'Durata media', dur(live.turns.durMean)),
-    line(kit, 'Durata p90', dur(live.turns.durP90)),
-    amount(kit, 'Completati', live.turns.ok),
-    amount(kit, 'Interrotti', live.turns.aborted, undefined, WARN),
-    amount(kit, 'Errori', live.turns.errors, undefined, BAD),
-    live.turns.reqPerTurn > 0 ? line(kit, 'Richieste per turno', fixed(live.turns.reqPerTurn, 1)) : null,
-    live.turns.ttftMedian > 0 ? line(kit, 'TTFT mediano', dur(live.turns.ttftMedian)) : null,
+  // Le due etichette delle sparkline hanno la stessa larghezza, così i grafici partono allineati.
+  const sparkLabels = [L.t('costo'), L.t('durata')]
+  const sparkWidth = Math.max(...sparkLabels.map(label => label.length))
+  const [costLabel = '', durLabel = ''] = sparkLabels.map(label => label.padEnd(sparkWidth))
+  const turnCard = section(`${L.t('Turni')} · ${int(live.turns.n)}`, [
+    spark(kit, 'kpi-spark-cost', costLabel, series.map(point => point.cost), marks, inner),
+    spark(kit, 'kpi-spark-dur', durLabel, series.map(point => point.ms), marks, inner),
+    line(kit, L.t('Durata media'), dur(live.turns.durMean)),
+    line(kit, L.t('Durata p90'), dur(live.turns.durP90)),
+    count(L.t('Completati'), live.turns.ok),
+    count(L.t('Interrotti'), live.turns.aborted, undefined, WARN),
+    count(L.t('Errori'), live.turns.errors, undefined, BAD),
+    live.turns.reqPerTurn > 0 ? line(kit, L.t('Richieste per turno'), fixed(live.turns.reqPerTurn, 1)) : null,
+    live.turns.ttftMedian > 0 ? line(kit, L.t('TTFT mediano'), dur(live.turns.ttftMedian)) : null,
   ])
 
   const toolCard = section(
     `Tool · ${int(live.tools.n)}${live.tools.errors > 0 ? ` · ${int(live.tools.errors)} ✗` : ''}`,
     live.tools.top.length === 0
-      ? [<Text dimColor>nessuna chiamata</Text>]
+      ? [<Text dimColor>{L.t('nessuna chiamata')}</Text>]
       : list(
           kit,
           live.tools.top.map(tool => ({
@@ -357,7 +363,7 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
               const isCheck = cat.cat === 'test' || cat.cat === 'build'
 
               return {
-                name: cat.cat,
+                name: L.code(cat.cat),
                 cols: [
                   { text: int(cat.n), isBold: true },
                   { text: isCheck ? `${int(cat.ok)}✓` : '', color: cat.ok > 0 ? GOOD : undefined, isMuted: cat.ok === 0 },
@@ -376,17 +382,17 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
     </Box>
   )
   const changed = live.files.add + live.files.del
-  const fileCard = section('File e codice', [
+  const fileCard = section(L.t('File e codice'), [
     changed === 0
-      ? line(kit, 'Righe', '+0 −0', undefined, true)
-      : line(kit, 'Righe', [<Text color={GOOD}>+{int(live.files.add)}</Text>, ' ', <Text color={BAD}>−{int(live.files.del)}</Text>]),
-    amount(kit, 'Creati', live.files.created),
-    amount(kit, 'Modificati', live.files.modified),
-    amount(kit, 'Letti', live.files.read),
-    ...(live.files.byClass.length > 0 ? [subtitle('Per classe'), ...live.files.byClass.map(cls => amount(kit, cls.cls, cls.add, `+${int(cls.add)}`, GOOD))] : []),
+      ? line(kit, L.t('Righe'), '+0 −0', undefined, true)
+      : line(kit, L.t('Righe'), [<Text color={GOOD}>+{int(live.files.add)}</Text>, ' ', <Text color={BAD}>−{int(live.files.del)}</Text>]),
+    count(L.t('Creati'), live.files.created),
+    count(L.t('Modificati'), live.files.modified),
+    count(L.t('Letti'), live.files.read),
+    ...(live.files.byClass.length > 0 ? [subtitle(L.t('Per classe')), ...live.files.byClass.map(cls => count(L.code(cls.cls), cls.add, `+${int(cls.add)}`, GOOD))] : []),
     ...(live.files.top.length > 0
       ? [
-          subtitle('Più modificati'),
+          subtitle(L.t('Più modificati')),
           ...list(
             kit,
             live.files.top.map(file => ({
@@ -406,8 +412,8 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
     live.git.commits + live.git.pushes + live.git.prs.length === 0
       ? null
       : section('Git', [
-          amount(kit, 'Commit', live.git.commits),
-          amount(kit, 'Push', live.git.pushes),
+          count('Commit', live.git.commits),
+          count('Push', live.git.pushes),
           ...live.git.prs.map(pr => line(kit, `PR #${pr.n}`, pr.action)),
         ])
 
@@ -419,7 +425,7 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
           list(
             kit,
             live.agents.map(agent => ({
-              name: `${agent.type} ×${int(agent.n)}`,
+              name: `${L.code(agent.type)} ×${int(agent.n)}`,
               cols: [
                 { text: dur(agent.ms), isMuted: true },
                 { text: `${compact(agent.tok)} tok`, isMuted: true },
@@ -428,11 +434,11 @@ export function paneView(kit: PaneKit, live: LiveView | null, columns: number, a
           ),
         )
 
-  const permCard = section('Permessi', [
-    amount(kit, 'Consentiti', live.perms.allow),
-    amount(kit, 'Chiesti', live.perms.ask),
-    amount(kit, 'Dialoghi', live.perms.dialogs),
-    amount(kit, 'Negati', live.perms.deny + live.perms.denied + live.perms.toolDenied, undefined, WARN),
+  const permCard = section(L.t('Permessi'), [
+    count(L.t('Consentiti'), live.perms.allow),
+    count(L.t('Chiesti'), live.perms.ask),
+    count(L.t('Dialoghi'), live.perms.dialogs),
+    count(L.t('Negati'), live.perms.deny + live.perms.denied + live.perms.toolDenied, undefined, WARN),
   ])
 
   // Con errori la card Errori sale subito sotto quelle in testa, così si vede senza scorrere.
