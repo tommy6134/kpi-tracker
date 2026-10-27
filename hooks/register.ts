@@ -92,6 +92,9 @@ function bind(tracker: Tracker, $: EngineInterface): Host {
 
 const num = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
 
+/** Quanto può durare la lettura del branch fatta a ogni prompt. */
+const BRANCH_TIMEOUT_MS = 1500
+
 /**
  * Registra gli hook di kpi-tracker: osservano (mai bloccano) sessione,
  * prompt, turni, richieste, tool, permessi, subagent e compattazioni, e
@@ -267,6 +270,8 @@ export function register(on: On, raw: PluginOptions) {
       ...(queued && { qd: 1 as const }),
       ...(think !== undefined && think >= 0 && { th: think }),
     })
+    // Il branch può essere cambiato da un altro terminale: si rilegge in background.
+    refreshBranch(tracker, BRANCH_TIMEOUT_MS)
 
     return next(e)
   }).catch(($, e, next) => next(e))

@@ -132,6 +132,21 @@ const addUnique = (list: string[], value: string | undefined | null): void => {
   }
 }
 
+/** Mette `branch` in fondo all'elenco: l'ordine è quello dell'ultima volta che ciascuno era attivo. */
+export function moveLast(list: string[], branch: string | null): void {
+  if (branch === null || branch === '') {
+    return
+  }
+
+  const index = list.indexOf(branch)
+
+  if (index !== -1) {
+    list.splice(index, 1)
+  }
+
+  list.push(branch)
+}
+
 /**
  * Apre (o riprende) la sessione e crea il segmento di questo processo.
  * Emette `seg.start` e `meta`; il primo flush lo fa chi chiama.
@@ -180,7 +195,7 @@ export async function openSession(fs: HostFs, args: OpenArgs): Promise<SessionSt
   file.segments.push(segment)
   addUnique(file.meta.versions, args.version.version)
   addUnique(file.meta.models, args.model)
-  addUnique(file.meta.branches, args.branch)
+  moveLast(file.meta.branches, args.branch)
 
   if (args.repo !== null) {
     file.meta.repo = args.repo

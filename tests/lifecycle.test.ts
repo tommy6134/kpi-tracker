@@ -78,6 +78,34 @@ describe('ciclo di vita della sessione', () => {
     expect(world.written()).not.toContain('segreto')
   })
 
+  test('il branch si rilegge a ogni prompt: un cambio da un altro terminale si registra, e il branch rivisto va in fondo', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const prompt = () => $.prompt.submit({ text: 'avanti', wait: false, origin: { kind: 'composer' } })
+
+    await $.session.start(SESSION)
+    world.branch = 'feature/PROJ-7-login'
+    await prompt()
+    world.branch = 'main'
+    await prompt()
+    await prompt()
+    await clock.advance(6000)
+
+    const dir = sessionDirs(world)[0]
+    const file = world.json<KpiSessionFile>(`${PROJECT_DIR}/${dir}/session.json`)
+    const events = world
+      .under(`${PROJECT_DIR}/${dir}/events/`)
+      .flatMap(path => (world.files.get(path) ?? '').split('\n'))
+      .filter(line => line.includes('"e":"meta"'))
+
+    expect(file.meta.branches).toEqual(['feature/PROJ-7-login', 'main'])
+    expect(file.summary.git.branches).toEqual({ main: 2, 'feature/PROJ-7-login': 1 })
+    expect(file.summary._r.branch).toBe('main')
+    // Un evento all'avvio e uno per cambio; il terzo prompt, sullo stesso branch, non ne aggiunge.
+    expect(events).toHaveLength(3)
+    expect(world.runs.filter(argv => argv.includes('rev-parse'))).toHaveLength(4)
+  })
+
   test('una ripresa riusa la cartella con un nuovo segmento; /clear ne crea una collegata', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)

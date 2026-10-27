@@ -12,7 +12,7 @@
  */
 
 import type { KpiOptions } from './config'
-import { closeSegment, openSession } from './core/binding'
+import { closeSegment, moveLast, openSession } from './core/binding'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
 import { kpiRootOf, type EnvValues } from './core/paths'
 import type { KpiRepo } from './core/session-file'
@@ -59,6 +59,8 @@ export type Tracker = {
   lastClosedId: string | null
   timers: { flush?: { cancel: () => void }; heartbeat?: { cancel: () => void }; debounce?: { cancel: () => void }; update?: { cancel: () => void } }
   branch: string | null
+  /** Lettura del branch (a ogni prompt e dopo i comandi git, una alla volta): `again` se ne serve un'altra appena finisce. */
+  branchReading: 'no' | 'yes' | 'again'
   ui: { bandHidden: boolean; bandDisabled: boolean; paneOpen: boolean; reports: Map<string, string>; reportSeq: number }
   /**
    * Aggiornamenti: `self` se questa versione vuole un Claude Code più recente,
@@ -96,6 +98,7 @@ export function newTracker(options: KpiOptions): Tracker {
     lastClosedId: null,
     timers: {},
     branch: null,
+    branchReading: 'no',
     ui: { bandHidden: false, bandDisabled: false, paneOpen: false, reports: new Map(), reportSeq: 0 },
     update: { self: null, check: null, installed: null, queue: Promise.resolve() },
     diag: { attachErrors: 0 },
@@ -165,9 +168,9 @@ export function ensureAttached(tracker: Tracker): void {
 }
 
 /** Il branch git corrente della cartella di avvio, o `null`. */
-export async function readBranch(host: Host, cwd: string | null): Promise<string | null> {
+export async function readBranch(host: Host, cwd: string | null, timeoutMs = 3000): Promise<string | null> {
   try {
-    const result = await host.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { ...(cwd !== null && { cwd }), timeoutMs: 3000 })
+    const result = await host.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { ...(cwd !== null && { cwd }), timeoutMs })
     const branch = result.exitCode === 0 ? result.stdout.trim() : ''
 
     return branch === '' ? null : branch === 'HEAD' ? '(detached)' : branch.slice(0, 200)
@@ -447,27 +450,49 @@ function sleep(host: Host, ms: number): Promise<void> {
   })
 }
 
-/** Aggiorna il branch dopo un comando git che può averlo cambiato. */
-export function refreshBranch(tracker: Tracker): void {
+/**
+ * Rilegge il branch: a ogni prompt (cambi fatti da un altro terminale) e dopo
+ * un comando git che può averlo cambiato. Una lettura alla volta, in
+ * background: il turno non la aspetta mai. Una richiesta che arriva durante
+ * una lettura ne fa partire un'altra alla fine, così un cambio appena fatto
+ * non si perde.
+ */
+export function refreshBranch(tracker: Tracker, timeoutMs?: number): void {
   const host = tracker.host
 
-  if (host === null) {
+  if (host === null || tracker.store === null) {
     return
   }
 
-  void readBranch(host, tracker.launchCwd).then(branch => {
-    if (branch !== null && branch !== tracker.branch) {
-      tracker.branch = branch
-      record(tracker, { e: 'meta', branch })
+  if (tracker.branchReading !== 'no') {
+    tracker.branchReading = 'again'
 
+    return
+  }
+
+  tracker.branchReading = 'yes'
+  void readBranch(host, tracker.launchCwd, timeoutMs)
+    .then(branch => {
       const store = tracker.store
 
-      if (store !== null && !store.file.meta.branches.includes(branch)) {
-        store.file.meta.branches.push(branch)
-        store.touch()
+      if (branch === null || branch === tracker.branch || store === null) {
+        return
       }
-    }
-  })
+
+      tracker.branch = branch
+      record(tracker, { e: 'meta', branch })
+      moveLast(store.file.meta.branches, branch)
+      store.touch()
+    })
+    .finally(() => {
+      const again = tracker.branchReading === 'again'
+
+      tracker.branchReading = 'no'
+
+      if (again) {
+        refreshBranch(tracker, timeoutMs)
+      }
+    })
 }
 
 /** Registra la durata di una tool call, appena sono noti sia l'evento tool sia la durata. */

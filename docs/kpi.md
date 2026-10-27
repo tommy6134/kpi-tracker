@@ -135,7 +135,7 @@ Lines written by subagents are counted from their tool calls, without double cou
 | Pushes | per branch | `gitOperation.push` | E |
 | Merges and rebases | | `gitOperation.branch` | E |
 | Pull requests | by action (created, merged…), number, URL | `gitOperation.pr` | E |
-| Branches | branches seen and switches | `git rev-parse` | E |
+| Branches | branches seen and switches. The branch is read at start, at every prompt (in the background: a switch made from another terminal shows up at the next prompt) and after Claude's git commands | `git rev-parse` | E |
 | Lines per commit | | derived | A |
 
 ## Permissions

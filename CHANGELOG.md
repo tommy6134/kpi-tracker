@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The **branch** is read again at every prompt, in the background: a switch made from another terminal is recorded at the next prompt (before, only at start and after Claude's git commands). In `session.json` the branches are in the order they were last active, the current one last.
+
 ## 0.4.0
 
 Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration is simply skipped.

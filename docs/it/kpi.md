@@ -135,7 +135,7 @@ Le righe scritte dai subagent si contano dai loro tool call, senza doppi contegg
 | Push | per branch | `gitOperation.push` | E |
 | Merge e rebase | | `gitOperation.branch` | E |
 | Pull request | per azione (created, merged…), numero, URL | `gitOperation.pr` | E |
-| Branch | branch visti e cambi | `git rev-parse` | E |
+| Branch | branch visti e cambi. Il branch si legge all'avvio, a ogni prompt (in background: un cambio fatto da un altro terminale compare al prompt successivo) e dopo i comandi git di Claude | `git rev-parse` | E |
 | Righe per commit | | derivato | A |
 
 ## Permessi

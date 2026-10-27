@@ -45,7 +45,7 @@ Metadata and aggregated KPIs, rewritten at every save (5–20 KB):
 | `kind` and the other codes | stay Italian on disk (`interattiva`, `ricarica`, `altro`…) whatever the language: reports and exports translate them when they show them |
 | `links` | `previousSessionId` / `nextSessionId` (chain of `/clear`) |
 | `segments[]` | one item per process: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (the cost ledger at binding time; the difference from the last reading of the previous segment counts as cost outside turns when the ledger belongs to the same session) |
-| `meta` | `branches`, `repo`, `models`, `versions`, `permissionModes` |
+| `meta` | `branches` (in the order they were last active: the current one is last), `repo`, `models`, `versions`, `permissionModes` |
 | `diag` | saves, write errors, bytes written |
 | `summary` | every aggregated KPI (see `hooks/analysis/summary-types.ts`) |
 
