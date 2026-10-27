@@ -9,6 +9,7 @@
 - New `--month 2026-11` filter (`--mese`, also `11/2026`): since and until on that month, for every command. It cannot be combined with `--since`/`--until`.
 - New file classes **cobol** (`.cbl`, `.cob`, `.cpy`, `.cobol`, until now `src`) and **mainframe** (the mainframe files that are not COBOL: `.jcl`, `.pli`, `.pl1`, `.rexx`, `.rex`, `.bms`, `.ezt`, `.clist`, until now `src` or other), wherever classes show: summary, panel, text and HTML reports. The class now comes from the file's path, not from the one saved in the event, so it also applies to past sessions.
 - **Automatic recomputation.** When a new version changes the computation, past sessions are recomputed from the raw events at the first start (it replaces the one-off recomputation of the cost in 0.4.0). Sessions open in another process are recomputed at a later start, a resumed session when it is attached; `/kpi rebuild` remains for everything else.
+- **Richer sessions export**: lines added and removed per file class (`lines_added_src`, `lines_removed_src` … `lines_added_other`, in Italian `righe_aggiunte_src` …) and builds succeeded and failed (`builds_ok`, `builds_failed`; `build_ok`, `build_ko`), at the end of the columns. The data was already there, so they are filled for past sessions too (cobol and mainframe after the recomputation).
 
 ## 0.4.0
 

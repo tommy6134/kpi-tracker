@@ -7,6 +7,7 @@
  */
 
 import { cacheHit, type KpiDetails } from '../analysis/summary-types'
+import type { FileClass } from '../core/events'
 import { allEventsOf, readJson } from '../core/recover'
 import { join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
@@ -94,6 +95,9 @@ export const partPathOf = (path: string, part: string, n: number): string => pat
 type Value = string | number | boolean | null | undefined
 type Table = { columns: string[]; rows: Value[][] }
 
+/** Le classi di file nelle colonne delle righe per classe, in quest'ordine. */
+const CLASSES: readonly FileClass[] = ['src', 'test', 'doc', 'cobol', 'mainframe', 'config', 'altro']
+
 const iso = (ms: number): string => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : '')
 const min = (ms: number): number => Math.round((ms / 60_000) * 10) / 10
 
@@ -154,6 +158,14 @@ const COLUMNS_EN: Readonly<Record<string, string>> = {
   rifiutate_utente: 'rejected_by_user',
   negate_classificatore: 'denied_by_classifier',
   dialoghi_permesso: 'permission_dialogs',
+  ...Object.fromEntries(
+    CLASSES.flatMap(cls => [
+      [`righe_aggiunte_${cls}`, `lines_added_${cls === 'altro' ? 'other' : cls}`],
+      [`righe_rimosse_${cls}`, `lines_removed_${cls === 'altro' ? 'other' : cls}`],
+    ]),
+  ),
+  build_ok: 'builds_ok',
+  build_ko: 'builds_failed',
 }
 
 /** Le colonne nella lingua di `L`. */
@@ -181,6 +193,7 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
         'contesto_max_pct', 'rate_5h_max_pct', 'rate_7g_max_pct', 'branch', 'modelli', 'versione',
         // Dalla 0.5.0, in fondo per non spostare le colonne di chi usa fogli già fatti.
         'tool_negate', 'rifiutate_utente', 'negate_classificatore', 'dialoghi_permesso',
+        ...CLASSES.flatMap(cls => [`righe_aggiunte_${cls}`, `righe_rimosse_${cls}`]), 'build_ok', 'build_ko',
       ],
       rows: rows.map(row => {
         const s = row.file.summary
@@ -194,6 +207,8 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
           s.context.maxPct, s.rate.five_hour?.max ?? null, s.rate.seven_day?.max ?? null, row.file.meta.branches.join(' '),
           row.file.meta.models.join(' '), row.file.meta.versions.at(-1) ?? '',
           s.perms.toolDenied, s.perms.rejected ?? 0, s.perms.denied, s.perms.dialogs,
+          // Righe per classe e build: dell'intera sessione, come le altre colonne prese dal summary.
+          ...CLASSES.flatMap(cls => [s.files.byClass[cls]?.add ?? 0, s.files.byClass[cls]?.del ?? 0]), s.builds.ok, s.builds.err,
         ]
       }),
     }
