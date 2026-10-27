@@ -115,13 +115,18 @@ describe('tool, permessi e subagent', () => {
     const world = worldOf(on)
     const clock = mock.clock(on)
 
+    // Solo la verifica esplicita chiede: il kit (visto con la 2.1.311) fa passare anche le tool call da
+    // tool.check, e un `ask` senza nessuno che risponda le rifiuterebbe.
+    let asking = true
+
     on('tool.call', ($$, e) => (e.tool === 'Read' ? ({ result: { type: 'text', file: { filePath: '/work/progetto-demo/a.md', content: 'x', numLines: 40, startLine: 1, totalLines: 40 } }, text: 'x', isReadOnly: true } as never) : ({ isError: true, result: 'boom', text: 'boom' } as never)))
-    on('tool.check', () => ({ decision: 'ask' as const }))
+    on('tool.check', () => ({ decision: asking ? ('ask' as const) : ('allow' as const) }))
 
     await $.session.start(SESSION)
     await $.turn.start({ text: 'x', turnId: 't1' })
     await $.tool.check({ tool: 'Bash', input: { command: 'ls' } } as never)
     await $.classic.PermissionRequest({ ...base, hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: {} } as never)
+    asking = false
     await $.tool.call({ tool: 'Read', file_path: '/work/progetto-demo/a.md' } as never)
     await $.tool.call({ tool: 'Bash', command: 'npm test' } as never)
     await $.turn.complete({ answer: '', durationMs: 100, isAborted: false, turnId: 't1', reason: 'answer' } as never)
