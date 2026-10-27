@@ -89,6 +89,12 @@ export type KpiEventBody =
       tz: number
       cost0: number
       resume?: ResumeInfo
+      /**
+       * 1 se il processo aveva già un'altra sessione (cambio con /resume o dopo
+       * /clear: il ledger del costo è quello dell'altra), 0 se no. Assente negli
+       * eventi scritti prima della 0.4.0.
+       */
+      sw?: 0 | 1
     }
   | { e: 'seg.src'; src: string; model?: string; resume?: ResumeInfo }
   | { e: 'seg.end'; reason: string }
@@ -133,6 +139,8 @@ export type KpiEventBody =
     }
   | {
       e: 'measure'
+      /** 1 se letta dal ledger fuori da un turno (subagent finiti dopo, servizi, uscita), non da `session.measure`. */
+      p?: 1
       cost?: number
       ctx?: number
       win?: number

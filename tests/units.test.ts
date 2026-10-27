@@ -304,6 +304,100 @@ describe('reducer', () => {
   })
 })
 
+/** Un segmento ridotto ai soli eventi di costo: sorgente, costo di partenza, letture, fine (`null` = interrotto), `sw`. */
+type CostSegment = [src: string, cost0: number, measures: number[], end: string | null, sw?: 0 | 1]
+
+const costSession = (segments: CostSegment[]): KpiEvent[] => {
+  const bodies: [number, KpiEventBody][] = []
+  let t = T0
+
+  segments.forEach(([src, cost0, measures, end, sw], index) => {
+    bodies.push([(t += 1000), { e: 'seg.start', seg: `s0${index + 1}-aaaa`, src, ver: '2.1.299', kind: 'interattiva', tz: 0, cost0, ...(sw !== undefined && { sw }) }])
+
+    for (const cost of measures) {
+      bodies.push([(t += 1000), { e: 'measure', cost }])
+    }
+
+    if (end !== null) {
+      bodies.push([(t += 1000), { e: 'seg.end', reason: end }])
+    }
+  })
+
+  return events(bodies)
+}
+
+const costOf = (segments: CostSegment[]) => foldEvents({ summary: emptySummary(), details: emptyDetails() }, costSession(segments)).summary.cost
+
+const near = (value: number | undefined, expected: number): boolean => Math.abs((value ?? 0) - expected) < 1e-6
+
+describe('costo tra i segmenti', () => {
+  // I costi di partenza e le letture di due sessioni reali (0.3.0): il ledger di Claude Code finiva a $7,0296 e $12,3472.
+  test('ricariche e riprese da un processo nuovo: il costo tra i segmenti si recupera', () => {
+    const a = costOf([
+      ['startup', 0, [0, 3.1411474], null],
+      ['ricarica', 3.3924726, [], 'prompt_input_exit'],
+      ['resume', 3.4363558, [3.735173, 4.0506282], 'prompt_input_exit'],
+      ['resume', 4.1024132, [4.2160856, 4.357721], null],
+      ['ricarica', 4.488264, [5.4077388, 5.4831036], 'prompt_input_exit'],
+      ['resume', 5.5447714, [5.7183738], null],
+      ['ricarica', 5.8819922, [6.1514136, 6.6856202], null],
+      ['ricarica', 6.6994982, [], 'prompt_input_exit'],
+      ['resume', 6.6994982, [6.9574628, 7.0296358], 'prompt_input_exit'],
+    ])
+
+    expect(near(a.usd, 7.0296358)).toBe(true)
+    expect(near(a.outsideTurns, 7.0296358 - 6.3129352)).toBe(true)
+
+    const b = costOf([
+      ['startup', 0, [0, 8.2694167], null],
+      ['ricarica', 8.4985991, [8.7256021, 8.9407861], null],
+      ['ricarica', 8.9407861, [], null],
+      ['ricarica', 8.9407861, [9.1697739, 11.8028367], null],
+      ['ricarica', 12.2531003, [], 'other'],
+      ['resume', 12.3471987, [], 'clear'],
+    ])
+
+    expect(near(b.usd, 12.3471987)).toBe(true)
+  })
+
+  test('cambio di sessione nello stesso processo: il ledger è di un\'altra sessione, nessun recupero', () => {
+    // Prima della 0.4.0 lo si deduce dalla fine del segmento precedente.
+    expect(near(costOf([['startup', 0, [1], 'resume'], ['resume', 3, [3.2], 'prompt_input_exit']]).usd, 1.2)).toBe(true)
+    expect(near(costOf([['startup', 0, [1], 'clear'], ['resume', 3, [3.2], null]]).usd, 1.2)).toBe(true)
+    // Dalla 0.4.0 lo dice `sw`.
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit', 0], ['resume', 3, [3.2], null, 1]]).usd, 1.2)).toBe(true)
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit', 0], ['resume', 3, [3.2], null, 0]]).usd, 3.2)).toBe(true)
+  })
+
+  test('ledger azzerato o più basso: nessun recupero, e un avvio nuovo non recupera mai', () => {
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit'], ['resume', 0.1, [0.3], null]]).usd, 1.2)).toBe(true)
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit'], ['startup', 2, [2.5], null]]).usd, 1.5)).toBe(true)
+  })
+
+  test('la ripresa annunciata dopo l\'apertura (seg.src) si conta una volta sola', () => {
+    const list = costSession([['startup', 0, [1], 'prompt_input_exit'], ['startup', 1.5, [], null]])
+    const t = (list.at(-1) as KpiEvent).t
+
+    list.push({ q: 90, t: t + 1, e: 'seg.src', src: 'resume' }, { q: 91, t: t + 2, e: 'seg.src', src: 'resume' }, { q: 92, t: t + 3, e: 'measure', cost: 2 })
+
+    const cost = foldEvents({ summary: emptySummary(), details: emptyDetails() }, list).summary.cost
+
+    expect(near(cost.usd, 2)).toBe(true)
+    expect(near(cost.outsideTurns, 0.5)).toBe(true)
+  })
+
+  test('una lettura fuori dai turni va alla sessione e al giorno, non al turno', () => {
+    const state = foldEvents({ summary: emptySummary(), details: emptyDetails() }, [...SAMPLE.slice(0, 10), { q: 20, t: T0 + 20, e: 'measure', p: 1, cost: 0.6 }])
+    const s = state.summary
+
+    expect(near(s.cost.usd, 0.6)).toBe(true)
+    expect(near(s.cost.outsideTurns, 0.1)).toBe(true)
+    expect(s.cost.perTurn.n).toBe(1)
+    expect(near(s.byDay['2026-10-12']?.cost, 0.6)).toBe(true)
+    expect(state.details.turns[0]?.cost).toBe(0.5)
+  })
+})
+
 describe('argomenti e filtri', () => {
   test('sottocomandi con alias, opzioni, virgolette', () => {
     expect(words('a "b c" \'d\'')).toEqual(['a', 'b c', 'd'])

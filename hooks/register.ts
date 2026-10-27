@@ -14,6 +14,7 @@ import {
   newTracker,
   noteToolMs,
   noticeOf,
+  pollCost,
   record,
   refreshBranch,
   scheduleFlush,
@@ -22,6 +23,7 @@ import {
   type AttachExtra,
   type Tracker,
 } from './tracker'
+import { rebuildOnce } from './maintenance/maintenance'
 import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
 import { liveOf } from './ui/live'
@@ -129,6 +131,14 @@ export function register(on: On, raw: PluginOptions) {
     pendingStart = null
     await attach(tracker, sessionId, pending?.source ?? 'startup', pending?.extra ?? {})
     void startUpdates(tracker).catch(() => undefined)
+
+    const root = tracker.root
+
+    if (tracker.interactive === true && root !== null) {
+      void rebuildOnce(host, root, sessionId)
+        .then(line => line !== null && host.log(line))
+        .catch(() => undefined)
+    }
 
     return next(e)
   }).catch(($, e, next) => next(e))
@@ -269,6 +279,10 @@ export function register(on: On, raw: PluginOptions) {
     bind(tracker, $)
     record(tracker, { e: 'turn.start', tu: e.turnId })
 
+    if (e.agentId === undefined) {
+      tracker.turnOpen = true
+    }
+
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -361,6 +375,7 @@ export function register(on: On, raw: PluginOptions) {
 
     if (e.agentId === undefined) {
       tracker.lastTurnEnd = Date.now()
+      tracker.turnOpen = false
 
       if (tracker.interactive === false) {
         await flushNow(tracker)
@@ -500,6 +515,8 @@ export function register(on: On, raw: PluginOptions) {
   on('classic.SubagentStop', ($, e, next) => {
     bind(tracker, $)
     record(tracker, { e: 'agent.stop', id: e.agent_id, type: safeName(e.agent_type) })
+    // Un subagent in background finisce spesso dopo il turno: il suo costo non arriva con session.measure.
+    void pollCost(tracker).catch(() => undefined)
 
     return next(e)
   }).catch(($, e, next) => next(e))

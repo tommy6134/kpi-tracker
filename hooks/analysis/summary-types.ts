@@ -40,10 +40,28 @@ export type AgentTypeAgg = { n: number; ms: number; tok: number; tools: number; 
 
 export type ExtAgg = { n: number; add: number; del: number }
 
+/**
+ * Il ledger del costo all'inizio di un segmento: l'ultimo costo letto nel
+ * segmento precedente, come è finito, e il costo di partenza di questo.
+ */
+export type SegLedger = {
+  prev: number
+  /** Ragione di fine del segmento precedente; `null` se non è finito (processo interrotto). */
+  end: string | null
+  cost0: number
+  sw?: 0 | 1
+  /** Il costo tra i due segmenti è già stato contato. */
+  gap: boolean
+}
+
 /** Lo stato di lavoro del reducer: serve a rigiocare gli eventi in modo deterministico. */
 export type ReducerCursor = {
   /** Ultimo costo cumulato visto nel segmento corrente. */
   lastCost: number
+  /** Ragione di fine dell'ultimo segmento; `null` mentre un segmento è aperto. Assente nei summary prima della 0.4.0. */
+  segEnd?: string | null
+  /** Il ledger all'inizio del segmento corrente (assente nel primo). */
+  seg?: SegLedger | null
   /** Fine dell'ultimo turno principale (per il tempo di risposta dell'utente). */
   lastTurnEndAt: number | null
   /** Turno principale in corso. */
@@ -103,7 +121,8 @@ export type KpiSummary = {
   tokensSub: Tokens
   byModel: Record<string, ModelAgg>
   effort: Record<string, number>
-  cost: { usd: number; perTurn: Stat }
+  /** `outsideTurns`: la parte spesa fuori dai turni (subagent finiti dopo, servizi, uscita); assente prima della 0.4.0. */
+  cost: { usd: number; perTurn: Stat; outsideTurns?: number }
   context: { window: number; maxPct: number; lastPct: number; maxTokens: number; pctEnd: Stat }
   compactions: { n: number; byTrigger: Record<string, number>; before: number; after: number; tokens: Tokens }
   rate: Record<string, { max: number; last: number; resetsAt?: string }>
@@ -189,7 +208,7 @@ export type KpiDetails = {
   switches: { t: number; from: string; to: string; src: string }[]
 }
 
-export const emptyCursor = (): ReducerCursor => ({ lastCost: 0, lastTurnEndAt: null, turn: null, stepsByTurn: {}, liveAgents: [], branch: null })
+export const emptyCursor = (): ReducerCursor => ({ lastCost: 0, segEnd: null, seg: null, lastTurnEndAt: null, turn: null, stepsByTurn: {}, liveAgents: [], branch: null })
 
 export function emptySummary(kind: KpiKind = 'sconosciuta'): KpiSummary {
   return {
@@ -210,7 +229,7 @@ export function emptySummary(kind: KpiKind = 'sconosciuta'): KpiSummary {
     tokensSub: emptyTokens(),
     byModel: {},
     effort: {},
-    cost: { usd: 0, perTurn: emptyStat() },
+    cost: { usd: 0, perTurn: emptyStat(), outsideTurns: 0 },
     context: { window: 0, maxPct: 0, lastPct: 0, maxTokens: 0, pctEnd: emptyStat() },
     compactions: { n: 0, byTrigger: {}, before: 0, after: 0, tokens: emptyTokens() },
     rate: {},

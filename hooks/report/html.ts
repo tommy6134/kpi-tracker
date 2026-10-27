@@ -107,6 +107,7 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       s.errors.interrupts,
       s.errors.refusals,
       file.meta.versions.at(-1) ?? '',
+      r6(s.cost.outsideTurns ?? 0),
     ])
 
     maps.push({

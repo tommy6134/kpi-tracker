@@ -12,7 +12,7 @@ import { GROUP_ALIASES, totalsOf, type GroupKey } from '../query/aggregate'
 import { describeFilter, emptyFilter, filterOf } from '../query/filters'
 import { loadSessions } from '../query/load'
 import { buildReport } from '../report/html'
-import { flushNow, noticeOf, type Tracker } from '../tracker'
+import { flushNow, noticeOf, pollCost, type Tracker } from '../tracker'
 import { checkForUpdates, updateReport } from '../update/update'
 import { daysOfAge, parseArgs } from './args'
 import { HELP } from './help'
@@ -128,6 +128,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     return { text: value === 'off' ? 'Barra KPI disattivata (anche nelle prossime sessioni).' : 'Barra KPI attivata.' }
   }
 
+  await pollCost(tracker)
   await flushNow(tracker)
 
   const now = Date.now()
@@ -210,10 +211,12 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
         return { text: `Più sessioni iniziano per \`${id}\`: ${rows.map(one => one.file.sessionId.slice(0, 12)).join(', ')}. Usa più caratteri.` }
       }
 
-      const details = row.file.sessionId === current?.sessionId ? (tracker.store?.details ?? null) : await readJson<KpiDetails>(host.fs, join(row.dir, 'details.json'))
+      const isCurrent = row.file.sessionId === current?.sessionId
+      const details = isCurrent ? (tracker.store?.details ?? null) : await readJson<KpiDetails>(host.fs, join(row.dir, 'details.json'))
+      const ledger = isCurrent ? (await host.usage().catch(() => null))?.cost?.usd : undefined
       const all = emptyFilter()
 
-      return { text: sessionReport(row, details, totalsOf([row], all), all, now), short: privateNote(`Dettaglio della sessione ${row.file.sessionId.slice(0, 8)}`), toModel }
+      return { text: sessionReport(row, details, totalsOf([row], all), all, now, ledger), short: privateNote(`Dettaglio della sessione ${row.file.sessionId.slice(0, 8)}`), toModel }
     }
 
     case 'report': {

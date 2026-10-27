@@ -42,6 +42,10 @@ export type Tracker = {
   early: Early[]
   /** Fine dell'ultimo turno principale. */
   lastTurnEnd: number | null
+  /** Un turno principale è in corso (le letture del ledger aspettano la sua fine). */
+  turnOpen: boolean
+  /** L'ultimo costo cumulato registrato, per leggere il ledger fuori dai turni. */
+  lastCost: number | null
   /** Richieste registrate per turno. */
   stepsByTurn: Map<string, number>
   /** Durate da PostToolUse arrivate prima dell'evento tool. */
@@ -80,6 +84,8 @@ export function newTracker(options: KpiOptions): Tracker {
     openingId: null,
     early: [],
     lastTurnEnd: null,
+    turnOpen: false,
+    lastCost: null,
     stepsByTurn: new Map(),
     toolMs: new Map(),
     toolsAwaitingMs: new Map(),
@@ -122,6 +128,10 @@ const nowMs = (): number => Date.now()
 /** Registra un evento: nello store se c'è, altrimenti in coda. */
 export function record(tracker: Tracker, body: KpiEventBody, agentId?: string, t: number = nowMs()): void {
   const store = tracker.store
+
+  if (body.e === 'measure' && body.cost !== undefined) {
+    tracker.lastCost = body.cost
+  }
 
   if (store !== null && tracker.openingId === null) {
     store.emit(body, t, agentId)
@@ -216,6 +226,7 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
       const effectiveSource = isReload ? 'ricarica' : source
       const kpiRepo: KpiRepo | null = repo === null ? null : { root: repo.root, remote: repo.remote, name: repo.name }
       const previous = extra.previousSessionId ?? (source === 'clear' ? (current?.file.sessionId ?? tracker.lastClosedId ?? undefined) : undefined)
+      const costNow = usage?.cost?.usd ?? 0
 
       const store = await openSession(host.fs, {
         root: tracker.root,
@@ -229,7 +240,8 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
         version,
         ...((extra.model ?? model) !== undefined && { model: extra.model ?? model }),
         ...(extra.permissionMode !== undefined && { permissionMode: extra.permissionMode }),
-        costNow: usage?.cost?.usd ?? 0,
+        costNow,
+        switched: current !== null || tracker.lastClosedId !== null,
         repo: kpiRepo,
         branch,
         ...(previous !== undefined && { previousSessionId: previous }),
@@ -240,6 +252,7 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
       tracker.store = store
       tracker.openingId = null
       tracker.lastTurnEnd = null
+      tracker.lastCost = usage?.cost === undefined ? null : costNow
 
       if (current !== null && previous === current.file.sessionId) {
         current.file.links.nextSessionId = sessionId
@@ -248,7 +261,14 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
       }
 
       for (const item of tracker.early.splice(0)) {
-        store.emit(item.body, item.t, item.a)
+        // Un costo letto prima dell'aggancio è già nella base del segmento: dopo `seg.start` sembrerebbe un azzeramento.
+        const body = item.body.e === 'measure' && item.body.cost !== undefined && item.body.cost <= costNow ? withoutCost(item.body) : item.body
+
+        if (body.e === 'measure' && body.cost !== undefined) {
+          tracker.lastCost = Math.max(tracker.lastCost ?? 0, body.cost)
+        }
+
+        store.emit(body, item.t, item.a)
       }
 
       await host.bindingSet({ sessionId, at: nowMs() }).catch(() => undefined)
@@ -300,6 +320,48 @@ export async function flushNow(tracker: Tracker): Promise<void> {
   }
 }
 
+/** Una misurazione senza costo (le altre letture restano). */
+function withoutCost(body: Extract<KpiEventBody, { e: 'measure' }>): KpiEventBody {
+  const copy = { ...body }
+
+  delete copy.cost
+
+  return copy
+}
+
+/** Una lettura del ledger fuori dai turni, se il costo è cresciuto dall'ultima registrata. */
+async function ledgerReading(host: Host, last: number | null): Promise<KpiEventBody | null> {
+  const usd = (await host.usage().catch(() => null))?.cost?.usd
+
+  return usd === undefined || last === null || usd <= last ? null : { e: 'measure', p: 1, cost: usd }
+}
+
+/**
+ * Legge il ledger del costo fuori da un turno: `session.measure` scatta solo a
+ * fine turno, quindi i subagent che finiscono dopo, le chiamate di servizio e
+ * l'ultimo tratto prima dell'uscita non arriverebbero mai. Durante un turno
+ * non legge: ci pensa la misurazione di fine turno.
+ */
+export async function pollCost(tracker: Tracker): Promise<void> {
+  const host = tracker.host
+  const store = tracker.store
+
+  if (host === null || store === null || tracker.openingId !== null || tracker.turnOpen) {
+    return
+  }
+
+  emitReading(tracker, store, await ledgerReading(host, tracker.lastCost))
+}
+
+/** Registra la lettura nello store da cui è partita, se è ancora quello aperto. */
+function emitReading(tracker: Tracker, store: SessionStore, body: KpiEventBody | null): void {
+  if (body === null || tracker.store !== store || tracker.openingId !== null) {
+    return
+  }
+
+  record(tracker, body)
+}
+
 /** Flush posticipato di poco: accorpa la fine del turno e la misurazione che la segue. */
 export function scheduleFlush(tracker: Tracker, delayMs = 250): void {
   const host = tracker.host
@@ -331,7 +393,9 @@ export function startTimers(tracker: Tracker): void {
   })
   tracker.timers.heartbeat = host.every(HEARTBEAT_MS, () => {
     tracker.store?.touch()
-    void flushNow(tracker)
+    void pollCost(tracker)
+      .catch(() => undefined)
+      .then(() => flushNow(tracker))
   })
 }
 
@@ -351,12 +415,20 @@ export async function endSession(tracker: Tracker, reason: string, budgetMs: num
     return
   }
 
+  // L'ultima lettura del ledger: quanto speso dopo l'ultimo turno. Non con clear e resume,
+  // dove il ledger può già essere quello della sessione che segue.
+  if (reason !== 'clear' && reason !== 'resume') {
+    emitReading(tracker, store, await Promise.race([ledgerReading(host, tracker.lastCost), sleep(host, Math.min(200, budgetMs / 4)).then(() => null)]))
+  }
+
   // Anche con clear e resume la conversazione finisce: il processo prosegue con un'altra sessione,
   // e se questa viene ripresa più tardi l'aggancio la rimette attiva.
   closeSegment(store, nowMs(), reason, true)
   tracker.lastClosedId = store.file.sessionId
   tracker.store = null
   tracker.lastTurnEnd = null
+  tracker.turnOpen = false
+  tracker.lastCost = null
   tracker.stepsByTurn.clear()
   tracker.toolMs.clear()
   tracker.toolsAwaitingMs.clear()

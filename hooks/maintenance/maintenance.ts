@@ -2,10 +2,11 @@
 
 import { join, isInside, parseSessionDir, ROOT_MARKER } from '../core/paths'
 import { readJson, rebuildFrom } from '../core/recover'
-import type { KpiSessionFile } from '../core/session-file'
-import { date, int } from '../format/fmt'
+import { displayStatus, type KpiSessionFile } from '../core/session-file'
+import { date, int, plural, usd } from '../format/fmt'
 import type { Host, HostFs } from '../host'
-import { loadProjects, type SessionRow } from '../query/load'
+import { emptyFilter } from '../query/filters'
+import { loadProjects, loadSessions, type SessionRow } from '../query/load'
 
 /** L'argv per cancellare una cartella sul sistema dato. */
 export function removeArgv(os: string, dir: string): string[] {
@@ -86,32 +87,74 @@ export async function pruneSessions(host: Host, root: string, options: PruneOpti
   return `Cancellate ${int(removed)} sessioni su ${int(victims.length)} (ultima attività prima del ${date(cutoff)}).${failed.length > 0 ? ` Non cancellate: ${failed.join(', ')}.` : ''}`
 }
 
-/** Ricalcola summary e dettagli dagli eventi di ogni sessione (tranne quella in corso). */
-export async function rebuildSessions(fs: HostFs, rows: readonly SessionRow[], current: string | null): Promise<string> {
-  let done = 0
-  let events = 0
-  const skipped: string[] = []
+/** L'esito di una ricostruzione: sessioni rifatte, eventi letti, saltate, costo totale prima e dopo. */
+export type RebuildResult = { done: number; events: number; skipped: string[]; costBefore: number; costAfter: number }
+
+/** Ricalcola summary e dettagli dagli eventi di ogni sessione, tranne quelle per cui `skip` è vero. */
+export async function rebuildAll(fs: HostFs, rows: readonly SessionRow[], skip: (row: SessionRow) => boolean): Promise<RebuildResult> {
+  const result: RebuildResult = { done: 0, events: 0, skipped: [], costBefore: 0, costAfter: 0 }
 
   for (const row of rows) {
-    if (row.file.sessionId === current) {
-      skipped.push(row.file.sessionId.slice(0, 8))
+    if (skip(row)) {
+      result.skipped.push(row.file.sessionId.slice(0, 8))
       continue
     }
 
     const file = row.file
+    const before = file.summary.cost.usd
     const rebuilt = await rebuildFrom(fs, row.dir, file)
 
     if (rebuilt.events === 0) {
-      skipped.push(file.sessionId.slice(0, 8))
+      result.skipped.push(file.sessionId.slice(0, 8))
       continue
     }
 
     file.summary = rebuilt.summary
     await fs.write(join(row.dir, 'session.json'), JSON.stringify(file))
     await fs.write(join(row.dir, 'details.json'), JSON.stringify(rebuilt.details))
-    done += 1
-    events += rebuilt.events
+    result.done += 1
+    result.events += rebuilt.events
+    result.costBefore += before
+    result.costAfter += rebuilt.summary.cost.usd
   }
 
+  return result
+}
+
+/** Ricalcola summary e dettagli dagli eventi di ogni sessione (tranne quella in corso). */
+export async function rebuildSessions(fs: HostFs, rows: readonly SessionRow[], current: string | null): Promise<string> {
+  const { done, events, skipped } = await rebuildAll(fs, rows, row => row.file.sessionId === current)
+
   return `Ricostruite ${int(done)} sessioni da ${int(events)} eventi.${skipped.length > 0 ? ` Saltate (in corso o senza eventi): ${skipped.join(', ')}.` : ''}`
+}
+
+/** La chiave di `$.store` che segna la ricostruzione dopo il nuovo calcolo del costo (0.4.0). */
+export const REBUILD_KEY = 'rebuild-0.4.0'
+
+/**
+ * Una volta sola, dopo l'aggiornamento alla 0.4.0, ricalcola le sessioni
+ * passate col nuovo calcolo del costo (il ledger tra un segmento e l'altro).
+ * Il segno in `$.store` si scrive prima di partire, così due processi non la
+ * fanno insieme; restano fuori la sessione in corso e quelle attive altrove.
+ * Restituisce la riga per il transcript, o `null` se non c'era nulla da fare.
+ */
+export async function rebuildOnce(host: Host, root: string, current: string | null): Promise<string | null> {
+  if ((await host.storeGet(REBUILD_KEY).catch(() => null)) !== undefined) {
+    return null
+  }
+
+  const now = await host.now()
+
+  await host.storeSet(REBUILD_KEY, { at: now })
+
+  const rows = await loadSessions(host.fs, root, emptyFilter(), [])
+  const result = await rebuildAll(host.fs, rows, row => row.file.sessionId === current || displayStatus(row.file, now) === 'attiva')
+
+  if (result.done === 0) {
+    return null
+  }
+
+  const recovered = result.costAfter - result.costBefore
+
+  return `kpi-tracker: ricalcolati i KPI di ${plural(result.done, 'sessione passata', 'sessioni passate')} col nuovo calcolo del costo${recovered > 0.0005 ? ` (+${usd(recovered)} di costo prima non registrato)` : ''}.`
 }

@@ -42,7 +42,7 @@ Metadati e KPI aggregati, riscritto a ogni salvataggio (5–20 KB):
 | `status` | `active` o `ended`; un `active` senza heartbeat da 10 minuti si mostra come "interrotta" |
 | `kind`, `interactive` | tipo di sessione |
 | `links` | `previousSessionId` / `nextSessionId` (catena di `/clear`) |
-| `segments[]` | un elemento per processo: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` |
+| `segments[]` | un elemento per processo: `id`, `source`, `startedAt`, `endedAt`, `endReason`, `version`, `lastSeq`, `chunks`, `costBaselineUsd` (il ledger del costo all'aggancio; la differenza dall'ultima lettura del segmento precedente si conta come costo fuori dai turni quando il ledger è della stessa sessione) |
 | `meta` | `branches`, `repo`, `models`, `versions`, `permissionModes` |
 | `diag` | salvataggi, errori di scrittura, byte scritti |
 | `summary` | tutti i KPI aggregati (vedi `hooks/analysis/summary-types.ts`) |

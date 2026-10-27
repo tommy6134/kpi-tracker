@@ -28,6 +28,8 @@ export type OpenArgs = {
   model?: string
   permissionMode?: string
   costNow: number
+  /** Il processo aveva già un'altra sessione: il ledger del costo è il suo. */
+  switched: boolean
   repo: KpiRepo | null
   branch: string | null
   previousSessionId?: string
@@ -203,6 +205,7 @@ export async function openSession(fs: HostFs, args: OpenArgs): Promise<SessionSt
       tz,
       cost0: args.costNow,
       ...(args.resume !== undefined && { resume: args.resume }),
+      sw: args.switched ? 1 : 0,
     },
     args.now,
   )

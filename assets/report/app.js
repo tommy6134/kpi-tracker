@@ -7,7 +7,7 @@
   var SVGNS = 'http://www.w3.org/2000/svg'
 
   // Indici delle tuple (vedi hooks/report/html.ts).
-  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34 }
+  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35 }
   var DAY = { s: 0, day: 1, cost: 2, inp: 3, out: 4, cr: 5, cw: 6, turns: 7, active: 8, prompts: 9, req: 10, tools: 11, toolErr: 12, add: 13, del: 14, commits: 15 }
 
   // ------------------------------------------------------------ formattazione (italiano)
@@ -548,7 +548,7 @@
       ['Sessione', s[S.id]], ['Progetto', D.projects[s[S.project]]], ['Percorso', D.paths[s[S.path]]], ['Tipo · stato', D.kinds[s[S.kind]] + ' · ' + s[S.status]],
       ['Inizio', dateTime(s[S.start])], ['Ultima attività', dateTime(s[S.last])], ['Segmenti', int(s[S.segments])], ['Versione', s[S.version] || '–'],
       ['Modelli', s[S.models].map(function (m) { return D.models[m] }).join(', ') || '–'], ['Branch', s[S.branches].map(function (b) { return D.branches[b] }).join(', ') || '–'],
-      ['Costo', usd(t.cost)], ['Turni (subagent)', int(t.turns) + ' (' + int(s[S.subTurns]) + ')'], ['Tempo attivo', dur(t.active)], ['Prompt · richieste', int(t.prompts) + ' · ' + int(t.req)],
+      ['Costo', usd(t.cost)], ['Costo fuori dai turni', usd(s[S.costOut] || 0)], ['Turni (subagent)', int(t.turns) + ' (' + int(s[S.subTurns]) + ')'], ['Tempo attivo', dur(t.active)], ['Prompt · richieste', int(t.prompts) + ' · ' + int(t.req)],
       ['Token in · out', compact(t.inp + t.cr + t.cw) + ' · ' + compact(t.out)], ['Cache hit', t.inp + t.cr + t.cw > 0 ? pct(t.cr / (t.inp + t.cr + t.cw)) : '–'],
       ['TTFT mediano', s[S.ttft] ? dur(s[S.ttft]) : '–'], ['Contesto max', int(s[S.ctxMax]) + '%'], ['Rate limit 5h · 7g (max)', (s[S.r5] >= 0 ? int(s[S.r5]) + '%' : '–') + ' · ' + (s[S.r7] >= 0 ? int(s[S.r7]) + '%' : '–')],
       ['Compattazioni', int(s[S.compactions])], ['Tool (errori)', int(t.tools) + ' (' + int(t.toolErr) + ')'], ['Righe', '+' + int(t.add) + ' −' + int(t.del)],

@@ -16,6 +16,7 @@ import {
   type KpiDetails,
   type KpiSummary,
   type OutcomeAgg,
+  type SegLedger,
   type Tokens,
 } from './summary-types'
 
@@ -83,6 +84,62 @@ function countTokens(state: ReduceState, t: number, model: string | undefined, t
   }
 }
 
+/** Costo speso fuori da un turno: va alla sessione e al giorno, non a un turno. */
+function countOutsideTurns(state: ReduceState, t: number, usd: number): void {
+  const cost = state.summary.cost
+
+  cost.usd += usd
+  cost.outsideTurns = (cost.outsideTurns ?? 0) + usd
+  dayOf(state, t).cost += usd
+}
+
+/** Fine di segmento dopo cui il processo è andato avanti con un'altra sessione. */
+const SWITCH_ENDS = new Set(['cambio sessione', 'resume', 'clear'])
+
+/**
+ * Il costo tra l'ultima lettura del segmento precedente e l'inizio di questo:
+ * il ledger di Claude Code lo ha, ma `session.measure` scatta solo a fine
+ * turno (subagent finiti dopo, chiamate di servizio, uscita). Si conta solo se
+ * il ledger è quello della sessione: dopo una ricarica del modulo, o in una
+ * ripresa da un processo nuovo, dove Claude Code ripristina il costo della
+ * sessione. In un cambio di sessione nello stesso processo il ledger è
+ * quello dell'altra sessione, e un ledger più basso è stato azzerato.
+ */
+export function ledgerGap(seg: SegLedger, src: string): number {
+  if (seg.cost0 < seg.prev) {
+    return 0
+  }
+
+  if (src === 'ricarica') {
+    return seg.cost0 - seg.prev
+  }
+
+  if (src !== 'resume') {
+    return 0
+  }
+
+  // Prima della 0.4.0 il cambio nello stesso processo si deduce da come è finito il segmento precedente.
+  const sameProcess = seg.sw === undefined ? seg.end !== null && SWITCH_ENDS.has(seg.end) : seg.sw === 1
+
+  return sameProcess ? 0 : seg.cost0 - seg.prev
+}
+
+/** Conta, una volta per segmento, il costo rimasto tra il segmento precedente e questo. */
+function countGap(state: ReduceState, t: number, src: string): void {
+  const seg = state.summary._r.seg
+
+  if (seg === undefined || seg === null || seg.gap) {
+    return
+  }
+
+  const gap = ledgerGap(seg, src)
+
+  if (gap > 0) {
+    seg.gap = true
+    countOutsideTurns(state, t, gap)
+  }
+}
+
 /** Applica un evento. Muta `state` e lo restituisce. */
 export function apply(state: ReduceState, event: KpiEvent): ReduceState {
   const s = state.summary
@@ -102,10 +159,16 @@ export function apply(state: ReduceState, event: KpiEvent): ReduceState {
 
   switch (event.e) {
     case 'seg.start': {
+      r.seg =
+        s.segments === 0
+          ? null
+          : { prev: r.lastCost, end: r.segEnd ?? null, cost0: event.cost0, ...(event.sw !== undefined && { sw: event.sw }), gap: false }
       s.segments += 1
       s.kind = event.kind
       state.tz = event.tz
+      countGap(state, t, event.src)
       r.lastCost = event.cost0
+      r.segEnd = null
       r.lastTurnEndAt = null
       r.turn = null
       r.liveAgents = []
@@ -122,10 +185,13 @@ export function apply(state: ReduceState, event: KpiEvent): ReduceState {
         bump(s.models.set, event.model)
       }
 
+      // La ripresa può arrivare dopo l'apertura del segmento come `startup`.
+      countGap(state, t, event.src)
       break
 
     case 'seg.end':
       r.turn = null
+      r.segEnd = event.reason
       break
 
     case 'meta':
@@ -324,7 +390,9 @@ export function apply(state: ReduceState, event: KpiEvent): ReduceState {
 
         r.lastCost = event.cost
 
-        if (delta > 0) {
+        if (delta > 0 && event.p === 1) {
+          countOutsideTurns(state, t, delta)
+        } else if (delta > 0) {
           s.cost.usd += delta
           dayOf(state, t).cost += delta
 

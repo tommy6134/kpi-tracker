@@ -122,6 +122,7 @@ export function statsReport(totals: Totals, rows: readonly SessionRow[], filter:
       'Costo e token',
       pairs([
         ['Costo', usd(r.cost)],
+        ['Costo fuori dai turni (subagent in background, servizi, uscita)', `${usd(s.cost.outsideTurns ?? 0)} (${ratio(s.cost.outsideTurns ?? 0, s.cost.usd)})`],
         ['Costo per turno · per sessione', `${usd(turns === 0 ? 0 : r.cost / turns)} · ${usd(totals.sessions === 0 ? 0 : r.cost / totals.sessions)}`],
         ['Costo per commit · per 100 righe', `${r.commits === 0 ? '–' : usd(r.cost / r.commits)} · ${r.add + r.del === 0 ? '–' : usd((r.cost * 100) / (r.add + r.del))}`],
         ['Token totali', compact(r.in + r.out + r.cr + r.cw)],
@@ -470,8 +471,11 @@ export function projectsReport(rows: readonly SessionRow[], filter: KpiFilter, d
   ].join('\n\n')
 }
 
-/** Il dettaglio di una sessione: statistiche complete e dettagli. */
-export function sessionReport(row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number): string {
+/**
+ * Il dettaglio di una sessione: statistiche complete e dettagli. `ledgerUsd`,
+ * per la sessione in corso, è il costo come lo totalizza Claude Code (/cost).
+ */
+export function sessionReport(row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number, ledgerUsd?: number): string {
   const file = row.file
   const head = [
     `## Sessione ${file.sessionId}`,
@@ -479,6 +483,7 @@ export function sessionReport(row: SessionRow, details: KpiDetails | null, total
       ['Progetto', `${row.projectName} (${row.projectPath})`],
       ['Cartella dati', row.dir],
       ['Tipo · stato', `${file.kind} · ${displayStatus(file, now)}`],
+      ...(ledgerUsd === undefined ? [] : [['Costo KPI · secondo Claude Code (/cost)', `${usd(file.summary.cost.usd)} · ${usd(ledgerUsd)}`] as [string, string]]),
       ['Inizio · ultima attività', `${dateTime(file.createdAt)} · ${dateTime(file.summary.lastAt)}`],
       ['Segmenti', file.segments.map(segment => `${segment.source} ${dateTime(segment.startedAt)}${segment.endReason !== undefined ? ` → ${segment.endReason}` : ''}`).join(' · ')],
       ['Versioni · modelli', `${file.meta.versions.join(', ') || '–'} · ${file.meta.models.join(', ') || '–'}`],
