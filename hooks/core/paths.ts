@@ -69,6 +69,39 @@ export function baseName(path: string): string {
   return index >= 0 ? trimmed.slice(index + 1) : trimmed
 }
 
+/** La cartella che contiene il percorso (`/a/b/c.csv` → `/a/b`, `C:\x\y.csv` → `C:\x`); la radice resta la radice. */
+export function dirName(path: string): string {
+  const trimmed = trimSlash(path)
+  const index = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+
+  if (index < 0) {
+    return trimmed
+  }
+
+  const parent = trimmed.slice(0, index)
+
+  // `/x` → `/`, `C:\x` → `C:\`.
+  return parent === '' ? trimmed.slice(0, 1) : /^[A-Za-z]:$/.test(parent) ? `${parent}${trimmed.charAt(index)}` : parent
+}
+
+/**
+ * L'URL `file://` di un percorso assoluto, per un link nel report HTML:
+ * `/a b` → `file:///a%20b`, `C:\x` → `file:///C:/x`, `\\srv\share` → `file://srv/share`.
+ */
+export function fileUrlOf(path: string): string {
+  const slashed = path.replace(/\\/g, '/')
+  const encoded = slashed
+    .split('/')
+    .map((part, index) => (index === 0 && /^[A-Za-z]:$/.test(part) ? part : encodeURIComponent(part)))
+    .join('/')
+
+  if (slashed.startsWith('//')) {
+    return `file:${encoded}`
+  }
+
+  return /^[A-Za-z]:\//.test(slashed) ? `file:///${encoded}` : `file://${encoded}`
+}
+
 /** Estensione minuscola senza punto (`ts`), `''` se assente; i file nascosti senza estensione danno `''`. */
 export function extOf(path: string): string {
   const name = baseName(path)

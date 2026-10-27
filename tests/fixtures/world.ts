@@ -43,6 +43,12 @@ export const usageOf = (usd: number, percent = 10): SessionUsage => ({
 /** La cartella Scaricati che `xdg-user-dir DOWNLOAD` risponde nel mondo Linux. */
 export const DOWNLOADS = `${HOME}/Scaricati`
 
+/** Il kernel di WSL, da mettere in `/proc/version` per un mondo WSL. */
+export const WSL_KERNEL = 'Linux version 5.15.167.4-microsoft-standard-WSL2'
+
+/** Come `wslpath -w` converte un percorso della distribuzione. */
+export const wslPathOf = (path: string): string => `\\\\wsl.localhost\\Ubuntu${path.replace(/\//g, '\\')}`
+
 /** Il manifest e il compat.json che il plugin legge dalla propria cartella (`$.plugin.root`). */
 export type OwnRelease = { version: string; minClaudeCode?: string }
 
@@ -169,9 +175,19 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     world.runs.push([...e.argv])
 
     const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse')
-    const stdout = isBranch ? `${world.branch}\n` : e.argv[0] === 'uname' ? `${options.os ?? 'Darwin'}\n` : e.argv[0] === 'xdg-user-dir' ? `${DOWNLOADS}\n` : ''
+    const stdout = isBranch
+      ? `${world.branch}\n`
+      : e.argv[0] === 'uname'
+        ? `${options.os ?? 'Darwin'}\n`
+        : e.argv[0] === 'xdg-user-dir'
+          ? `${DOWNLOADS}\n`
+          : e.argv[0] === 'wslpath'
+            ? `${wslPathOf(e.argv.at(-1) ?? '')}\n`
+            : ''
+    // explorer.exe esce con 1 anche quando apre la cartella.
+    const exitCode = e.argv[0] === 'explorer.exe' ? 1 : 0
 
-    return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    return { value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
 
   on('command.register', ($, e) => {

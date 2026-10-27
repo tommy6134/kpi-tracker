@@ -10,7 +10,7 @@ _English: [docs/storage.md](../storage.md)_
 | --- | --- |
 | `_meta/kpi-root.json` | marcatore della radice (`schemaVersion`, `plugin`, `createdAt`): la pulizia rifiuta di cancellare se manca |
 | `_meta/upstream.git/` | repo git bare con l'ultimo commit del plugin, senza checkout: c'è solo se il marketplace indica il plugin con un URL, e serve agli aggiornamenti per leggere versione e `compat.json` (si può cancellare, si ricrea) |
-| `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata) |
+| `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata). `/kpi cartella` crea la cartella, con un `.keep` vuoto, se non c'è ancora |
 | `_exports/kpi-<livello>-<data-ora>.csv\|json` | export (in parti `-parteN` oltre ~3,5 MB; nella cartella `reportDir`, se impostata, o nel file di `--out`). Livello e parti hanno il nome della lingua dell'export: `kpi-sessioni-…`, `-parte2` in italiano; `kpi-sessions-…`, `-part2` in inglese |
 | `<progetto>/project.json` | un progetto |
 | `<progetto>/<sessione>/` | una sessione |

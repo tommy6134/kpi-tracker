@@ -162,6 +162,14 @@
     'Errori turno · interruzioni · rifiuti': 'Turn errors · interrupts · refusals',
     'Dettaglio sessione {id}': 'Session detail {id}',
     'Progetti ({n})': 'Projects ({n})',
+    'Cartella dei report': 'Reports folder',
+    'Cartella degli export': 'Exports folder',
+    'Apri': 'Open',
+    'Apre la cartella nel browser; il file manager si apre con il comando copiato': 'Opens the folder in the browser; the file manager opens with the copied command',
+    'Copia percorso': 'Copy path',
+    'Copia comando': 'Copy command',
+    'Incollalo in Claude Code: apre la cartella nel file manager': 'Paste it into Claude Code: it opens the folder in the file manager',
+    'Copiato': 'Copied',
   }
 
   var LOCALES = {
@@ -562,9 +570,57 @@
     document.getElementById('kpi-tiles').setAttribute('aria-label', t('Indicatori principali'))
     var desc = DATA.meta.description
     document.title = 'KPI Claude Code · ' + (typeof desc === 'string' ? desc : desc[lang] || desc.it)
+    renderFolders()
   }
 
   function description() { var desc = DATA.meta.description; return typeof desc === 'string' ? desc : desc[lang] || desc.it }
+
+  /** Copia `text` negli appunti e lo dice sul pulsante per un attimo. */
+  function copyText(text, button) {
+    var label = button.textContent
+    var done = function () { button.textContent = t('Copiato'); setTimeout(function () { button.textContent = label }, 1500) }
+    var fallback = function () {
+      var area = el('textarea', { readonly: 'readonly' })
+      area.value = text
+      area.style.position = 'fixed'
+      area.style.opacity = '0'
+      document.body.appendChild(area)
+      area.select()
+      try { if (document.execCommand('copy')) done() } catch (e) { /* niente appunti: resta il percorso a schermo */ }
+      document.body.removeChild(area)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback)
+    else fallback()
+  }
+
+  /**
+   * Le cartelle di report ed export. La pagina, aperta da `file://`, non può
+   * avviare il file manager: "Apri" mostra la cartella nel browser (quando il
+   * browser la può leggere), e il comando copiato la apre da Claude Code.
+   */
+  function renderFolders() {
+    var box = document.getElementById('kpi-folders')
+    var folders = DATA.meta.folders
+    box.textContent = ''
+    box.hidden = !folders
+    if (!folders) return
+    var rows = [[t('Cartella dei report'), folders.report]]
+    if (folders.export && folders.export.path !== folders.report.path) rows.push([t('Cartella degli export'), folders.export])
+    rows.forEach(function (row) {
+      var f = row[1]
+      var copyPath = el('button', { type: 'button', text: t('Copia percorso') })
+      var copyCommand = el('button', { type: 'button', text: t('Copia comando'), title: t('Incollalo in Claude Code: apre la cartella nel file manager') })
+      copyPath.addEventListener('click', function () { copyText(f.path, copyPath) })
+      copyCommand.addEventListener('click', function () { copyText(f.command[lang] || f.command.it, copyCommand) })
+      box.appendChild(el('p', { class: 'folder' }, [
+        row[0] + ':',
+        el('code', { text: f.path }),
+        el('a', { href: f.url, target: '_blank', rel: 'noopener', text: t('Apri'), title: t('Apre la cartella nel browser; il file manager si apre con il comando copiato') }),
+        copyPath,
+        copyCommand,
+      ]))
+    })
+  }
 
   function render() {
     var rows = filtered()

@@ -8,7 +8,7 @@ import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, parseArgs, words } from '../hooks/commands/args'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
-import { configDirOf, encodeProject, encodeProjectAlt, extOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
+import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
 import { dayKey, hourSlot, stampOf } from '../hooks/core/time'
 import { csvParts } from '../hooks/export/export'
 import { compact, dur, fixed, usd } from '../hooks/format/fmt'
@@ -75,6 +75,22 @@ describe('percorsi', () => {
     expect(extOf('/x/.gitignore')).toBe('')
     expect(isInside('/a/b/c.ts', '/a/b')).toBe(true)
     expect(isInside('/a/bc/d', '/a/b')).toBe(false)
+  })
+})
+
+describe('cartelle e URL', () => {
+  test('cartella che contiene un file, anche su Windows', () => {
+    expect(dirName('/a/b/c.csv')).toBe('/a/b')
+    expect(dirName('/c.csv')).toBe('/')
+    expect(dirName('C:\\x\\y.csv')).toBe('C:\\x')
+    expect(dirName('C:\\y.csv')).toBe('C:\\')
+  })
+
+  test('URL file:// per il link del report', () => {
+    expect(fileUrlOf('/home/me/.claude/kpi/_reports')).toBe('file:///home/me/.claude/kpi/_reports')
+    expect(fileUrlOf('/a b/c#d')).toBe('file:///a%20b/c%23d')
+    expect(fileUrlOf('C:\\Users\\me\\kpi')).toBe('file:///C:/Users/me/kpi')
+    expect(fileUrlOf('\\\\server\\share\\kpi')).toBe('file://server/share/kpi')
   })
 })
 

@@ -13,8 +13,9 @@ const IT = `## /kpi · guida
 | \`/kpi sessioni [filtri] [--limite 20]\` (\`sessions\`) | Elenco delle sessioni |
 | \`/kpi progetti [filtri]\` (\`projects\`) | Totali per progetto |
 | \`/kpi sessione <id\\|corrente>\` (\`session\`) | Dettaglio di una sessione |
-| \`/kpi report [filtri] [--no-apri]\` | Dashboard HTML offline, aperta nel browser |
-| \`/kpi esporta csv\\|json [filtri] [--livello sessioni\\|giorni\\|turni\\|eventi] [--standard\\|--excel]\` (\`export\`) | Esporta i dati (CSV per Excel italiano in italiano, standard in inglese; \`--standard\` o \`--excel\` lo scelgono) |
+| \`/kpi report [filtri] [--no-apri] [--cartella]\` | Dashboard HTML offline, aperta nel browser; \`--cartella\` apre anche la cartella nel file manager |
+| \`/kpi esporta csv\\|json [filtri] [--livello sessioni\\|giorni\\|turni\\|eventi] [--standard\\|--excel] [--cartella]\` (\`export\`) | Esporta i dati (CSV per Excel italiano in italiano, standard in inglese; \`--standard\` o \`--excel\` lo scelgono); \`--cartella\` apre la cartella del file |
+| \`/kpi cartella [report\\|esporta\\|dati]\` (\`folder\`) | Apre nel file manager la cartella dei report (default), degli export o dei dati |
 | \`/kpi pulisci --piu-vecchie-di 180d [--si]\` (\`prune --older-than\`) | Elenca (e con \`--si\` cancella) le sessioni più vecchie |
 | \`/kpi ricostruisci [filtri]\` (\`rebuild\`) | Ricalcola i KPI dagli eventi grezzi |
 | \`/kpi aggiorna [--verifica]\` (\`update --check\`) | Controlla gli aggiornamenti e installa l'ultima versione se il tuo Claude Code la supporta; \`--verifica\` controlla soltanto |
@@ -39,8 +40,9 @@ const EN = `## /kpi · help
 | \`/kpi sessions [filters] [--limit 20]\` | List of sessions |
 | \`/kpi projects [filters]\` | Totals per project |
 | \`/kpi session <id\\|current>\` | Detail of one session |
-| \`/kpi report [filters] [--no-open]\` | Offline HTML dashboard, opened in the browser |
-| \`/kpi export csv\\|json [filters] [--level sessions\\|days\\|turns\\|events] [--standard\\|--excel]\` | Exports the data (standard CSV in English, Italian Excel CSV in Italian; \`--standard\` or \`--excel\` choose) |
+| \`/kpi report [filters] [--no-open] [--folder]\` | Offline HTML dashboard, opened in the browser; \`--folder\` also opens its folder in the file manager |
+| \`/kpi export csv\\|json [filters] [--level sessions\\|days\\|turns\\|events] [--standard\\|--excel] [--folder]\` | Exports the data (standard CSV in English, Italian Excel CSV in Italian; \`--standard\` or \`--excel\` choose); \`--folder\` opens the file's folder |
+| \`/kpi folder [report\\|export\\|data]\` | Opens the reports folder (default), the exports folder or the data folder in the file manager |
 | \`/kpi prune --older-than 180d [--yes]\` | Lists (and with \`--yes\` deletes) the older sessions |
 | \`/kpi rebuild [filters]\` | Recomputes the KPIs from the raw events |
 | \`/kpi update [--check]\` | Checks for updates and installs the latest version if your Claude Code supports it; \`--check\` only checks |

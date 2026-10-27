@@ -109,8 +109,9 @@ The full format is in [docs/storage.md](docs/storage.md).
 | `/kpi sessions [filters] [--limit N]` | List of sessions |
 | `/kpi projects [filters]` | Totals per project |
 | `/kpi session <id\|current>` | Detail of one session |
-| `/kpi report [filters] [--no-open]` | Offline HTML dashboard, opened in the browser |
-| `/kpi export csv\|json [filters] [--level sessions\|days\|turns\|events] [--standard\|--excel]` | Export, with columns and values in the chosen language. The CSV follows the language: standard (`,` and `.`) in English, Italian Excel (`;` and decimal comma) in Italian; `--standard` and `--excel` force one |
+| `/kpi report [filters] [--no-open] [--folder]` | Offline HTML dashboard, opened in the browser; `--folder` also opens its folder in the file manager |
+| `/kpi export csv\|json [filters] [--level sessions\|days\|turns\|events] [--standard\|--excel] [--folder]` | Export, with columns and values in the chosen language. The CSV follows the language: standard (`,` and `.`) in English, Italian Excel (`;` and decimal comma) in Italian; `--standard` and `--excel` force one; `--folder` opens the file's folder |
+| `/kpi folder [report\|export\|data]` | Opens the reports folder (default), the exports folder or the data folder in the file manager (Finder, File Explorer, Nautilus…) |
 | `/kpi prune --older-than 180d [--yes]` | Lists, and with `--yes` deletes, the older sessions |
 | `/kpi rebuild [filters]` | Recomputes the KPIs from the raw events |
 | `/kpi update [--check]` | Update status; installs the latest version right away if compatible (`--check` only checks) |
@@ -119,6 +120,8 @@ The full format is in [docs/storage.md](docs/storage.md).
 **Filters:** `--project <text|.>`, `--session <id>`, `--since` / `--until` (`today`, `yesterday`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026` day/month/year), `--model`, `--kind interactive|print|sdk|desktop|vscode`, `--branch`, `--repo`. Every subcommand and option also has its Italian name (`statistiche`, `sessioni`, `esporta`, `pulisci`, `--da`, `--progetto`, `--per`…), whatever the language.
 
 **Language:** `--lang en|it` (`--lingua`) picks the language of one command: text reports, HTML report, CSV and JSON (columns, values, file name). Without it, the `language` option applies. The HTML report also has an English/Italiano selector next to the theme, and opens in Italian with `#it` in the address (`#en` for English).
+
+**Opening the folder.** An HTML page opened from `file://` cannot start programs, so the report's header shows the reports and exports folders with three buttons: **Open** (the folder in the browser, when the browser can read it), **Copy path** and **Copy command** (`/kpi folder report`: paste it into Claude Code and the file manager opens). The `/kpi live` panel has a **Folder** button too. On Linux it uses `xdg-open`, on macOS `open`, on Windows `start`, and in WSL Windows' `explorer.exe` (the path is converted with `wslpath`).
 
 Only you see the `/kpi` report: Claude gets a short line, so it does not use up context. With `--ctx` the full report goes to Claude too, for example so it can analyse your KPIs.
 

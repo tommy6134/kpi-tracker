@@ -109,8 +109,9 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 | `/kpi sessioni [filtri] [--limite N]` | Elenco delle sessioni |
 | `/kpi progetti [filtri]` | Totali per progetto |
 | `/kpi sessione <id\|corrente>` | Dettaglio di una sessione |
-| `/kpi report [filtri] [--no-apri]` | Dashboard HTML offline, aperta nel browser |
-| `/kpi esporta csv\|json [filtri] [--livello sessioni\|giorni\|turni\|eventi] [--standard\|--excel]` | Export, con colonne e valori nella lingua scelta. Il CSV segue la lingua: Excel italiano (`;` e virgola) in italiano, standard (`,` e punto) in inglese; `--standard` ed `--excel` lo forzano |
+| `/kpi report [filtri] [--no-apri] [--cartella]` | Dashboard HTML offline, aperta nel browser; `--cartella` apre anche la sua cartella nel file manager |
+| `/kpi esporta csv\|json [filtri] [--livello sessioni\|giorni\|turni\|eventi] [--standard\|--excel] [--cartella]` | Export, con colonne e valori nella lingua scelta. Il CSV segue la lingua: Excel italiano (`;` e virgola) in italiano, standard (`,` e punto) in inglese; `--standard` ed `--excel` lo forzano; `--cartella` apre la cartella del file |
+| `/kpi cartella [report\|esporta\|dati]` | Apre nel file manager (Finder, Esplora file, Nautilus…) la cartella dei report (default), degli export o dei dati |
 | `/kpi pulisci --piu-vecchie-di 180d [--si]` | Elenca, e con `--si` cancella, le sessioni più vecchie |
 | `/kpi ricostruisci [filtri]` | Ricalcola i KPI dagli eventi grezzi |
 | `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
@@ -119,6 +120,8 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 **Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--project`, `--by`…), qualunque sia la lingua.
 
 **Lingua:** `--lingua it|en` (`--lang`) sceglie la lingua di un comando: report testuali, report HTML, CSV e JSON (colonne, valori, nome del file). Senza, vale l'opzione `language`. Il report HTML ha anche un selettore Italiano/English accanto al tema, e si apre in inglese con `#en` nell'indirizzo (`#it` per l'italiano).
+
+**Aprire la cartella.** Una pagina HTML aperta da `file://` non può avviare programmi, quindi la testata del report mostra le cartelle di report ed export con tre pulsanti: **Apri** (la cartella nel browser, quando il browser la può leggere), **Copia percorso** e **Copia comando** (`/kpi cartella report`: incollalo in Claude Code e si apre il file manager). Anche il pannello `/kpi live` ha il pulsante **Cartella**. Su Linux usa `xdg-open`, su macOS `open`, su Windows `start`, in WSL l'`explorer.exe` di Windows (il percorso si converte con `wslpath`).
 
 Il report di `/kpi` lo vedi solo tu: a Claude arriva una riga breve, così non consuma contesto. Con `--ctx` il report completo va anche a Claude, per esempio per fargli analizzare i tuoi KPI.
 

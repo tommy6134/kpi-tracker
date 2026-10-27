@@ -1,6 +1,7 @@
 /** Il dispatcher di /kpi. */
 
-import { hasHiddenSegment, isAbsolute, join, resolvePath, trimSlash, REPORTS_DIR, EXPORTS_DIR } from '../core/paths'
+import { openPath, type Platform } from '../core/open'
+import { dirName, hasHiddenSegment, isAbsolute, join, resolvePath, trimSlash, REPORTS_DIR, EXPORTS_DIR } from '../core/paths'
 import { readJson } from '../core/recover'
 import type { KpiDetails } from '../analysis/summary-types'
 import { addDays, dayKey, stampOf } from '../core/time'
@@ -22,7 +23,7 @@ export type KpiCommandContext = {
   host: Host
   tracker: Tracker
   openPane: () => Promise<{ isPlaced: boolean; reason?: string }>
-  platform: () => Promise<{ os: string }>
+  platform: () => Promise<Platform>
 }
 
 /**
@@ -35,15 +36,6 @@ export type KpiCommandResult = { text: string; short?: string; toModel?: boolean
 
 const privateNote = (L: I18n, what: string): string => L.t('{what}: mostrato all\'utente, non incluso nel contesto (usa /kpi … --ctx per includerlo).', { what })
 
-/** L'argv per aprire un file con l'applicazione predefinita del sistema. */
-export function openArgv(os: string, path: string): string[] {
-  if (/windows|mingw|msys|cygwin/i.test(os)) {
-    return ['cmd', '/c', 'start', '', path]
-  }
-
-  return os === 'Darwin' ? ['open', path] : ['xdg-open', path]
-}
-
 /** Il nome fisso della copia del report che il browser apre su Linux. */
 export const BROWSER_COPY = 'kpi-report.html'
 
@@ -54,13 +46,38 @@ function outDirOf(tracker: Tracker, root: string, sub: string): string | null {
   return tracker.options.reportDir.trim() === '' ? join(root, sub) : resolvePath(tracker.env, tracker.options.reportDir)
 }
 
+/** Le cartelle che `/kpi cartella` apre, per nome in entrambe le lingue. */
+const FOLDERS: Record<string, 'report' | 'export' | 'dati'> = {
+  report: 'report',
+  reports: 'report',
+  esporta: 'export',
+  export: 'export',
+  exports: 'export',
+  dati: 'dati',
+  data: 'dati',
+}
+
+/** Apre una cartella nel file manager e dice com'è andata; la crea se manca (un file manager non apre ciò che non c'è). */
+async function openFolder(ctx: KpiCommandContext, L: I18n, dir: string): Promise<string> {
+  const { host } = ctx
+
+  if (!(await host.fs.exists(dir).catch(() => false))) {
+    await host.fs.write(join(dir, '.keep'), '').catch(() => undefined)
+  }
+
+  const opened = await openPath(host, await ctx.platform(), dir)
+
+  return opened ? L.t('Cartella aperta: {dir}.', { dir }) : L.t('Apri la cartella dal percorso: {dir}.', { dir })
+}
+
 /**
  * Su Linux i browser snap e flatpak (Firefox su Ubuntu, Brave, Chromium) non
  * leggono le cartelle nascoste della home: un report sotto `~/.claude` si apre
- * da una copia nella cartella Scaricati. `null` quando non serve o non si può.
+ * da una copia nella cartella Scaricati. `null` quando non serve o non si può
+ * (in WSL il report lo apre il browser di Windows, che legge il percorso).
  */
-async function browserCopy(host: Host, os: string, path: string, html: string): Promise<string | null> {
-  if (os !== 'Linux' || !hasHiddenSegment(path)) {
+async function browserCopy(host: Host, platform: Platform, path: string, html: string): Promise<string | null> {
+  if (platform.os !== 'Linux' || platform.wsl || !hasHiddenSegment(path)) {
     return null
   }
 
@@ -140,6 +157,27 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     host.invalidate()
 
     return done({ text: value === 'off' ? L.t('Barra KPI disattivata (anche nelle prossime sessioni).') : L.t('Barra KPI attivata.') })
+  }
+
+  if (args.sub === 'cartella') {
+    const raw = (args.positional[0] ?? 'report').toLowerCase()
+    const which = FOLDERS[raw]
+
+    if (which === undefined) {
+      return done({ text: L.t('Cartella sconosciuta: {value}. Valori: report, esporta, dati.', { value: raw }) })
+    }
+
+    const dir = which === 'dati' ? root : outDirOf(tracker, root, which === 'report' ? REPORTS_DIR : EXPORTS_DIR)
+
+    if (dir === null) {
+      return done({ text: badReportDir(L) })
+    }
+
+    if (tracker.interactive === false) {
+      return done({ text: L.t('Cartella: {dir}.', { dir }) })
+    }
+
+    return done({ text: await openFolder(ctx, L, dir) })
   }
 
   await pollCost(tracker)
@@ -243,7 +281,8 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const rows = await loadSessions(host.fs, root, filter, override)
       const stamp = stampOf(now)
       const path = join(dir, `report-${stamp}.html`)
-      const built = await buildReport(host.fs, host.pluginRoot, rows, { lang, generatedAt: now, filter })
+      // La pagina mostra le cartelle e il comando per aprirle: da `file://` non può avviare il file manager.
+      const built = await buildReport(host.fs, host.pluginRoot, rows, { lang, generatedAt: now, filter, folders: { report: dir, export: outDirOf(tracker, root, EXPORTS_DIR) } })
 
       await host.fs.write(path, built.html)
       await host.fs.write(join(dir, 'latest.html'), built.html)
@@ -257,17 +296,21 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       ]
 
       if (!args.bools.has('no-apri') && tracker.interactive !== false) {
-        const { os } = await ctx.platform()
-        const copy = await browserCopy(host, os, path, built.html)
-        const opened = await host.run(openArgv(os, copy ?? path), { timeoutMs: 10_000 }).catch(() => null)
+        const platform = await ctx.platform()
+        const copy = await browserCopy(host, platform, path, built.html)
+        const opened = await openPath(host, platform, copy ?? path)
 
         if (copy !== null) {
           lines.push(L.t('Copia per il browser: {copy} (i browser snap e flatpak non leggono le cartelle nascoste; per evitare la copia imposta reportDir).', { copy }))
-        } else if (os === 'Linux' && hasHiddenSegment(path)) {
+        } else if (platform.os === 'Linux' && !platform.wsl && hasHiddenSegment(path)) {
           lines.push(L.t('Se il browser nega l\'accesso al file (snap o flatpak), imposta reportDir su una cartella visibile.'))
         }
 
-        lines.push(opened !== null && opened.exitCode === 0 ? L.t('Aperto nel browser.') : L.t('Aprilo nel browser dal percorso indicato.'))
+        lines.push(opened ? L.t('Aperto nel browser.') : L.t('Aprilo nel browser dal percorso indicato.'))
+      }
+
+      if (args.bools.has('cartella') && tracker.interactive !== false) {
+        lines.push(await openFolder(ctx, L, dir))
       }
 
       return done({ text: lines.join(' ') })
@@ -315,8 +358,10 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
 
       const where = paths.length === 1 ? path : L.t('{n} file ({paths})', { n: paths.length, paths: paths.join(', ') })
       const kind = format === 'csv' ? (excel ? L.t(' — formato Excel italiano') : L.t(' — formato standard')) : ''
+      const text = L.t('Esportate {rows} ({level}) in {where}{kind}.', { rows: L.count(result.count, 'riga', 'righe'), level: levelName, where, kind })
 
-      return done({ text: L.t('Esportate {rows} ({level}) in {where}{kind}.', { rows: L.count(result.count, 'riga', 'righe'), level: levelName, where, kind }) })
+      // La cartella del file scritto, anche con --out.
+      return done({ text: args.bools.has('cartella') && tracker.interactive !== false ? `${text} ${await openFolder(ctx, L, dirName(path))}` : text })
     }
 
     case 'pulisci': {

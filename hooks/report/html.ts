@@ -6,7 +6,7 @@
  */
 
 import { percentileOf } from '../analysis/stats'
-import { join } from '../core/paths'
+import { fileUrlOf, join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
 import type { HostFs } from '../host'
 import { i18nOf, type Lang } from '../i18n'
@@ -17,8 +17,19 @@ import type { SessionRow } from '../query/load'
 /** Limite del dato incorporato (il file si scrive con `$.fs.write`, massimo 4 MiB). */
 export const DATA_BUDGET = 3_500_000
 
-/** `lang` è la lingua con cui si apre il report; la pagina passa all'altra senza rigenerarlo. */
-export type ReportMeta = { lang: Lang; generatedAt: number; filter: KpiFilter }
+/**
+ * `lang` è la lingua con cui si apre il report; la pagina passa all'altra
+ * senza rigenerarlo. `folders` sono le cartelle di report ed export, che la
+ * pagina mostra con un link e il comando per aprirle nel file manager.
+ */
+export type ReportMeta = { lang: Lang; generatedAt: number; filter: KpiFilter; folders?: { report: string; export: string | null } }
+
+/** Le cartelle per la pagina: percorsi, URL `file://` e il comando `/kpi` che le apre, nelle due lingue. */
+function foldersOf(folders: NonNullable<ReportMeta['folders']>) {
+  const one = (path: string, it: string, en: string) => ({ path, url: fileUrlOf(path), command: { it: `/kpi cartella ${it}`, en: `/kpi folder ${en}` } })
+
+  return { report: one(folders.report, 'report', 'report'), ...(folders.export !== null && { export: one(folders.export, 'esporta', 'export') }) }
+}
 
 type Dict = { list: string[]; index: Map<string, number> }
 
@@ -142,7 +153,13 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
 
   const data: Record<string, unknown> = {
     v: 1,
-    meta: { lang: meta.lang, description: descriptionsOf(meta.filter), generatedAt: meta.generatedAt, sessions: rows.length },
+    meta: {
+      lang: meta.lang,
+      description: descriptionsOf(meta.filter),
+      generatedAt: meta.generatedAt,
+      sessions: rows.length,
+      ...(meta.folders !== undefined && { folders: foldersOf(meta.folders) }),
+    },
     dict: Object.fromEntries(Object.entries(dicts).map(([name, dict]) => [name, dict.list])),
     codes: CODES_EN,
     sessions,

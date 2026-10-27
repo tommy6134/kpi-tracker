@@ -89,8 +89,31 @@ body {
 h1 { font-size: 22px; font-weight: 600; margin: 0; }
 h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
 .sub, .hint { color: var(--text-secondary); margin: 2px 0 0; font-size: 13px; }
-.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.top > div:first-child { min-width: 0; flex: 1 1 320px; }
 .controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+/* `hidden` deve vincere sui `display` delle classi (gruppo del periodo personalizzato, cartelle). */
+[hidden] { display: none !important; }
+.folders { margin-top: 8px; display: grid; gap: 4px; }
+.folder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--text-secondary); font-size: 13px; }
+.folder code {
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  overflow-wrap: anywhere;
+}
+.folder a, .folder button { font-size: 12px; padding: 2px 8px; }
+.folder a {
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+}
+.folder a:hover { background: var(--wash); }
 .theme { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13px; }
 
 select, input, button {
@@ -211,7 +234,7 @@ tbody tr.clickable { cursor: pointer; }
 
 @media print {
   body { background: #fff; padding: 0; }
-  .filters, .controls, .card-head button { display: none; }
+  .filters, .controls, .folders, .card-head button { display: none; }
   .card, .tile { break-inside: avoid; border-color: #ccc; }
 }
 @media (forced-colors: active) {

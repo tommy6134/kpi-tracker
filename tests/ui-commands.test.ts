@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { KpiSessionFile } from '../hooks/core/session-file'
 import { assemble } from '../hooks/report/html'
 import { BAND, command, commandOutput, EN, IT, PANE, SESSION } from './fixtures/inputs'
-import { DOWNLOADS, elementsOf, HOME, PROJECT_DIR, ROOT, SESSION_ID, textOf, usageOf, worldOf, type World } from './fixtures/world'
+import { DOWNLOADS, elementsOf, HOME, PROJECT_DIR, ROOT, SESSION_ID, textOf, usageOf, worldOf, WSL_KERNEL, wslPathOf, type World } from './fixtures/world'
 
 const PLUGIN = 'kpi-tracker'
 
@@ -434,5 +434,90 @@ describe('in inglese', () => {
     await $.command.run(command('kpi', 'report --no-open --lang it'))
 
     expect(world.files.get(`${ROOT}/_reports/latest.html`)).toContain('<html lang="it">')
+  })
+})
+
+describe('cartella di report ed export', () => {
+  test('/kpi cartella apre nel file manager la cartella dei report, degli export o dei dati', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const text = async (args: string) => ((await $.command.run(command('kpi', args))) as { text: string }).text
+
+    await workedSession($, on, world, clock)
+
+    expect(await text('cartella')).toBe(`Cartella aperta: ${ROOT}/_reports.`)
+    // La cartella non c'era: si crea, perché il file manager non apre ciò che manca.
+    expect(world.files.has(`${ROOT}/_reports/.keep`)).toBe(true)
+    expect(await text('folder export')).toBe(`Cartella aperta: ${ROOT}/_exports.`)
+    expect(await text('cartella dati --lang en')).toBe(`Folder opened: ${ROOT}.`)
+    expect(await text('cartella boh')).toContain('Cartella sconosciuta: boh')
+    expect(world.runs.filter(argv => argv[0] === 'open').map(argv => argv[1])).toEqual([`${ROOT}/_reports`, `${ROOT}/_exports`, ROOT])
+  })
+
+  test('--cartella su report ed export apre la cartella del file, anche con --no-apri e --out', IT, async ($, on) => {
+    const world = worldOf(on, { os: 'Linux' })
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+
+    const report = ((await $.command.run(command('kpi', 'report --no-apri --cartella'))) as { text: string }).text
+
+    expect(world.runs.filter(argv => argv[0] === 'xdg-open')).toEqual([['xdg-open', `${ROOT}/_reports`]])
+    expect(report).toContain(`Cartella aperta: ${ROOT}/_reports.`)
+
+    await $.command.run(command('kpi', 'esporta csv --out ~/kpi/mio.csv --folder'))
+
+    expect(world.runs.filter(argv => argv[0] === 'xdg-open').at(-1)).toEqual(['xdg-open', `${HOME}/kpi`])
+  })
+
+  test('WSL: report e cartella li apre Windows (explorer.exe), senza copia in Scaricati', IT, async ($, on) => {
+    const world = worldOf(on, { os: 'Linux', files: { '/proc/version': WSL_KERNEL } })
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+
+    const report = ((await $.command.run(command('kpi', 'report --cartella'))) as { text: string }).text
+    const explorer = world.runs.filter(argv => argv[0] === 'explorer.exe').map(argv => argv[1])
+
+    expect(world.runs.some(argv => argv[0] === 'xdg-user-dir' || argv[0] === 'xdg-open')).toBe(false)
+    expect(explorer[0]?.startsWith(wslPathOf(`${ROOT}/_reports/report-`))).toBe(true)
+    expect(explorer[1]).toBe(wslPathOf(`${ROOT}/_reports`))
+    // explorer.exe esce con 1 anche quando riesce: conta che sia partito.
+    expect(report).toContain('Aperto nel browser.')
+    expect(report).toContain('Cartella aperta:')
+  })
+
+  test('su Windows la cartella si apre con start', IT, async ($, on) => {
+    const world = worldOf(on, { os: 'MINGW64_NT-10.0' })
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+    await $.command.run(command('kpi', 'cartella'))
+
+    expect(world.runs.at(-1)).toEqual(['cmd', '/c', 'start', '', `${ROOT}/_reports`])
+  })
+
+  test('il report porta le cartelle, il loro URL e il comando per aprirle; il pannello ha il pulsante Cartella', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    on('ui.render', () => ({ type: 'Text', children: [''] }))
+    await workedSession($, on, world, clock)
+    await $.command.run(command('kpi', 'report --no-apri'))
+
+    const html = world.files.get(`${ROOT}/_reports/latest.html`) ?? ''
+    const data = JSON.parse(/<script type="application\/json" id="kpi-data">(.*?)<\/script>/s.exec(html)?.[1] ?? '{}') as {
+      meta: { folders: { report: { path: string; url: string; command: { it: string; en: string } }; export: { path: string } } }
+    }
+
+    expect(data.meta.folders.report).toEqual({ path: `${ROOT}/_reports`, url: `file://${ROOT}/_reports`, command: { it: '/kpi cartella report', en: '/kpi folder report' } })
+    expect(data.meta.folders.export.path).toBe(`${ROOT}/_exports`)
+
+    await $.ui.render(PANE)
+    await $.ui.press({ plugin: PLUGIN, key: 'kpi-folder' })
+    await clock.advance(100)
+
+    expect(world.runs.filter(argv => argv[0] === 'open').at(-1)).toEqual(['open', `${ROOT}/_reports`])
+    expect(world.logs.at(-1)).toBe(`Cartella aperta: ${ROOT}/_reports.`)
   })
 })

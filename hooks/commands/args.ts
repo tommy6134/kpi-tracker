@@ -19,9 +19,12 @@ export type Subcommand =
   | 'pulisci'
   | 'ricostruisci'
   | 'aggiorna'
+  | 'cartella'
   | 'aiuto'
 
 const SUBCOMMANDS: Record<string, Subcommand> = {
+  cartella: 'cartella',
+  folder: 'cartella',
   riepilogo: 'riepilogo',
   summary: 'riepilogo',
   live: 'live',
@@ -101,6 +104,8 @@ const BOOL_FLAGS: Record<string, string> = {
   all: 'tutto',
   verifica: 'verifica',
   check: 'verifica',
+  cartella: 'cartella',
+  folder: 'cartella',
 }
 
 /** Un'opzione senza il valore che richiede, o sconosciuta; `name` è come l'ha scritta l'utente. */

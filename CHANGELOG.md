@@ -12,6 +12,9 @@
 - Numbers and dates in the language's format: `1,234.56` and `2026-10-12` in English, `1.234,56` and `12/10/2026` in Italian.
 - The codes stored on disk do not change (`interattiva`, `ricarica`, `altro`…): reports and exports translate them when they show them, and old data needs no migration.
 - Documentation in English (`README.md`, `docs/`) with an Italian copy (`README.it.md`, `docs/it/`).
+- **Open the folder** of reports and exports in the file manager: new `/kpi folder [report|export|data]` (`cartella`), `--folder` (`--cartella`) on `/kpi report` and `/kpi export` (the file's folder, also with `--out`), a **Folder** button in the `/kpi live` panel. In WSL reports and folders open with Windows' `explorer.exe`.
+- The HTML report's header shows the reports and exports folders with **Open** (`file://` link), **Copy path** and **Copy command**: a page opened from `file://` cannot start the file manager, Claude Code can.
+- HTML report: the custom period's date fields no longer show when another period is selected, and the header wraps on narrow screens.
 
 ## 0.3.0
 

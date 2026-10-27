@@ -15,6 +15,8 @@ export type PaneKit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & Pa
 
 export type PaneActions = {
   report: () => void
+  /** Apre la cartella dei report nel file manager. */
+  folder: () => void
   close: () => void
 }
 
@@ -209,6 +211,7 @@ export function paneView(kit: PaneKit, L: I18n, live: LiveView | null, columns: 
         </Text>
         <Box gap={1} flexShrink={0}>
           <Button key="kpi-report" label={L.t('Report HTML')} onPress={actions.report} />
+          <Button key="kpi-folder" label={L.t('Cartella')} onPress={actions.folder} />
           <Button key="kpi-close" label={L.t('Chiudi')} role="dismiss" onPress={actions.close} />
         </Box>
       </Box>

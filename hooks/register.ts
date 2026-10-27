@@ -3,6 +3,7 @@ import type { EngineInterface, On, PluginOptions } from 'claude-code'
 import { runKpi, type KpiCommandContext } from './commands/kpi'
 import { optionsOf, PLUGIN_NAME } from './config'
 import type { ResumeInfo } from './core/events'
+import { isWslKernel } from './core/open'
 import { extOf } from './core/paths'
 import { lengthsOf, safeName, toolEventOf } from './collect/tool-extract'
 import type { Host, OpenResult } from './host'
@@ -131,7 +132,7 @@ export function register(on: On, raw: PluginOptions) {
       .registerCommand({
         name: 'kpi',
         description: L.t('KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export'),
-        argumentHint: L.t('[live|statistiche|sessioni|progetti|sessione|report|esporta|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]'),
+        argumentHint: L.t('[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]'),
         immediate: true,
       })
       .catch(() => undefined)
@@ -664,6 +665,9 @@ export function register(on: On, raw: PluginOptions) {
         report: () => {
           void runCommand(host, 'report').then(result => host.log(result.short ?? result.text))
         },
+        folder: () => {
+          void runCommand(host, 'cartella report').then(result => host.log(result.text))
+        },
         close: () => {
           tracker.ui.paneOpen = false
           void host.closePane({ id: PANE_ID }).catch(() => undefined)
@@ -697,12 +701,16 @@ export function register(on: On, raw: PluginOptions) {
       host,
       tracker,
       openPane: () => openPane(host),
-      platform: async () => ({
-        os: await host.run(['uname', '-s'], { timeoutMs: 3000 }).then(
+      platform: async () => {
+        const os = await host.run(['uname', '-s'], { timeoutMs: 3000 }).then(
           result => result.stdout.trim(),
           () => 'Windows_NT',
-        ),
-      }),
+        )
+        // In WSL `uname` dice Linux, ma il file manager e il browser sono quelli di Windows.
+        const wsl = os === 'Linux' && isWslKernel(await host.fs.read('/proc/version').catch(() => ''))
+
+        return { os, wsl }
+      },
     }
   }
 
