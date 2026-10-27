@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock, test, type TestBody } from 'claude-code/testing'
 
 import type { KpiSessionFile } from '../hooks/core/session-file'
 import { assemble } from '../hooks/report/html'
@@ -18,10 +18,10 @@ const accepted = async ($: unknown, input: Record<string, unknown>): Promise<str
   return mounted.surface
 }
 
-type Engine = Parameters<Parameters<typeof test>[1]>[0]
+type Engine = Parameters<TestBody>[0]
 
 /** Una sessione con un turno, una modifica, un comando Bash con commit e una misurazione. */
-async function workedSession($: Engine, on: Parameters<Parameters<typeof test>[1]>[1], world: World, clock: { advance: (ms: number) => Promise<void> }) {
+async function workedSession($: Engine, on: Parameters<TestBody>[1], world: World, clock: { advance: (ms: number) => Promise<void> }) {
   on('tool.call', ($$, e) => {
     if (e.tool === 'Edit') {
       return { result: { filePath: '/work/progetto-demo/src/app.ts', structuredPatch: [{ lines: ['+a', '+b', '-c'] }], userModified: false }, text: 'ok' } as never
