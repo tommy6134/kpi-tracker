@@ -17,6 +17,9 @@ export type KpiOptions = {
   fullName: string
   /** Il file delle regole delle categorie ('' = `categorie.json` o `categories.json` nella cartella dati). */
   categoriesFile: string
+  /** Comandi di build e di test personalizzati, separati da virgole (`./build.sh, npm run package:all`). */
+  buildCommands: string
+  testCommands: string
   /** Agganciare `turn.step` per TTFT, latenza e token per richiesta. */
   streamTiming: boolean
   /** Cosa fare quando nel marketplace c'è una versione nuova. */
@@ -49,6 +52,8 @@ export function optionsOf(raw: PluginOptions | undefined): KpiOptions {
   const reportDir = raw?.reportDir
   const fullName = raw?.fullName
   const categoriesFile = raw?.categoriesFile
+  const buildCommands = raw?.buildCommands
+  const testCommands = raw?.testCommands
   const streamTiming = raw?.streamTiming
   const autoUpdate = typeof raw?.autoUpdate === 'string' ? raw.autoUpdate.trim() : ''
   const mode = UPDATE_MODES[autoUpdate.toLowerCase()]
@@ -59,6 +64,8 @@ export function optionsOf(raw: PluginOptions | undefined): KpiOptions {
     reportDir: typeof reportDir === 'string' ? reportDir : '',
     fullName: typeof fullName === 'string' ? fullName.trim() : '',
     categoriesFile: typeof categoriesFile === 'string' ? categoriesFile.trim() : '',
+    buildCommands: typeof buildCommands === 'string' ? buildCommands : '',
+    testCommands: typeof testCommands === 'string' ? testCommands : '',
     streamTiming: typeof streamTiming === 'boolean' ? streamTiming : true,
     autoUpdate: mode ?? 'auto',
     badAutoUpdate: mode === undefined ? autoUpdate : null,

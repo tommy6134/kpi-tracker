@@ -6,6 +6,7 @@
 
 import type { KpiEvent } from '../core/events'
 import { dayKey, hourSlot } from '../core/time'
+import { categoryOfLabels } from './bash-classify'
 import { classOf } from './lines'
 import { addStat, bump } from './stats'
 import {
@@ -701,14 +702,18 @@ function applyTool(state: ReduceState, event: Extract<KpiEvent, { e: 'tool' }>):
     case 'bash': {
       s.bash.n += 1
 
-      const cat = outcome(s.bash.byCat, x.cat)
+      // La categoria con le regole di adesso, dalle etichette (salvo un comando personalizzato o etichette che non bastano).
+      const category = x.cus === 1 ? x.cat : (categoryOfLabels(x.cmds) ?? x.cat)
+      // Riuscito per il motore, ma l'output diceva che la build o il test è fallito.
+      const status = event.st === 'ok' && x.fx === 1 ? 'err' : event.st
+      const cat = outcome(s.bash.byCat, category)
 
-      countOutcome(cat, event.st, x)
+      countOutcome(cat, status, x)
 
-      if (x.cat === 'test') {
-        countOutcome(s.tests, event.st, x)
-      } else if (x.cat === 'build') {
-        countOutcome(s.builds, event.st, x)
+      if (category === 'test') {
+        countOutcome(s.tests, status, x)
+      } else if (category === 'build') {
+        countOutcome(s.builds, status, x)
       }
 
       if (x.pipe === 1) {
@@ -728,19 +733,19 @@ function applyTool(state: ReduceState, event: Extract<KpiEvent, { e: 'tool' }>):
 
         entry.n += 1
 
-        if (event.st === 'ok') {
+        if (status === 'ok') {
           entry.ok += 1
-        } else if (event.st === 'err') {
+        } else if (status === 'err') {
           entry.err += 1
         }
 
-        const full = (d.bashCmds[cmd] ??= { n: 0, ok: 0, err: 0, cat: x.cat })
+        const full = (d.bashCmds[cmd] ??= { n: 0, ok: 0, err: 0, cat: category })
 
         full.n += 1
 
-        if (event.st === 'ok') {
+        if (status === 'ok') {
           full.ok += 1
-        } else if (event.st === 'err') {
+        } else if (status === 'err') {
           full.err += 1
         }
       }

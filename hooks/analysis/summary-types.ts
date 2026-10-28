@@ -11,9 +11,10 @@ import { emptyStat, type Stat } from './stats'
  * La versione del calcolo del summary. Quando cambia, le sessioni passate si
  * ricalcolano dagli eventi: all'avvio (maintenance.ts) e alla ripresa di una
  * sessione (core/binding.ts). 2 = classe dei file dal percorso (cobol,
- * mainframe); 3 = documenti (docx, pdf…) nella classe doc.
+ * mainframe); 3 = documenti (docx, pdf…) nella classe doc; 4 = categoria dei
+ * comandi Bash dalle etichette, build e test falliti secondo l'output.
  */
-export const REDUCER_VERSION = 3
+export const REDUCER_VERSION = 4
 
 export type Tokens = { in: number; out: number; cr: number; cw: number }
 

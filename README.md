@@ -158,6 +158,8 @@ From `/config` (the plugin's section) or in `settings.json` under `pluginConfigs
 | `dataDir` | `""` | Absolute data folder (`~/…` works too); empty = `<config>/kpi` |
 | `reportDir` | `""` | Absolute folder (`~/…` works too) for HTML reports and exports; empty = `_reports/` and `_exports/` in the data folder |
 | `fullName` | `""` | Name and surname in the export file names (`kpi_mario_rossi_2026-11.csv`); empty = `git config user.name` |
+| `buildCommands` | `""` | Your own build commands, comma-separated (`./build.sh, make dist, npm run package:all`): a program or the start of a command line, counted as builds whatever the built-in rules say |
+| `testCommands` | `""` | Your own test commands, comma-separated (`./run-tests.sh`), counted as tests |
 | `categoriesFile` | `""` | File with the rules of the [activity categories](#activity-categories) (`~/…` works too); empty = `categorie.json` or `categories.json` in the data folder |
 | `streamTiming` | `true` | Hooks the response stream for TTFT, latency and per-request tokens; turn it off if you notice slowdowns |
 | `autoUpdate` | `"auto"` | `auto` installs compatible new versions by itself; `avviso` (notify) only reports them (install with `/kpi update`); `off` no automatic check |
@@ -231,7 +233,7 @@ Documentation (in Italian in [docs/it/](docs/it/)): [KPI catalogue](docs/kpi.md)
 
 - The **cost** is the one Claude Code computes (API equivalent, its service calls included); there is no cost per model or per subagent. Since 0.4.0 it matches `/cost`, including what is spent outside turns; only what Claude Code spends after closing a session that is never resumed is left out.
 - Of the **user's answer** in a permission dialog only the "no" is seen (since 0.5.0; before, it counted as an interruption): decisions, dialogs, denials and rejections are counted.
-- The outcome of **piped** Bash commands reflects only the last command.
+- The outcome of **piped** Bash commands reflects only the last command, except for builds and tests whose output holds a known failure marker (`BUILD FAILURE`, failed tests…), which count as failed.
 - On **Linux** browsers installed as snap or flatpak (Firefox on Ubuntu, Brave, Chromium) cannot read hidden folders such as `~/.claude`: `/kpi report` then opens a copy of the report in the Downloads folder (`kpi-report.html`, overwritten each time). To avoid the copy set `reportDir` to a visible folder, for example `~/Documents/kpi`.
 - **Documents created** (Word, Excel, PDF…) are seen only inside a git repo: files outside it, ignored by git or created and deleted in the same turn are not counted.
 - Sessions from before the install are not imported.

@@ -107,13 +107,18 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 
 Categorie: **git, test, build, package, docker, fs, network, altro**. Si salvano solo `programma sottocomando` (es. `mvn test`), mai gli argomenti.
 
+La categoria viene da tabelle per linguaggio in `hooks/analysis/bash-classify.ts` (COBOL, Java, JavaScript/TypeScript, Python, .NET, Go, Rust, C/C++, PHP, Ruby, Swift/Kotlin/Flutter): aggiungere uno strumento è una riga. **Build** vuol dire compilazione e packaging: per Maven solo le fasi di compilazione e packaging (`compile`, `package`, `install`, `deploy`…), per Gradle i task corrispondenti (`build`, `assemble`, `jar`, `bootJar`…); `mvn dependency:tree`, `mvn clean`, `gradle bootRun`, `vite` (il server di sviluppo), `make clean`, `go vet`, `cargo clippy` non sono build. I comandi personalizzati delle opzioni `buildCommands` e `testCommands` vincono sulle tabelle.
+
+La categoria si ricalcola dalle etichette salvate con le regole di adesso, quindi un cambio delle regole vale anche per le sessioni passate (ricalcolate in automatico). Non quando l'etichetta non basta: fino alla 0.4.0 il sottocomando di strumenti come `vite`, `ng`, `next` o `xcodebuild` non si salvava, e per quelli resta la categoria salvata. I comandi personalizzati valgono da quando li imposti.
+
 | KPI | Definizione | Fonte | Gran. |
 | --- | --- | --- | --- |
 | Comandi per categoria | con esito (ok, errore, interrotto, timeout, background) | classificatore + risultato | E |
 | Comandi più usati | `programma sottocomando` | classificatore | E |
 | Test | esecuzioni, superate, fallite, pass rate | categoria test + esito | E |
 | Build | esecuzioni, riuscite, fallite | categoria build + esito | E |
-| Comandi con pipe | l'esito riflette solo l'ultimo comando | classificatore | E |
+| Fallimenti nell'output | una build o un test che Claude Code dà riuscito, ma il cui output contiene un marcatore di fallimento noto (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:riga: error:` di javac/gcc/cobc, test falliti di pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec, `make: ***`…), conta come fallito: `mvn package 2>&1 \| tail -50` prende l'esito di `tail`. L'output si legge in memoria (gli ultimi 64 KB) e non si salva. Dalla 0.5.0 | output del risultato | E |
+| Comandi con pipe | a parte i marcatori di fallimento di build e test, l'esito riflette solo l'ultimo comando | classificatore | E |
 | Sandbox disattivata | | input Bash `dangerouslyDisableSandbox` | E |
 
 ## File e codice

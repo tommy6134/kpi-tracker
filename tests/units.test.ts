@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { classifyBash } from '../hooks/analysis/bash-classify'
+import { categoryOfLabels, classifyBash, customOf } from '../hooks/analysis/bash-classify'
 import { classOf, countPatch, lineCount, linesOfResult } from '../hooks/analysis/lines'
 import { mergeAll, mergeSummary } from '../hooks/analysis/merge'
 import { foldEvents } from '../hooks/analysis/reducer'
@@ -18,7 +18,7 @@ import { embedJson, escapeHtml } from '../hooks/report/html'
 import { categoriesOf, categoryOf, parseRules } from '../hooks/query/category'
 import { describeFilter, filterOf, matchesProject } from '../hooks/query/filters'
 import { compareDocs, DOCUMENT_EXT, parseDiff, parseStatus } from '../hooks/collect/docs'
-import { hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
+import { failedOutput, hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
 import { kindOf } from '../hooks/tracker'
 import { toneOf, worstOf } from '../hooks/ui/palette'
 
@@ -200,6 +200,60 @@ describe('classificazione Bash', () => {
     ['claude plugin validate .', ['claude plugin'], 'altro'],
     ['$(echo SEGRETO)', [], 'altro'],
     ['', [], 'altro'],
+    // Maven e Gradle: solo compilazione e packaging sono build.
+    ['mvn dependency:tree', ['mvn dependency:tree'], 'package'],
+    ['mvn clean', ['mvn clean'], 'altro'],
+    ['mvn -q package -DskipTests 2>&1 | tail -50', ['mvn package', 'tail'], 'build'],
+    ['mvn test-compile', ['mvn test-compile'], 'build'],
+    ['mvn spring-boot:run', ['mvn spring-boot:run'], 'altro'],
+    ['./gradlew clean', ['gradle clean'], 'altro'],
+    ['./gradlew :app:assembleRelease', ['gradle assemblerelease'], 'build'],
+    ['gradle dependencies', ['gradle dependencies'], 'package'],
+    ['sbt testOnly SEGRETO', ['sbt testonly'], 'test'],
+    ['cobc -x -o bin/PAYROLL src/PAYROLL.cbl', ['cobc'], 'build'],
+    // JavaScript e TypeScript.
+    ['ng build --configuration production', ['ng build'], 'build'],
+    ['ng test --watch=false', ['ng test'], 'test'],
+    ['ng serve', ['ng serve'], 'altro'],
+    ['npx next build', ['next build'], 'build'],
+    ['next dev', ['next dev'], 'altro'],
+    ['npx nuxi generate', ['nuxi generate'], 'build'],
+    ['vite', ['vite'], 'altro'],
+    ['vite build', ['vite build'], 'build'],
+    ['gulp', ['gulp'], 'build'],
+    ['gulp test', ['gulp test'], 'test'],
+    ['grunt watch', ['grunt watch'], 'altro'],
+    ['npx lerna run build', ['lerna run build'], 'build'],
+    ['turbo run test', ['turbo run test'], 'test'],
+    ['turbo build', ['turbo build'], 'build'],
+    ['nx test web', ['nx test'], 'test'],
+    ['node --test', ['node --test'], 'test'],
+    // Python.
+    ['python -m build', ['python -m build'], 'build'],
+    ['python setup.py bdist_wheel', ['python setup.py bdist_wheel'], 'build'],
+    ['python manage.py test app', ['python manage.py test'], 'test'],
+    ['python manage.py SEGRETO', ['python manage.py *'], 'altro'],
+    ['uv build', ['uv build'], 'build'],
+    ['poetry build', ['poetry build'], 'build'],
+    ['hatch test', ['hatch test'], 'test'],
+    // .NET, Go, Rust, C/C++.
+    ['dotnet pack -c Release', ['dotnet pack'], 'build'],
+    ['go vet ./...', ['go vet'], 'altro'],
+    ['go install ./cmd/x', ['go install'], 'build'],
+    ['cargo clippy -- -D warnings', ['cargo clippy'], 'altro'],
+    ['meson test -C build', ['meson test'], 'test'],
+    ['bazel test //...', ['bazel test'], 'test'],
+    ['make clean', ['make clean'], 'altro'],
+    // PHP, Ruby, Swift, Flutter.
+    ['php artisan test', ['php artisan test'], 'test'],
+    ['composer test', ['composer test'], 'test'],
+    ['bundle exec rspec spec/x_spec.rb', ['rspec'], 'test'],
+    ['bundle exec rake test', ['rake test'], 'test'],
+    ['rails test', ['rails test'], 'test'],
+    ['swift build -c release', ['swift build'], 'build'],
+    ['xcodebuild -scheme App -destination SEGRETO test', ['xcodebuild test'], 'test'],
+    ['flutter build apk', ['flutter build'], 'build'],
+    ['dart test', ['dart test'], 'test'],
   ]
 
   for (const [command, cmds, cat] of cases) {
@@ -219,7 +273,7 @@ describe('classificazione Bash', () => {
         expect(cmd.toLowerCase()).not.toContain('segreto')
 
         for (const token of cmd.split(' ')) {
-          expect(/^([a-z0-9][a-z0-9._:+-]{0,39}|\*|-m)$/i.test(token)).toBe(true)
+          expect(/^([a-z0-9][a-z0-9._:+-]{0,39}|\*|-m|--test)$/i.test(token)).toBe(true)
         }
       }
     }
@@ -264,6 +318,75 @@ describe('righe di codice', () => {
     expect(state.summary.files.byClass).toEqual({ cobol: { n: 1, add: 7, del: 1 }, mainframe: { n: 1, add: 3, del: 0 } })
     expect(state.details.files['/w/src/PAYROLL.cbl']?.cls).toBe('cobol')
     expect(state.summary.rv).toBe(REDUCER_VERSION)
+  })
+})
+
+describe('build e test', () => {
+  test('la categoria dalle etichette salvate: con le regole di adesso quando bastano', () => {
+    expect(categoryOfLabels(['mvn dependency:tree'])).toBe('package')
+    expect(categoryOfLabels(['mvn clean install'])).toBe('build')
+    expect(categoryOfLabels(['go vet'])).toBe('altro')
+    expect(categoryOfLabels(['git status', 'npm test'])).toBe('test')
+    // Il solo programma di uno strumento che dipende dal sottocomando non basta: resta la categoria salvata.
+    expect(categoryOfLabels(['vite'])).toBe(null)
+    expect(categoryOfLabels(['mvn'])).toBe(null)
+    expect(categoryOfLabels([])).toBe(null)
+    expect(categoryOfLabels(['ls', 'ls', 'ls', 'ls', 'ls', 'ls', 'ls', 'ls'])).toBe(null)
+  })
+
+  test('marcatori di fallimento nell\'output; i contatori a zero non contano', () => {
+    const failed = [
+      '[INFO] BUILD FAILURE',
+      'FAILURE: Build failed with an exception.\n\nBUILD FAILED in 3s',
+      'npm error code ELIFECYCLE',
+      'src/a.ts(3,5): error TS2322: Type',
+      'src/main/java/App.java:12: error: cannot find symbol',
+      'PAYROLL.cbl:40: error: syntax error, unexpected Identifier',
+      'error[E0308]: mismatched types',
+      'Program.cs(4,1): error CS0103: The name',
+      '--- FAIL: TestX (0.00s)',
+      '==================== 2 failed, 10 passed in 1.20s ====================',
+      'Tests:       1 failed, 4 passed, 5 total',
+      '      Tests  3 failed | 12 passed (15)',
+      'Tests run: 7, Failures: 1, Errors: 0, Skipped: 0',
+      'Tests run: 7, Failures: 0, Errors: 2, Skipped: 0',
+      'test result: FAILED. 3 passed; 1 failed',
+      'FAILURES!\nTests: 3, Assertions: 4, Failures: 1.',
+      '  2 failing',
+      '12 examples, 1 failure',
+      'make: *** [Makefile:12: all] Error 2',
+    ]
+    const passed = ['[INFO] BUILD SUCCESS', 'Tests run: 7, Failures: 0, Errors: 0, Skipped: 0', '==== 0 failed, 10 passed in 1s ====', 'Tests:       5 passed, 5 total', '12 examples, 0 failures', '']
+
+    expect(failed.filter(output => !failedOutput(output))).toEqual([])
+    expect(passed.filter(output => failedOutput(output))).toEqual([])
+    // Si guarda solo la fine di un output lungo.
+    expect(failedOutput(`BUILD FAILURE\n${'x'.repeat(70_000)}`)).toBe(false)
+  })
+
+  test('comandi personalizzati delle opzioni: vincono sulla tabella, l\'etichetta resta senza argomenti', () => {
+    const custom = customOf('./scripts/build.sh, npm run package:all', 'make check-all')
+
+    expect(custom).toEqual({ build: [['build.sh'], ['npm', 'run', 'package:all']], test: [['make', 'check-all']] })
+    expect(classifyBash('./scripts/build.sh --env SEGRETO', custom)).toMatchObject({ cmds: ['build.sh'], cat: 'build', custom: true })
+    expect(classifyBash('npm run package:all', custom)).toMatchObject({ cmds: ['npm run *'], cat: 'build', custom: true })
+    expect(classifyBash('sudo make check-all', custom)).toMatchObject({ cmds: ['make check-all'], cat: 'test', custom: true })
+    expect(classifyBash('npm run package', custom)).toMatchObject({ cat: 'package', custom: false })
+  })
+
+  test('il reducer ricalcola la categoria dalle etichette; un comando personalizzato e un fallimento nell\'output', () => {
+    const state = foldEvents({ summary: emptySummary(), details: emptyDetails() }, events([
+      [T0, { e: 'tool', id: 'u1', tool: 'Bash', st: 'ok', wall: 5, x: { k: 'bash', cmds: ['mvn dependency:tree'], cat: 'build' } }],
+      [T0 + 1, { e: 'tool', id: 'u2', tool: 'Bash', st: 'ok', wall: 5, x: { k: 'bash', cmds: ['vite'], cat: 'build' } }],
+      [T0 + 2, { e: 'tool', id: 'u3', tool: 'Bash', st: 'ok', wall: 5, x: { k: 'bash', cmds: ['build.sh'], cat: 'build', cus: 1 } }],
+      [T0 + 3, { e: 'tool', id: 'u4', tool: 'Bash', st: 'ok', wall: 5, x: { k: 'bash', cmds: ['mvn package', 'tail'], cat: 'build', pipe: 1, fx: 1 } }],
+    ]))
+    const s = state.summary
+
+    expect(s.bash.byCat.package?.n).toBe(1)
+    expect(s.builds).toMatchObject({ n: 3, ok: 2, err: 1 })
+    expect(s.tools.byTool.Bash).toMatchObject({ ok: 4, err: 0 })
+    expect(s.bash.byCmd['mvn package']).toMatchObject({ ok: 0, err: 1 })
   })
 })
 

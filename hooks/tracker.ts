@@ -11,6 +11,7 @@
  * - `session.end` chiude il segmento e salva entro il limite di 1,5 s.
  */
 
+import { customOf, type CustomCommands } from './analysis/bash-classify'
 import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
 import type { KpiOptions } from './config'
 import { closeSegment, moveLast, openSession } from './core/binding'
@@ -30,6 +31,8 @@ export type UpdateNotice = { tone: 'warn' | 'info'; band: string; text: string }
 
 export type Tracker = {
   options: KpiOptions
+  /** I comandi di build e test delle opzioni, già divisi in parole. */
+  custom: CustomCommands
   /** Testi e formati della lingua configurata (barra, pannello, avvisi; /kpi può cambiarla con --lingua). */
   i18n: I18n
   host: Host | null
@@ -85,6 +88,7 @@ export const HEARTBEAT_MS = 60_000
 export function newTracker(options: KpiOptions): Tracker {
   return {
     options,
+    custom: customOf(options.buildCommands, options.testCommands),
     i18n: i18nOf(options.language),
     host: null,
     env: {},

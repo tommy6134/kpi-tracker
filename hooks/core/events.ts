@@ -48,6 +48,10 @@ export type ToolExtra =
       intr?: 1
       sbx?: 1
       git?: GitInfo
+      /** Build o test riusciti per il motore, ma con un marcatore di fallimento noto nell'output (una pipe nasconde l'errore): dalla 0.5.0. */
+      fx?: 1
+      /** La categoria viene da un comando personalizzato delle opzioni: il reducer la tiene com'è. Dalla 0.5.0. */
+      cus?: 1
     }
   | {
       k: 'file'

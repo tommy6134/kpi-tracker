@@ -3,7 +3,7 @@
  * metadati per tool e nient'altro. Mai testo di argomenti, output o query.
  */
 
-import { classifyBash } from '../analysis/bash-classify'
+import { classifyBash, type CustomCommands } from '../analysis/bash-classify'
 import { classOf, lineCount, linesOfResult } from '../analysis/lines'
 import type { GitInfo, KpiEventBody, ToolExtra, ToolStatus } from '../core/events'
 import { extOf, isAbsolute, isInside, join } from '../core/paths'
@@ -71,6 +71,43 @@ export function statusOf(result: ToolResultLike | undefined): ToolStatus {
   return record !== undefined && record !== null && typeof record === 'object' && record.interrupted === true ? 'intr' : 'ok'
 }
 
+/**
+ * Marcatori di build e test falliti nell'output: con `mvn package 2>&1 | tail`
+ * l'esito del comando è quello di `tail`. I contatori a zero non contano.
+ */
+const FAILURE_MARKERS: readonly RegExp[] = [
+  /\bBUILD FAILURE\b/, // Maven
+  /\bBUILD FAILED\b|^Build FAILED\.?$/m, // Gradle, Ant, dotnet
+  /^npm (?:ERR!|error) /m, // npm
+  /\berror TS\d{4,5}\b/, // tsc
+  /^[^\s:][^:\n]*:\d+(?::\d+)?: (?:fatal )?error:/m, // javac, gcc, clang, cobc: `file:riga: error:`
+  /^error(?:\[E\d{4}\])?: /m, // rustc, cargo
+  /\berror CS\d{4}\b/, // C#
+  /^(?:ERROR in |✘ \[ERROR\]|error during build:|Failed to compile\.?$)/m, // webpack, esbuild, vite, Next.js
+  /^--- FAIL: |^FAIL\t/m, // go test
+  /^=+ .*\b[1-9]\d* (?:failed|errors?)\b.*=+\s*$/m, // pytest
+  /^FAILED /m, // pytest, riepilogo breve
+  /^Tests: +.*\b[1-9]\d* failed/m, // jest
+  /^ *(?:Test Files|Tests) +[1-9]\d* failed/m, // vitest
+  /Tests run: \d+, Failures: (?:[1-9]|0, Errors: [1-9])/, // JUnit, Surefire
+  /There (?:are|were) test failures/, // Surefire
+  /^test result: FAILED\./m, // cargo test
+  /^FAILURES!$/m, // PHPUnit
+  /^ *[1-9]\d* failing$/m, // mocha
+  /^\d+ examples?, [1-9]\d* failures?/m, // rspec
+  /^make(?:\[\d+\])?: \*\*\* /m, // make
+]
+
+/** Quanto output si guarda: la fine, dove compaiono i riepiloghi. */
+const OUTPUT_TAIL = 65_536
+
+/** `true` se l'output (letto in memoria, mai salvato) dice che una build o un test è fallito. */
+export function failedOutput(output: string): boolean {
+  const tail = output.length > OUTPUT_TAIL ? output.slice(-OUTPUT_TAIL) : output
+
+  return FAILURE_MARKERS.some(marker => marker.test(tail))
+}
+
 /** `mcp__server__tool` → `server`. */
 export function mcpServerOf(tool: string): string | undefined {
   const match = /^mcp__(.+?)__/.exec(tool)
@@ -131,8 +168,8 @@ export function hostOf(url: unknown): string {
   }
 }
 
-/** I metadati per tool, o `undefined` per i tool senza metadati utili. */
-export function extraOf(tool: string, input: Readonly<Record<string, unknown>>, result: ToolResultLike | undefined, cwd: string, project: string): ToolExtra | undefined {
+/** I metadati per tool, o `undefined` per i tool senza metadati utili; `custom` sono i comandi di build e test delle opzioni. */
+export function extraOf(tool: string, input: Readonly<Record<string, unknown>>, result: ToolResultLike | undefined, cwd: string, project: string, custom?: CustomCommands): ToolExtra | undefined {
   const record = result?.isError === true || result?.deny !== undefined ? undefined : result?.result
   const rec = (typeof record === 'object' && record !== null ? record : {}) as Record<string, unknown>
 
@@ -140,8 +177,10 @@ export function extraOf(tool: string, input: Readonly<Record<string, unknown>>, 
     case 'Bash':
     case 'PowerShell': {
       const command = str(input.command) ?? ''
-      const info = classifyBash(command)
+      const info = classifyBash(command, custom)
       const git = gitOf(record)
+      // Riuscito per il motore: l'output può dire il contrario (una pipe ne nasconde l'esito).
+      const output = record === undefined || (info.cat !== 'build' && info.cat !== 'test') ? '' : [str(rec.stdout), str(rec.stderr)].filter(part => part !== undefined).join('\n') || (result?.text ?? '')
 
       return {
         k: 'bash',
@@ -153,6 +192,8 @@ export function extraOf(tool: string, input: Readonly<Record<string, unknown>>, 
         ...(rec.interrupted === true && { intr: 1 as const }),
         ...(input.dangerouslyDisableSandbox === true && { sbx: 1 as const }),
         ...(git !== undefined && { git }),
+        ...(output !== '' && failedOutput(output) && { fx: 1 as const }),
+        ...(info.custom && { cus: 1 as const }),
       }
     }
 
@@ -258,10 +299,11 @@ export function toolEventOf(
   wallMs: number,
   cwd: string,
   project: string,
+  custom?: CustomCommands,
 ): KpiEventBody {
   const tool = safeName(input.tool)
   const mcp = mcpServerOf(input.tool)
-  const x = extraOf(input.tool, input, result, cwd, project)
+  const x = extraOf(input.tool, input, result, cwd, project, custom)
 
   return {
     e: 'tool',

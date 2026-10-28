@@ -434,7 +434,7 @@ export function register(on: On, raw: PluginOptions) {
       try {
         const input = e as unknown as Readonly<Record<string, unknown>> & { tool: string; tool_use_id?: string }
         const project = tracker.launchCwd ?? '/'
-        const body = toolEventOf(input, result, Date.now() - startedAt, project, project)
+        const body = toolEventOf(input, result, Date.now() - startedAt, project, project, tracker.custom)
 
         record(tracker, body, e.agentId)
 

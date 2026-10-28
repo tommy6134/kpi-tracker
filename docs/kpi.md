@@ -107,13 +107,18 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 
 Categories: **git, test, build, package, docker, fs, network, other** (stored as `altro`). Only `program subcommand` is stored (e.g. `mvn test`), never the arguments.
 
+The category comes from tables grouped by language in `hooks/analysis/bash-classify.ts` (COBOL, Java, JavaScript/TypeScript, Python, .NET, Go, Rust, C/C++, PHP, Ruby, Swift/Kotlin/Flutter): adding a tool is one row. **Build** means compiling and packaging: for Maven only the compile and packaging phases (`compile`, `package`, `install`, `deploy`…), for Gradle the matching tasks (`build`, `assemble`, `jar`, `bootJar`…); `mvn dependency:tree`, `mvn clean`, `gradle bootRun`, `vite` (the dev server), `make clean`, `go vet`, `cargo clippy` are not builds. The custom commands of the `buildCommands` and `testCommands` options win over the tables.
+
+The category is recomputed from the stored labels with the current rules, so a change of the rules also applies to past sessions (recomputed automatically). It does not when the label is not enough: until 0.4.0 the subcommand of tools such as `vite`, `ng`, `next` or `xcodebuild` was not stored, and for those the saved category stays. Custom commands apply from when they are set.
+
 | KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
 | Commands by category | with outcome (ok, error, interrupted, timeout, background) | classifier + result | E |
 | Most used commands | `program subcommand` | classifier | E |
 | Tests | runs, passed, failed, pass rate | test category + outcome | E |
 | Builds | runs, succeeded, failed | build category + outcome | E |
-| Piped commands | the outcome reflects only the last command | classifier | E |
+| Failures in the output | a build or test that Claude Code reports as succeeded, but whose output holds a known failure marker (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:line: error:` of javac/gcc/cobc, failed pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec tests, `make: ***`…), counts as failed: `mvn package 2>&1 \| tail -50` takes the outcome of `tail`. The output is read in memory (its last 64 KB) and never stored. Since 0.5.0 | result output | E |
+| Piped commands | apart from the failure markers of builds and tests, the outcome reflects only the last command | classifier | E |
 | Sandbox off | | Bash input `dangerouslyDisableSandbox` | E |
 
 ## Files and code

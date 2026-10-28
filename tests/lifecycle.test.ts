@@ -171,6 +171,35 @@ describe('ciclo di vita della sessione', () => {
     expect(world.runs.some(argv => argv.includes('status'))).toBe(false)
   })
 
+  test('build fallita dietro una pipe e comando di test personalizzato: esiti giusti, output mai salvato', { options: { language: 'it', testCommands: './ci/verify.sh' } }, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const outputs: Record<string, string> = {
+      'mvn -q package 2>&1 | tail -50': '[ERROR] Failed to execute goal SEGRETO-OUTPUT\n[INFO] BUILD FAILURE\n',
+      './ci/verify.sh --all': 'ok\n',
+    }
+
+    on('tool.call', ($$, e) => ({ result: { stdout: outputs[(e as { command: string }).command] ?? '', stderr: '', interrupted: false }, text: 'ok' }) as never)
+
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+
+    for (const command of Object.keys(outputs)) {
+      await $.tool.call({ tool: 'Bash', command } as never)
+    }
+
+    await $.turn.complete({ answer: '', durationMs: 100, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    await clock.advance(6000)
+
+    const s = world.json<KpiSessionFile>(`${PROJECT_DIR}/${sessionDirs(world)[0]}/session.json`).summary
+
+    expect(s.builds).toMatchObject({ n: 1, ok: 0, err: 1 })
+    expect(s.tests).toMatchObject({ n: 1, ok: 1 })
+    expect(s.tools.byTool.Bash).toMatchObject({ n: 2, ok: 2 })
+    expect(Object.keys(s.bash.byCmd).sort()).toEqual(['mvn package', 'tail', 'verify.sh'])
+    expect(world.written()).not.toContain('SEGRETO-OUTPUT')
+  })
+
   test('una ripresa riusa la cartella con un nuovo segmento; /clear ne crea una collegata', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)

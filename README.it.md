@@ -158,6 +158,8 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 | `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
 | `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
 | `fullName` | `""` | Nome e cognome nel nome dei file di export (`kpi_mario_rossi_2026-11.csv`); vuoto = `git config user.name` |
+| `buildCommands` | `""` | I tuoi comandi di build, separati da virgole (`./build.sh, make dist, npm run package:all`): un programma o l'inizio di una riga di comando, contati come build qualunque cosa dicano le regole incorporate |
+| `testCommands` | `""` | I tuoi comandi di test, separati da virgole (`./run-tests.sh`), contati come test |
 | `categoriesFile` | `""` | File con le regole delle [categorie di attività](#categorie-di-attività) (anche `~/…`); vuoto = `categorie.json` o `categories.json` nella cartella dati |
 | `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
 | `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
@@ -231,7 +233,7 @@ Documentazione (in inglese in [docs/](docs/)): [catalogo dei KPI](docs/it/kpi.md
 
 - Il **costo** è quello calcolato da Claude Code (equivalente API, comprese le sue chiamate di servizio); non esiste un costo per modello o per subagent. Dalla 0.4.0 coincide con `/cost`, compreso quanto speso fuori dai turni; resta escluso solo quanto Claude Code spende dopo la chiusura di una sessione che non viene più ripresa.
 - Della **risposta dell'utente** in un dialogo di permesso si vede solo il "no" (dalla 0.5.0; prima contava come interruzione): si contano decisioni, dialoghi, negazioni e rifiuti.
-- L'esito dei comandi Bash **con pipe** riflette solo l'ultimo comando.
+- L'esito dei comandi Bash **con pipe** riflette solo l'ultimo comando, tranne per build e test il cui output contiene un marcatore di fallimento noto (`BUILD FAILURE`, test falliti…), che contano come falliti.
 - Su **Linux** i browser installati come snap o flatpak (Firefox su Ubuntu, Brave, Chromium) non leggono le cartelle nascoste come `~/.claude`: `/kpi report` apre allora una copia del report nella cartella Scaricati (`kpi-report.html`, sovrascritta ogni volta). Per evitare la copia imposta `reportDir` su una cartella visibile, per esempio `~/Documenti/kpi`.
 - I **documenti creati** (Word, Excel, PDF…) si vedono solo dentro un repo git: non si contano i file fuori dal repo, ignorati da git o creati e cancellati nello stesso turno.
 - Le sessioni precedenti all'installazione non vengono importate.
