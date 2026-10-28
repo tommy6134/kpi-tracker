@@ -17,6 +17,8 @@ export const EN = {
     'kpi-tracker: this Cowork task runs in the cloud, where files are lost when the task ends, so it is not measured. Tasks that run on your computer are: in Cowork turn off "Run new tasks in the cloud".',
   'kpi-tracker: in questo task Cowork Claude Code gira dentro la macchina virtuale, che si azzera a fine task, quindi non viene misurato.':
     'kpi-tracker: in this Cowork task Claude Code runs inside the virtual machine, which is reset when the task ends, so it is not measured.',
+  'kpi-tracker non riesce a scrivere in {path}: i KPI di questo task Cowork restano nella cartella del task e si perdono quando lo cancelli.':
+    'kpi-tracker cannot write to {path}: the KPIs of this Cowork task stay in the task folder and are lost when you delete it.',
   'Pannello KPI aperto.': 'KPI panel opened.',
   'Il pannello non si può mostrare ora: {reason}.': 'The panel cannot be shown now: {reason}.',
   'motivo sconosciuto': 'unknown reason',

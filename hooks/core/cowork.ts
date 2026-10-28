@@ -3,7 +3,7 @@
  * dove gira. Tutto puro: i valori d'ambiente arrivano da register.ts.
  */
 
-import type { EnvValues } from './paths'
+import { trimSlash, type EnvValues } from './paths'
 
 /**
  * Dove gira un task Cowork: `host` è Claude Code sul computer (dall'app 3.x,
@@ -19,6 +19,9 @@ export const COWORK_SESSIONS_DIR = 'local-agent-mode-sessions'
 
 /** La home di un task nella VM di Cowork: `/sessions/<nome>`. */
 const VM_HOME_RE = /^\/sessions\/[^/]+(\/|$)/
+
+/** Dove l'app tiene i suoi dati sotto la home: macOS, Linux, Windows (anche il pacchetto MSIX, sotto `AppData`). */
+const APP_DATA_RE = /^(.+?)\/(?:Library\/Application Support|\.config|AppData)\//
 
 const slashed = (value: string | undefined): string => (value ?? '').trim().replace(/\\/g, '/')
 
@@ -46,4 +49,42 @@ export function coworkOf(env: CoworkEnv): CoworkMode | null {
   }
 
   return isInCoworkSessions(env.CLAUDE_CONFIG_DIR) ? 'host' : null
+}
+
+/**
+ * La home vera di chi usa Cowork: `HOME` (o `USERPROFILE`), salvo che stia
+ * dentro i task dell'app, e allora la cartella prima dei dati dell'app.
+ * `null` se non si ricava.
+ */
+export function realHomeOf(env: EnvValues): string | null {
+  const home = (env.HOME ?? env.USERPROFILE)?.trim()
+
+  if (home === undefined || home === '') {
+    return null
+  }
+
+  if (!isInCoworkSessions(home)) {
+    return trimSlash(home)
+  }
+
+  const prefix = APP_DATA_RE.exec(slashed(home))?.[1]
+
+  if (prefix === undefined) {
+    return null
+  }
+
+  return home.includes('\\') && !home.includes('/') ? prefix.replace(/\//g, '\\') : prefix
+}
+
+/**
+ * L'ambiente dei percorsi di un task Cowork sul computer: la `.claude` della
+ * CLI (`<home>/.claude`) al posto di quella del task, così radice KPI,
+ * opzioni con `~` e settings sono quelli della CLI. `null` se la home non si
+ * ricava. Una `CLAUDE_CONFIG_DIR` scelta per la CLI qui non si vede: per
+ * quella serve l'opzione `dataDir`.
+ */
+export function cliPathsOf(env: EnvValues): EnvValues | null {
+  const home = realHomeOf(env)
+
+  return home === null ? null : { HOME: home, USERPROFILE: home }
 }

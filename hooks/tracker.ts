@@ -14,8 +14,8 @@
 import { customOf, type CustomCommands } from './analysis/bash-classify'
 import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
 import type { KpiOptions } from './config'
-import { closeSegment, moveLast, openSession } from './core/binding'
-import { coworkOf, type CoworkMode } from './core/cowork'
+import { closeSegment, ensureRoot, moveLast, openSession } from './core/binding'
+import { cliPathsOf, coworkOf, type CoworkMode } from './core/cowork'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
 import { join, kpiRootOf, type EnvValues } from './core/paths'
 import type { KpiRepo } from './core/session-file'
@@ -38,7 +38,11 @@ export type Tracker = {
   i18n: I18n
   host: Host | null
   env: TrackerEnv
+  /** L'ambiente da cui si risolvono i percorsi: `env`, o in Cowork quello della CLI (`cliPathsOf`). */
+  paths: EnvValues
   root: string | null
+  /** In Cowork, la radice della CLI che non si è potuta scrivere (si è ripiegato su quella del task). */
+  rootFallback: string | null
   launchCwd: string | null
   interactive: boolean | null
   surface: string | null
@@ -95,7 +99,9 @@ export function newTracker(options: KpiOptions): Tracker {
     i18n: i18nOf(options.language),
     host: null,
     env: {},
+    paths: {},
     root: null,
+    rootFallback: null,
     launchCwd: null,
     interactive: null,
     surface: null,
@@ -333,13 +339,41 @@ function refineSource(tracker: Tracker, store: SessionStore, source: string, ext
 
 /**
  * Imposta la radice dei dati dalle variabili d'ambiente e dall'opzione. Un
- * task Cowork nel cloud o dentro la VM non ha radice: i file si perderebbero
- * a fine task, quindi non si registra niente.
+ * task Cowork sul computer scrive nella radice della CLI (`~/.claude/kpi`),
+ * non nella `.claude` del task, che si cancella con il task. Un task nel cloud
+ * o dentro la VM non ha radice: i file si perderebbero a fine task, quindi
+ * non si registra niente.
  */
 export function setRoot(tracker: Tracker, env: TrackerEnv): void {
   tracker.env = env
   tracker.cowork = coworkOf(env)
-  tracker.root = tracker.cowork === 'cloud' || tracker.cowork === 'vm' ? null : kpiRootOf(env, tracker.options.dataDir)
+  tracker.paths = (tracker.cowork === 'host' ? cliPathsOf(env) : null) ?? env
+  tracker.rootFallback = null
+  tracker.root = tracker.cowork === 'cloud' || tracker.cowork === 'vm' ? null : kpiRootOf(tracker.paths, tracker.options.dataDir)
+}
+
+/**
+ * In Cowork la radice della CLI deve essere scrivibile: se il marcatore non si
+ * scrive, i KPI del task restano nella `.claude` del task (con l'avviso in
+ * /kpi) invece di perdersi.
+ */
+export async function confirmRoot(tracker: Tracker, host: Host): Promise<void> {
+  const root = tracker.root
+
+  if (tracker.cowork !== 'host' || root === null) {
+    return
+  }
+
+  try {
+    await ensureRoot(host.fs, root, nowMs())
+  } catch {
+    const own = kpiRootOf(tracker.env, '')
+
+    if (own !== null && own !== root) {
+      tracker.rootFallback = root
+      tracker.root = own
+    }
+  }
 }
 
 /** Salva subito quanto in attesa. */

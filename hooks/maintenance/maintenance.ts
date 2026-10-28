@@ -1,6 +1,6 @@
 /** Manutenzione: pulizia delle sessioni vecchie e ricostruzione dei KPI dagli eventi. */
 
-import { join, isInside, parseSessionDir, ROOT_MARKER } from '../core/paths'
+import { join, isInside, parseSessionDir, META_DIR, ROOT_MARKER } from '../core/paths'
 import { REDUCER_VERSION } from '../analysis/summary-types'
 import { readJson, rebuildFrom } from '../core/recover'
 import { displayStatus, type KpiSessionFile } from '../core/session-file'
@@ -165,6 +165,26 @@ export const REBUILD_KEY = `rebuild-r${REDUCER_VERSION}`
  */
 type RebuildMark = { at: number; by?: string; running?: true; pending?: string[] }
 
+/** Dove stanno i segni del ricalcolo. */
+export type Marks = { get: (key: string) => Promise<unknown>; set: (key: string, value: unknown) => Promise<void> }
+
+/** I segni in `$.store`, come nella CLI. */
+export const storeMarks = (host: Host): Marks => ({ get: key => host.storeGet(key), set: (key, value) => host.storeSet(key, value) })
+
+/**
+ * I segni in `<radice>/_meta/<chiave>.json`, per Cowork: lì `$.store` è del
+ * singolo task e ripartirebbe vuoto a ogni task. Un file che manca o non si
+ * legge vale come segno assente.
+ */
+export function fileMarks(fs: HostFs, root: string): Marks {
+  const pathOf = (key: string): string => join(root, META_DIR, `${key}.json`)
+
+  return {
+    get: async key => ((await fs.exists(pathOf(key))) ? ((await readJson<unknown>(fs, pathOf(key))) ?? undefined) : undefined),
+    set: async (key, value) => fs.write(pathOf(key), JSON.stringify(value)),
+  }
+}
+
 /** Dopo quanto un ricalcolo in corso che non avanza si considera interrotto (uscita, crash). */
 const REBUILD_STALE_MS = 10 * 60_000
 
@@ -172,16 +192,17 @@ const REBUILD_STALE_MS = 10 * 60_000
  * Ricalcola dagli eventi le sessioni passate fatte con una versione
  * precedente del calcolo (`summary.rv`): una volta per versione, e di nuovo
  * agli avvii successivi solo per quelle che allora erano attive in un altro
- * processo. Il segno in `$.store` dice "in corso" finché non ha finito, così
- * due processi non lo fanno insieme. Un ricalcolo interrotto riparte: subito
+ * processo. Il segno (`marks`: `$.store`, in Cowork un file in `_meta`)
+ * dice "in corso" finché non ha finito, così due processi non lo fanno
+ * insieme. Un ricalcolo interrotto riparte: subito
  * se l'ha lasciato questa sessione (il modulo si è ricaricato a metà, per
  * esempio per il `config.set` della lingua), altrimenti quando non avanza da
  * 10 minuti; le sessioni già rifatte hanno `rv` nuovo e si saltano. La
  * sessione in corso si ricalcola già all'aggancio (core/binding.ts).
  * Restituisce la riga per il transcript, o `null` se non c'era nulla da fare.
  */
-export async function rebuildOnce(host: Host, L: I18n, root: string, current: string | null): Promise<string | null> {
-  const mark = (await host.storeGet(REBUILD_KEY).catch(() => null)) as RebuildMark | null | undefined
+export async function rebuildOnce(host: Host, L: I18n, root: string, current: string | null, marks: Marks = storeMarks(host)): Promise<string | null> {
+  const mark = (await marks.get(REBUILD_KEY).catch(() => null)) as RebuildMark | null | undefined
 
   if (mark === null) {
     return null
@@ -196,7 +217,7 @@ export async function rebuildOnce(host: Host, L: I18n, root: string, current: st
 
   const running = (at: number): RebuildMark => ({ at, ...(current !== null && { by: current }), running: true })
 
-  await host.storeSet(REBUILD_KEY, running(now))
+  await marks.set(REBUILD_KEY, running(now))
 
   const wanted = mark === undefined || interrupted ? null : new Set(mark.pending)
   const rows = (await loadSessions(host.fs, root, emptyFilter(), [])).filter(
@@ -204,9 +225,9 @@ export async function rebuildOnce(host: Host, L: I18n, root: string, current: st
   )
   const busy = (row: SessionRow): boolean => displayStatus(row.file, now) === 'attiva'
   const pending = rows.filter(busy).map(row => row.file.sessionId)
-  const result = await rebuildAll(host.fs, rows, busy, async () => host.storeSet(REBUILD_KEY, running(await host.now())).catch(() => undefined))
+  const result = await rebuildAll(host.fs, rows, busy, async () => marks.set(REBUILD_KEY, running(await host.now())).catch(() => undefined))
 
-  await host.storeSet(REBUILD_KEY, { at: await host.now(), pending })
+  await marks.set(REBUILD_KEY, { at: await host.now(), pending })
 
   if (result.done === 0) {
     return null

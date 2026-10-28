@@ -8,7 +8,7 @@ import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import type { KpiSessionFile } from '../hooks/core/session-file'
-import { coworkOf, isInCoworkSessions } from '../hooks/core/cowork'
+import { cliPathsOf, coworkOf, isInCoworkSessions, realHomeOf } from '../hooks/core/cowork'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
 import { dayKey, hourSlot, monthEnd, stampOf } from '../hooks/core/time'
@@ -534,6 +534,24 @@ describe('Cowork', () => {
     expect(coworkOf({ HOME: '/sessions/x' })).toBeNull()
     expect(coworkOf({})).toBeNull()
     expect(isInCoworkSessions('/home/me/.config/Claude/local-agent-mode-sessions-old/x')).toBe(false)
+  })
+
+  test('la home vera: HOME, o la cartella prima dei dati dell\'app se HOME sta dentro i task', () => {
+    expect(realHomeOf({ HOME: '/Users/me/' })).toBe('/Users/me')
+    expect(realHomeOf({ HOME: `${TASK}/..` })).toBe('/Users/me')
+    expect(realHomeOf({ HOME: '/home/me/.config/Claude/local-agent-mode-sessions/a/o/agent/local_1' })).toBe('/home/me')
+    expect(realHomeOf({ USERPROFILE: 'C:\\Users\\me\\AppData\\Local\\Packages\\Claude_x\\LocalCache\\Roaming\\Claude\\local-agent-mode-sessions\\a' })).toBe('C:\\Users\\me')
+    expect(realHomeOf({ HOME: '/var/local-agent-mode-sessions/a' })).toBeNull()
+    expect(realHomeOf({})).toBeNull()
+  })
+
+  test('i percorsi della CLI: la .claude della home, non quella del task', () => {
+    const paths = cliPathsOf({ HOME: '/Users/me', CLAUDE_CONFIG_DIR: TASK })
+
+    expect(paths).toEqual({ HOME: '/Users/me', USERPROFILE: '/Users/me' })
+    expect(kpiRootOf(paths ?? {}, '')).toBe('/Users/me/.claude/kpi')
+    expect(kpiRootOf(paths ?? {}, '~/Documenti/kpi')).toBe('/Users/me/Documenti/kpi')
+    expect(cliPathsOf({ CLAUDE_CONFIG_DIR: TASK })).toBeNull()
   })
 })
 

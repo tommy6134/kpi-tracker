@@ -6,10 +6,13 @@ _Italiano: [docs/it/storage.md](it/storage.md)_
 
 `<configDir>/kpi/`, where `<configDir>` is `$CLAUDE_CONFIG_DIR` if set, otherwise `$HOME/.claude` (`%USERPROFILE%\.claude` on Windows). The `dataDir` option replaces it.
 
+In Cowork every task has a `.claude` of its own, inside the desktop app's `local-agent-mode-sessions`, which is deleted with the task. A task that runs on the computer therefore writes to the CLI's root, `$HOME/.claude/kpi` (or the `dataDir` folder): one archive for the CLI, the Code tab and Cowork. If `HOME` points inside the task, the home is the folder before the app's data (`Library/Application Support`, `.config`, `AppData`). A `CLAUDE_CONFIG_DIR` chosen for the CLI does not reach Cowork: to share the data, set `dataDir`. If the CLI's root cannot be written, the task writes to its own `.claude/kpi` and `/kpi` warns that those KPIs are lost with the task. A task in the cloud or with Claude Code inside the virtual machine writes nothing.
+
 | Path | Contents |
 | --- | --- |
 | `_meta/kpi-root.json` | root marker (`schemaVersion`, `plugin`, `createdAt`): pruning refuses to delete without it |
 | `categorie.json` or `categories.json` | optional rules of the activity categories, written by you (see the README): `/kpi` reads them, the plugin never writes them |
+| `_meta/rebuild-r<N>.json` | written only by Cowork tasks: the mark of the automatic recomputation for computation version `N` (in the CLI it lives in the plugin's store, which in Cowork is the task's) |
 | `_meta/upstream.git/` | bare git repo with the plugin's latest commit, no checkout: present only if the marketplace lists the plugin with a URL, used by updates to read the version and `compat.json` (can be deleted, it is recreated) |
 | `_reports/report-<date-time>.html`, `latest.html` | HTML reports (in the `reportDir` folder, if set). `/kpi folder` creates the folder, with an empty `.keep`, if it does not exist yet |
 | `_exports/kpi_<name>_<period>[_<level>].csv\|json` | exports (split into `_partN` parts beyond ~3.5 MB; in the `reportDir` folder, if set, or in the `--out` file). The period is the filter's (`2026-11`, `2026-11-03`, `2026-09_2026-11`…) or, without a closed period, the date and time of the export; level and parts are named in the export's language: `_days`, `_part2` in English; `_giorni`, `_parte2` in Italian. Until 0.4.0: `kpi-<level>-<date-time>` |

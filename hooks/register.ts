@@ -11,6 +11,7 @@ import {
   attach,
   awaitToolMs,
   checkDocs,
+  confirmRoot,
   endSession,
   flushNow,
   newTracker,
@@ -27,7 +28,7 @@ import {
 } from './tracker'
 import { i18nOf } from './i18n'
 import { migrateLanguage } from './i18n/migrate'
-import { rebuildOnce } from './maintenance/maintenance'
+import { fileMarks, rebuildOnce, storeMarks } from './maintenance/maintenance'
 import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
 import { liveOf } from './ui/live'
@@ -127,6 +128,7 @@ export function register(on: On, raw: PluginOptions) {
       CLAUDE_CODE_ENTRYPOINT: await $.env.get('CLAUDE_CODE_ENTRYPOINT'),
       CLAUDE_CODE_EXECPATH: await $.env.get('CLAUDE_CODE_EXECPATH'),
     })
+    await confirmRoot(tracker, host)
 
     tracker.ui.bandDisabled = (await host.storeGet('band').catch(() => undefined)) === 'off'
 
@@ -144,7 +146,9 @@ export function register(on: On, raw: PluginOptions) {
     startTimers(tracker)
 
     const root = tracker.root
-    const isInteractive = tracker.interactive === true && root !== null
+    const inCowork = tracker.cowork !== null
+    // In Cowork il ricalcolo gira anche se la sessione non è interattiva, con il segno in _meta: lo store è del task.
+    const maintains = root !== null && (tracker.interactive === true || inCowork)
     const sessionId = await host.sessionId()
     const pending = pendingStart !== null && pendingStart.sessionId === sessionId ? pendingStart : null
 
@@ -152,12 +156,13 @@ export function register(on: On, raw: PluginOptions) {
     await attach(tracker, sessionId, pending?.source ?? 'startup', pending?.extra ?? {})
     void startUpdates(tracker).catch(() => undefined)
 
-    if (isInteractive) {
+    if (maintains) {
       // La lingua dopo il ricalcolo: il suo config.set ricarica il modulo, che lo interromperebbe a metà.
-      void rebuildOnce(host, L, root, sessionId)
+      // In Cowork niente lingua: /config è del task, la lingua viene dalla CLI.
+      void rebuildOnce(host, L, root, sessionId, inCowork ? fileMarks(host.fs, root) : storeMarks(host))
         .then(line => line !== null && host.log(line))
         .catch(() => undefined)
-        .then(() => tracker.options.language !== 'it' && migrateLanguage(host, root))
+        .then(() => !inCowork && tracker.options.language !== 'it' && migrateLanguage(host, root))
         .then(ok => ok && host.log(i18nOf('it').t('kpi-tracker ora parla anche inglese: resta in italiano come prima. Per cambiare lingua: /config → Language / Lingua.')))
         .catch(() => undefined)
     }

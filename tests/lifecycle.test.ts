@@ -2,9 +2,10 @@ import { describe, expect, mock, test, type TestBody } from 'claude-code/testing
 
 import { REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import type { KpiProjectFile, KpiSessionFile } from '../hooks/core/session-file'
+import { LANGUAGE_KEY } from '../hooks/i18n/migrate'
 import { REBUILD_KEY } from '../hooks/maintenance/maintenance'
 import { classicStart, command, EN, HEADLESS, IT, SESSION } from './fixtures/inputs'
-import { CWD, PROJECT_DIR, ROOT, SESSION_ID, usageOf, worldOf } from './fixtures/world'
+import { CWD, HOME, PROJECT_DIR, ROOT, SESSION_ID, usageOf, worldOf } from './fixtures/world'
 
 const sessionDirs = (world: ReturnType<typeof worldOf>): string[] =>
   [...new Set(world.under(PROJECT_DIR).map(path => path.slice(PROJECT_DIR.length + 1).split('/')[0] ?? ''))].filter(name => /_\w{8}$/.test(name))
@@ -454,6 +455,66 @@ describe('ciclo di vita della sessione', () => {
 
     expect(file.kind).toBe('print')
     expect(file.summary.turns.main).toBe(1)
+  })
+})
+
+describe('Cowork sul computer', () => {
+  const TASK = `${HOME}/.config/Claude/local-agent-mode-sessions/acc/org/agent/local_1a2b`
+  const COWORK = { CLAUDE_CODE_ENTRYPOINT: 'local-agent', HOME, CLAUDE_CONFIG_DIR: `${TASK}/.claude` }
+  const CLI_ROOT = `${HOME}/.claude/kpi`
+
+  test('scrive nella radice della CLI con tipo cowork, niente nella cartella del task', IT, async ($, on) => {
+    const world = worldOf(on, { env: COWORK })
+    const clock = mock.clock(on)
+
+    await $.session.start(HEADLESS)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+    await $.turn.complete({ answer: '', durationMs: 10, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    await clock.advance(2000)
+
+    const dir = `${CLI_ROOT}/-work-progetto-demo`
+    const name = [...new Set(world.under(dir).map(path => path.slice(dir.length + 1).split('/')[0] ?? ''))].find(one => /_\w{8}$/.test(one))
+    const file = world.json<KpiSessionFile>(`${dir}/${name}/session.json`)
+
+    expect(file.kind).toBe('cowork')
+    expect(world.files.has(`${CLI_ROOT}/_meta/kpi-root.json`)).toBe(true)
+    expect(world.writes.some(write => write.path.startsWith(TASK))).toBe(false)
+  })
+
+  test('il segno del ricalcolo sta in _meta della radice, non nello store del task; niente lingua', IT, async ($, on) => {
+    const world = worldOf(on, { env: COWORK })
+    const clock = mock.clock(on)
+
+    await $.session.start(HEADLESS)
+    await clock.advance(2000)
+
+    expect(world.files.has(`${CLI_ROOT}/_meta/${REBUILD_KEY}.json`)).toBe(true)
+    expect(world.store.has(REBUILD_KEY)).toBe(false)
+    expect(world.store.has(LANGUAGE_KEY)).toBe(false)
+
+    // Un task nuovo, con lo store vuoto, trova il segno e non rifà la scansione.
+    const before = world.writes.length
+
+    world.store.clear()
+    world.session.id = '7c6d5e4f-0000-0000-0000-000000000000'
+    await $.session.start(HEADLESS)
+    await clock.advance(2000)
+
+    expect(world.writes.slice(before).some(write => write.path.endsWith(`${REBUILD_KEY}.json`))).toBe(false)
+  })
+
+  test('se la radice della CLI non si scrive, ripiega sulla cartella del task e /kpi lo dice', IT, async ($, on) => {
+    const world = worldOf(on, { env: COWORK })
+
+    world.refuseWrite = path => path.startsWith(`${CLI_ROOT}/`)
+    mock.clock(on)
+    await $.session.start(HEADLESS)
+
+    expect(world.files.has(`${TASK}/.claude/kpi/_meta/kpi-root.json`)).toBe(true)
+
+    const text = ((await $.command.run(command('kpi'))) as { text: string }).text
+
+    expect(text).toContain(`non riesce a scrivere in ${CLI_ROOT}`)
   })
 })
 

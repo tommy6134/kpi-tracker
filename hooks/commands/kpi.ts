@@ -45,7 +45,7 @@ const badReportDir = (L: I18n): string => L.t('L\'opzione reportDir non è un pe
 
 /** Dove vanno report ed export: l'opzione `reportDir`, altrimenti `sub` nella cartella dati. `null` se `reportDir` non è assoluta. */
 function outDirOf(tracker: Tracker, root: string, sub: string): string | null {
-  return tracker.options.reportDir.trim() === '' ? join(root, sub) : resolvePath(tracker.env, tracker.options.reportDir)
+  return tracker.options.reportDir.trim() === '' ? join(root, sub) : resolvePath(tracker.paths, tracker.options.reportDir)
 }
 
 /** Le cartelle che `/kpi cartella` apre, per nome in entrambe le lingue. */
@@ -126,7 +126,7 @@ async function loadCategories(tracker: Tracker, host: Host, root: string, L: I18
   let path: string | null = null
 
   if (option !== '') {
-    path = resolvePath(tracker.env, option)
+    path = resolvePath(tracker.paths, option)
 
     if (path === null) {
       return { categories: null, warning: L.t('Categorie spente: l\'opzione categoriesFile non è un percorso assoluto (anche `~/…`): correggila da /config.') }
@@ -291,9 +291,13 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const weekTotals = totalsOf(weekRows, weekFilter)
 
       const notice = noticeOf(tracker)
+      const fallback =
+        tracker.rootFallback === null
+          ? null
+          : `⚠ ${L.t('kpi-tracker non riesce a scrivere in {path}: i KPI di questo task Cowork restano nella cartella del task e si perdono quando lo cancelli.', { path: tracker.rootFallback })}`
 
       return done({
-        text: summaryReport(L, current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now, notice === null ? undefined : `${notice.tone === 'warn' ? '⚠ ' : ''}${notice.text}`),
+        text: summaryReport(L, current, { range: todayTotals.range, sessions: todayTotals.sessions }, { range: weekTotals.range, sessions: weekTotals.sessions }, now, fallback ?? (notice === null ? undefined : `${notice.tone === 'warn' ? '⚠ ' : ''}${notice.text}`)),
         short: privateNote(L, L.t('Riepilogo KPI (oggi {today}, 7 giorni {week})', { today: L.usd(todayTotals.range.cost), week: L.usd(weekTotals.range.cost) })),
         toModel,
       })
@@ -421,7 +425,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       }
 
       const out = args.flags.out?.at(-1)
-      const outPath = out === undefined ? undefined : resolvePath(tracker.env, out)
+      const outPath = out === undefined ? undefined : resolvePath(tracker.paths, out)
 
       if (outPath === null) {
         return done({ text: L.t('`--out` vuole un percorso assoluto (anche `~/…`): {out}.', { out: out ?? '' }) })
