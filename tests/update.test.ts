@@ -579,25 +579,54 @@ describe('nel plugin', () => {
 })
 
 describe('lingua di chi aggiorna dalla 0.3.0', () => {
-  /** Un host con o senza dati KPI, con o senza `language` nei settings, installato da marketplace o da una cartella. */
-  function migrating(options: { data: boolean; language?: string; dev?: boolean }) {
+  /** Il primo evento di una sessione: la 0.3.0 non scriveva `sw`, dalla 0.4.0 c'è sempre. */
+  const segStart = (version: '0.3.0' | '0.4.0'): string =>
+    JSON.stringify({ q: 1, t: T0, e: 'seg.start', seg: 's01-148a', src: 'startup', ver: '2.1.299', kind: 'interattiva', tz: 0, cost0: 0, ...(version === '0.4.0' && { sw: 0 }) })
+
+  /**
+   * Un host con i dati KPI scritti da una versione (`null` = nessun dato), con
+   * o senza `language` nei settings, installato da marketplace o da una cartella.
+   */
+  function migrating(options: { data: '0.3.0' | '0.4.0' | null; language?: string; dev?: boolean }) {
     const root = `${CONFIG}/kpi`
+    const session = `${root}/-work-progetto/2026-10-14_11-47-27_62c3ba6f`
+    const files = new Map<string, string>(
+      options.data === null
+        ? []
+        : [
+            [`${root}/_meta/kpi-root.json`, '{}'],
+            [`${session}/events/s01-148a-0001.jsonl`, `${segStart(options.data)}\n`],
+          ],
+    )
     const store = new Map<string, unknown>()
     const sets: [string, string][] = []
     const host = {
       fs: {
         list: async (path: string) => {
-          if (path !== root || !options.data) {
+          const entries = new Map<string, string>()
+
+          for (const file of files.keys()) {
+            if (file.startsWith(`${path}/`)) {
+              const [name = '', ...rest] = file.slice(path.length + 1).split('/')
+
+              entries.set(name, rest.length > 0 ? 'dir' : 'file')
+            }
+          }
+
+          if (entries.size === 0) {
             throw new Error(`ENOENT: ${path}`)
           }
 
-          return [
-            { name: '_meta', kind: 'dir' },
-            { name: '-work-progetto', kind: 'dir' },
-          ]
+          return [...entries].map(([name, kind]) => ({ name, kind }))
         },
         read: async (path: string) => {
-          throw new Error(`ENOENT: ${path}`)
+          const text = files.get(path)
+
+          if (text === undefined) {
+            throw new Error(`ENOENT: ${path}`)
+          }
+
+          return text
         },
       },
       now: async () => T0,
@@ -621,7 +650,7 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
   }
 
   test('con dati e lingua mai scelta resta in italiano, una volta sola', async () => {
-    const { host, root, sets } = migrating({ data: true })
+    const { host, root, sets } = migrating({ data: '0.3.0' })
 
     expect(await keepsItalian(host, root)).toBe(true)
     expect(await setItalian(host)).toBe(true)
@@ -630,12 +659,19 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
   })
 
   test('installazione nuova, lingua già scelta o cartella di sviluppo: niente da fare', async () => {
-    for (const options of [{ data: false }, { data: true, language: 'en' }, { data: true, dev: true }]) {
+    for (const options of [{ data: null }, { data: '0.3.0', language: 'en' }, { data: '0.3.0', dev: true }] as const) {
       const { host, root, store } = migrating(options)
 
       expect(await keepsItalian(host, root)).toBe(false)
       // Il controllo si segna comunque: una sessione successiva con dati non lo rifà.
       expect(store.has(LANGUAGE_KEY)).toBe(true)
     }
+  })
+
+  test('dati scritti solo dalla 0.4.0 in poi, anche da sessioni -p prima della prima interattiva: resta in inglese', async () => {
+    const { host, root, sets } = migrating({ data: '0.4.0' })
+
+    expect(await keepsItalian(host, root)).toBe(false)
+    expect(sets).toEqual([])
   })
 })

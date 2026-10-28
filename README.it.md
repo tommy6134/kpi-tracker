@@ -154,7 +154,7 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 
 | Opzione | Default | Significato |
 | --- | --- | --- |
-| `language` | `"en"` | Lingua di barra, pannello, `/kpi`, report ed export: `en` o `it`. Chi aggiorna dalla 0.3.0 con dati già registrati e senza averla mai scelta resta in italiano (il plugin la imposta a `it` una volta sola) |
+| `language` | `"en"` | Lingua di barra, pannello, `/kpi`, report ed export: `en` o `it`. Chi aggiorna dalla 0.3.0 con dati registrati dalla 0.3.0 e senza averla mai scelta resta in italiano (il plugin la imposta a `it` una volta sola) |
 | `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
 | `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
 | `fullName` | `""` | Nome e cognome nel nome dei file di export (`kpi_mario_rossi_2026-11.csv`); vuoto = `git config user.name` |

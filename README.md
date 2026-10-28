@@ -154,7 +154,7 @@ From `/config` (the plugin's section) or in `settings.json` under `pluginConfigs
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `language` | `"en"` | Language of the band, panel, `/kpi`, reports and exports: `en` or `it`. Whoever updates from 0.3.0 with recorded data and never chose a language stays in Italian (the plugin sets `it` once) |
+| `language` | `"en"` | Language of the band, panel, `/kpi`, reports and exports: `en` or `it`. Whoever updates from 0.3.0 with data recorded by 0.3.0 and never chose a language stays in Italian (the plugin sets `it` once) |
 | `dataDir` | `""` | Absolute data folder (`~/…` works too); empty = `<config>/kpi` |
 | `reportDir` | `""` | Absolute folder (`~/…` works too) for HTML reports and exports; empty = `_reports/` and `_exports/` in the data folder |
 | `fullName` | `""` | Name and surname in the export file names (`kpi_mario_rossi_2026-11.csv`); empty = `git config user.name` |

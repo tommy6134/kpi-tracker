@@ -19,6 +19,7 @@ Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude
 - **Failures behind a pipe.** A build or test that Claude Code reports as succeeded but whose output holds a known failure marker (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, compiler errors of javac/gcc/cobc, failed pytest/jest/vitest/JUnit tests…) counts as failed: `mvn package 2>&1 | tail -50` used to look succeeded. The output is read in memory and never stored.
 - New `buildCommands` and `testCommands` options for your own build and test commands (`./build.sh`).
 - The category of past commands is recomputed from the stored labels with the new rules, when the label is enough (`mvn dependency:tree` stops counting as a build).
+- Language of whoever updates from 0.3.0: only sessions recorded by 0.3.0 count (their events lack the `sw` field). A new installation that records `-p` sessions before the first interactive one stays in English instead of switching to Italian.
 
 ## 0.4.0
 
