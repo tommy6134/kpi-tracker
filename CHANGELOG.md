@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
+
+Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude Code stays 2.1.287: no new engine events or APIs. At the first start the past sessions are recomputed once from the raw events (file classes, Bash categories), with a line in the transcript.
 
 - The **branch** is read again at every prompt, in the background: a switch made from another terminal is recorded at the next prompt (before, only at start and after Claude's git commands). In `session.json` the branches are in the order they were last active, the current one last.
 - **Rejections apart from interruptions.** A "No" in the permission dialog is a new outcome, *rejected by the user*, no longer counted as an interruption. Calls denied by a rule, the mode or a hook now count as denied instead of as tool errors, and those denied by the auto mode classifier no longer count as errors either. The outcome is recognised from Claude Code's error text, read in memory and never stored. Old data stays as it was (the text was not saved).
