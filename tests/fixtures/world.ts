@@ -10,6 +10,8 @@ export type World = {
   mtimes: Map<string, number>
   writes: { path: string; text: string }[]
   runs: string[][]
+  /** Le variabili d'ambiente date a ciascun comando di `runs`, nello stesso ordine. */
+  runEnvs: Record<string, string>[]
   opened: string[]
   closed: string[]
   logs: string[]
@@ -72,6 +74,7 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     mtimes: new Map(),
     writes: [],
     runs: [],
+    runEnvs: [],
     opened: [],
     closed: [],
     logs: [],
@@ -188,6 +191,7 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
 
   on('process.run', ($, e) => {
     world.runs.push([...e.argv])
+    world.runEnvs.push({ ...e.init?.env })
 
     const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse')
     const isUser = e.argv[0] === 'git' && e.argv.includes('user.name')

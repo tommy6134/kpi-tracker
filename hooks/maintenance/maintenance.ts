@@ -9,9 +9,21 @@ import type { I18n } from '../i18n'
 import { emptyFilter } from '../query/filters'
 import { loadProjects, loadSessions, type SessionRow } from '../query/load'
 
-/** L'argv per cancellare una cartella sul sistema dato. */
-export function removeArgv(os: string, dir: string): string[] {
-  return /windows|mingw|msys|cygwin/i.test(os) ? ['cmd', '/c', 'rmdir', '/s', '/q', dir] : ['rm', '-rf', dir]
+/**
+ * Il comando per cancellare una cartella sul sistema dato. Su Windows
+ * PowerShell col percorso in una variabile d'ambiente, mai `cmd /c rmdir`:
+ * senza shell un argomento senza spazi arriva senza virgolette, e cmd
+ * spezzerebbe il comando a un `&` del percorso (`rmdir /s /q D:\Rossi`).
+ */
+export function removeCommand(os: string, dir: string): { argv: string[]; env?: Record<string, string> } {
+  if (/windows|mingw|msys|cygwin/i.test(os)) {
+    return {
+      argv: ['powershell', '-NoProfile', '-NonInteractive', '-Command', 'Remove-Item -LiteralPath $env:KPI_TRACKER_REMOVE -Recurse -Force -ErrorAction Stop'],
+      env: { KPI_TRACKER_REMOVE: dir },
+    }
+  }
+
+  return { argv: ['rm', '-rf', dir] }
 }
 
 export type PruneOptions = { olderThanDays: number; now: number; apply: boolean; current: string | null; os: string }
@@ -84,7 +96,8 @@ export async function pruneSessions(host: Host, L: I18n, root: string, options: 
   const failed: string[] = []
 
   for (const victim of victims) {
-    const result = await host.run(removeArgv(options.os, victim.dir), { timeoutMs: 30_000 }).catch(() => null)
+    const { argv, env } = removeCommand(options.os, victim.dir)
+    const result = await host.run(argv, { timeoutMs: 30_000, ...(env !== undefined && { env }) }).catch(() => null)
 
     if (result !== null && result.exitCode === 0) {
       removed += 1

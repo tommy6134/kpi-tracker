@@ -244,6 +244,25 @@ describe('/kpi', () => {
     expect(world.runs.filter(argv => argv[0] === 'rm')).toEqual([['rm', '-rf', oldDir]])
   })
 
+  // Con `cmd /c rmdir /s /q` un & senza spazi nel percorso spezzava il comando: si cancellava `/dati/Rossi`.
+  test('su Windows pulisci cancella con PowerShell, il percorso in una variabile: mai cmd', { options: { dataDir: '/dati/Rossi&Bianchi/kpi', language: 'it' } }, async ($, on) => {
+    const root = '/dati/Rossi&Bianchi/kpi'
+    const oldDir = `${root}/-work-progetto-demo/2025-01-01_10-00-00_0ld5e551`
+    const oldFile = { schemaVersion: 1, sessionId: '0ld5e551-0000-0000-0000-000000000000', createdAt: Date.UTC(2025, 0, 1), updatedAt: Date.UTC(2025, 0, 1), summary: { lastAt: Date.UTC(2025, 0, 1) } }
+    const world = worldOf(on, { os: 'MINGW64_NT-10.0', files: { [`${oldDir}/session.json`]: JSON.stringify(oldFile) } })
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+
+    const done = ((await $.command.run(command('kpi', 'pulisci --piu-vecchie-di 30d --si'))) as { text: string }).text
+    const index = world.runs.findIndex(argv => argv[0] === 'powershell')
+
+    expect(done).toContain('Sessioni cancellate: 1 su 1')
+    expect(world.runs.some(argv => argv[0] === 'cmd')).toBe(false)
+    expect(world.runs[index]?.join(' ')).not.toContain(oldDir)
+    expect(world.runEnvs[index]).toEqual({ KPI_TRACKER_REMOVE: oldDir })
+  })
+
   test('su macOS il report si apre dal suo percorso, senza copie', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)
