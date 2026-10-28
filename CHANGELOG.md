@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+**Cowork support.** Since the 3.x desktop app, Cowork runs Claude Code on the computer, with a `.claude` of its own for every task: kpi-tracker now records Cowork tasks in the CLI's data folder. Automated tests only so far (Linux, Claude Code 2.1.312); the test on a real Cowork is [docs/cowork-test.md](docs/cowork-test.md). The minimum Claude Code stays 2.1.287: the new calls (`$.session.surfaces`, `$.session.cwd`, `$.command.list`) are only used by `/kpi env`, and fail quietly.
+
 - New session kind **cowork**: tasks of Cowork, the agent mode of the Claude desktop app, are recognised from `CLAUDE_CODE_ENTRYPOINT` (`local-agent`, `remote_cowork` in the cloud) or from a configuration folder inside the app's `local-agent-mode-sessions`, before the desktop surface. `--kind cowork` filters them.
 - A Cowork task that runs in the cloud, or with Claude Code inside the virtual machine, is not recorded: its files would be lost when the task ends. `/kpi` says so and why.
 - **Cowork tasks write to the CLI's data folder**, `~/.claude/kpi` (or `dataDir`), not to the task's own `.claude`, which is deleted with the task: one archive for the CLI, the Code tab and Cowork. If that folder cannot be written, the task's KPIs stay in the task folder and `/kpi` warns that they are lost with it. `~` in the options and in `--out` is the real home. In Cowork the automatic recomputation keeps its mark in `_meta/rebuild-r<N>.json` (the plugin's store there belongs to the task) and the language migration of 0.4.0 does not run.

@@ -1,45 +1,68 @@
-# Test plan: desktop app and Cowork (macOS)
+# Test plan: Cowork
 
 _Italiano: [docs/it/cowork-test.md](it/cowork-test.md)_
 
-This finds out what kpi-tracker does in the Claude desktop app and in Cowork, which cannot be tried from the CLI. Report the outcome of each step (one line or the copied output is enough): it decides what to support after 0.4.0.
+This checks on a real Cowork what the automated tests cannot: where the mod runs, where it writes, and what Cowork shows. One short task is enough, so the test costs little usage. It is written for the Linux desktop app (beta); on macOS the app's folder is `~/Library/Application Support/Claude` instead of `~/.config/Claude`.
 
 ## Before starting
 
-- Claude app for macOS up to date. In the Code tab, in a local session, `/status` shows the **Claude Code** row: note the version (mods work from 2.1.286).
-- The plugin zip, from the repo folder:
+- Claude desktop app up to date and signed in. In Cowork's settings, **Run new tasks in the cloud** off: a cloud task is not recorded.
+- In the Code tab, in a local session, `/status` shows the **Claude Code** row: note the version (mods work from 2.1.286).
+- The plugin zip of the branch under test, from the repo folder:
 
   ```bash
-  git archive --format=zip -o ~/Desktop/kpi-tracker.zip HEAD
+  git archive --format=zip -o ~/kpi-tracker.zip HEAD
   ```
 
-## 1. Desktop app, Code tab
+- Note what is already there: `ls ~/.claude/kpi ~/.claude/kpi/_meta`.
 
-1. Install the plugin: **+** next to the prompt box → **Plugins** → **Add marketplace** with `tommy6134/kpi-tracker` → **Add plugin**. If the plugin is already installed from the terminal with the user scope, skip this step.
-2. Open a **local** session in any project and ask Claude for a couple of things that use tools (read a file, run `ls`).
-3. Check:
-   - [ ] the KPI band above the prompt (cost, tokens, context);
-   - [ ] `/kpi live` opens the panel; the **HTML report**, **Folder** and **Close** buttons work;
-   - [ ] `/kpi` shows the summary, and the session has the `desktop` kind in `/kpi sessions`;
-   - [ ] `/kpi report` opens the browser; `/kpi folder` opens Finder on the reports folder;
-   - [ ] `/kpi session current`: "KPI cost · according to Claude Code (/cost)" shows two equal values (or almost, if a turn is running);
-   - [ ] `/kpi update --check`: note the outcome (automatic updates are off in the app; this tells whether they at least work by hand).
-4. In the terminal, `ls ~/.claude/kpi/`: the app's data must be in the same folder as the CLI's.
+## 1. Install in Cowork
 
-## 2. Cowork
+**Customize → Plugins → Add → Upload plugin** with the zip.
 
-1. Install the plugin on your account: **Customize → Plugins → Add → Upload plugin** with the zip (or **Add marketplace** with `tommy6134/kpi-tracker`).
-2. Start a Cowork task with a work folder and type `/kpi`. If it is not found, try `/kpi-tracker:kpi`.
-   - [ ] does the command exist? What does it answer?
-   - [ ] does a band appear above the prompt?
-3. Ask Claude, in the task: _"Run `echo HOME=$HOME CONFIG=$CLAUDE_CONFIG_DIR ENTRY=$CLAUDE_CODE_ENTRYPOINT; ls -la ~/.claude/kpi 2>&1; pwd` and show me the output"_.
-   - [ ] note the output: it tells whether the mod wrote data, where, and how Cowork can be recognised.
-4. Close the task, open a new one and repeat the command of step 3.
-   - [ ] is the previous task's data still there?
+- [ ] the plugin page lists the hooks;
+- [ ] it has a **Settings** tab with the options (note yes or no).
+
+The uploaded plugin reaches the CLI too, as `kpi-tracker@synced`. If the CLI has the marketplace copy, the synced one is not loaded.
+
+## 2. One short task
+
+1. New Cowork task, with one connected folder, better a git repo.
+2. One prompt that uses tools: _"List the files of the connected folder and read the README"_.
+3. Type `/kpi env`; if the command is not found, `/kpi-tracker:kpi env`.
+   - [ ] the command exists and answers (copy the table).
+4. Type `/kpi`, then `/kpi live`.
+   - [ ] `/kpi` answers with the summary;
+   - [ ] `/kpi live` says that Cowork has no panel;
+   - [ ] a band above the prompt appears (note yes or no).
+5. Close the task.
+
+## 3. On disk
+
+```bash
+cat ~/.claude/kpi/_meta/ambiente-cowork.json
+ls ~/.claude/kpi
+find ~/.config/Claude/local-agent-mode-sessions -path '*/.claude/kpi' -prune -print
+```
+
+- [ ] `ambiente-cowork.json` exists, with `"kind": "cowork"` and `"cowork": "host"`;
+- [ ] the task's project is the connected folder (`-home-…`), not `-var-empty` nor `Cowork`;
+- [ ] `find` prints nothing: no KPIs in the task's own `.claude`.
+
+## 4. From the CLI
+
+- `/kpi sessions --kind cowork`: [ ] the task is there, with cost, tokens and tools;
+- `/kpi session <id>`: [ ] the details match the task;
+- `/plugin`: [ ] if the marketplace copy is installed, the `@synced` copy is reported as not loaded.
+
+## 5. Delete the task
+
+Delete the task in the app, then `/kpi sessions --kind cowork` again: [ ] the task is still there.
+
+## After the test
+
+Remove the uploaded plugin from **Customize → Plugins**: otherwise it stays on the account and keeps reaching the CLI as `@synced`.
 
 ## What to report
 
-The boxes ticked or not, the Claude Code version, and the output of Cowork steps 3 and 4. They decide:
-
-- **desktop app**: if `/kpi update` works, automatic updates get turned on there too;
-- **Cowork**: if the mod runs, the data goes to the mounted work folder (the only one that persists) and only text output is used; if it does not, it is documented as unsupported.
+On Linux, with Claude Code open on this repo, nothing: Claude reads the files itself. Otherwise the ticked boxes, the Claude Code version, the `/kpi env` table and the output of step 3.

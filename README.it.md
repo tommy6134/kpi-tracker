@@ -51,19 +51,21 @@ I plugin installati da terminale con scope **user** si caricano anche nelle sess
 
 La stessa cartella del plugin si installa ovunque, ma ogni posto ne carica una parte diversa. kpi-tracker è un **mod** (hook TypeScript che girano dentro Claude Code), quindi funziona dove gira Claude Code:
 
-| | CLI (terminale) | App desktop, scheda Code (locale) | Cowork | Chat (web, app, mobile) |
+| | CLI (terminale) | App desktop, scheda Code (locale) | Cowork, sul computer | Chat (web, app, mobile) |
 | --- | --- | --- | --- | --- |
-| Motore | Claude Code | la stessa Claude Code, inclusa nell'app (mod dalla 2.1.286) | basato su Claude Code, in una macchina virtuale | nessuna Claude Code |
-| Cartella `.claude` | `~/.claude` o `CLAUDE_CONFIG_DIR` | **la stessa `~/.claude`**: plugin, settings e dati KPI in comune con la CLI | una VM che si azzera tra le sessioni; resta solo la cartella di lavoro montata | nessuna |
-| Installazione | `/plugin install` | **+ → Plugins → Add marketplace**, oppure da terminale con scope user | Customize → Plugins sull'account claude.ai (marketplace GitHub o zip) | come Cowork |
-| Hook e mod | sì | sì (non nelle sessioni WSL) | da verificare: gli hook dei plugin risultano caricati, i mod "per Claude Code", e ci sono segnalazioni di bug aperte | ignorati |
-| Barra e pannello | sì | sì (le sparkline sono testo invece di `Raster`) | probabilmente no | no |
-| Opzioni (`userConfig`) | schermata di installazione e `/config` | `/config` | non le chiede: valgono i default | — |
-| Browser e cartella | sì | sì | dentro la VM: non raggiungono il desktop dell'host | — |
-| Aggiornamenti automatici | sì | spenti (servono i comandi `claude plugin …` della CLI); `/kpi aggiorna` prova a mano | no | no |
+| Motore | Claude Code | la stessa Claude Code, inclusa nell'app (mod dalla 2.1.286) | la Claude Code dell'app, sul computer; solo i comandi shell girano nella macchina virtuale | nessuna Claude Code |
+| Cartella `.claude` | `~/.claude` o `CLAUDE_CONFIG_DIR` | **la stessa `~/.claude`** della CLI | una per task, dentro `local-agent-mode-sessions` dell'app, cancellata con il task; Cowork non legge `~/.claude` | nessuna |
+| Dati KPI | `~/.claude/kpi` | la stessa `~/.claude/kpi` | **la `~/.claude/kpi` della CLI** (o `dataDir`), tipo `cowork` | — |
+| Installazione | `/plugin install` | **+ → Plugins → Add marketplace**, oppure da terminale con scope user | **Customize → Plugins** sull'account claude.ai: **Add marketplace** con `tommy6134/kpi-tracker`, oppure **Upload plugin** con uno zip | come Cowork |
+| Opzioni | schermata di installazione e `/config` | `/config` | non le chiede: valgono quelle della CLI, lette da `~/.claude/settings.json` | — |
+| Progetto | cartella di avvio | cartella della sessione | la prima cartella collegata al task, altrimenti `Cowork` | — |
+| Barra e pannello | sì | sì (le sparkline sono testo invece di `Raster`) | no: `/kpi` risponde con il testo, se Cowork offre il comando | no |
+| Browser e cartella | sì | sì | si aprono sul computer, come nella CLI | — |
+| Aggiornamenti | automatici (`autoUpdate`) | spenti (servono i comandi `claude plugin …` della CLI); `/kpi aggiorna` prova a mano | dall'account: Customize → Plugins → Check for updates | — |
 
 - **App desktop**: funziona tutto tranne gli aggiornamenti automatici. Le sessioni si registrano con tipo `desktop`, quindi `--tipo desktop` le filtra.
-- **Cowork**: non ancora supportato. [docs/it/cowork-test.md](docs/it/cowork-test.md) è la checklist per provarlo su macOS; l'esito decide se aggiungere il supporto (dati nella cartella di lavoro montata, solo output testuale).
+- **Cowork**: dall'app 3.x Cowork fa girare Claude Code sul computer. Il mod quindi registra come nella CLI e scrive nella stessa cartella dati: dalla CLI o dalla scheda Code `/kpi sessioni --tipo cowork` mostra i task, e cancellare un task non ne cancella i KPI. Un task che gira **nel cloud** (impostazione di Cowork *Run new tasks in the cloud*), o con Claude Code dentro la macchina virtuale (`requireCoworkFullVmSandbox`), non si registra: i suoi file si perderebbero alla fine. `/kpi ambiente` mostra quello che vede il plugin. Non ancora provato su un Cowork vero: [docs/it/cowork-test.md](docs/it/cowork-test.md) è la checklist.
+- **CLI e Cowork insieme**: nessun conflitto. Cowork ha una `.claude` sua per ogni task, quindi plugin, settings e `/config` restano separati. Un plugin installato sull'account claude.ai arriva anche nella CLI, come `kpi-tracker@synced`: se nella CLI c'è già la copia del marketplace si carica quella, e la copia sincronizzata risulta non caricata, quindi niente si conta due volte. Tutti e due scrivono i KPI nella stessa cartella in contemporanea, come fanno già più sessioni CLI: ogni sessione ha la sua cartella.
 - **Chat**: non è possibile. Gli hook dei plugin non girano in chat e non c'è un filesystem locale.
 
 ## Aggiornamenti
@@ -115,7 +117,7 @@ Per disattivarlo o disinstallarlo: `/plugin`, scheda Installed, oppure `claude p
       events/s01-7f3a-0001.jsonl               eventi grezzi (fonte di verità)
 ```
 
-Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
+I task Cowork scrivono nella stessa cartella della CLI, non nella `.claude` del task (vedi [App desktop, Cowork e chat](#app-desktop-cowork-e-chat)). Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 
 ## Comandi
 
