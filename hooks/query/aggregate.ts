@@ -8,10 +8,11 @@
 import { mergeAll } from '../analysis/merge'
 import { emptyDay, type DayAgg, type KpiSummary } from '../analysis/summary-types'
 import { monthKey, weekKey } from '../core/time'
+import { NO_CATEGORY_GROUP, type Categories } from './category'
 import { inRange, type KpiFilter } from './filters'
 import type { SessionRow } from './load'
 
-export type GroupKey = 'giorno' | 'settimana' | 'mese' | 'progetto' | 'modello' | 'branch' | 'tipo' | 'sessione'
+export type GroupKey = 'giorno' | 'settimana' | 'mese' | 'progetto' | 'modello' | 'branch' | 'tipo' | 'sessione' | 'categoria'
 
 export const GROUP_ALIASES: Record<string, GroupKey> = {
   giorno: 'giorno',
@@ -31,6 +32,8 @@ export const GROUP_ALIASES: Record<string, GroupKey> = {
   kind: 'tipo',
   sessione: 'sessione',
   session: 'sessione',
+  categoria: 'categoria',
+  category: 'categoria',
 }
 
 export function addDay(into: DayAgg, from: DayAgg | undefined): void {
@@ -94,8 +97,8 @@ export function totalsOf(rows: readonly SessionRow[], filter: KpiFilter): Totals
 
 export type GroupRow = { key: string; sessions: number; agg: DayAgg }
 
-/** Raggruppa per una dimensione. */
-export function groupBy(rows: readonly SessionRow[], filter: KpiFilter, key: GroupKey): GroupRow[] {
+/** Raggruppa per una dimensione; `categories` serve a `categoria` (senza, tutte le sessioni finiscono senza categoria). */
+export function groupBy(rows: readonly SessionRow[], filter: KpiFilter, key: GroupKey, categories?: Categories | null): GroupRow[] {
   const groups = new Map<string, { sessions: Set<string>; agg: DayAgg }>()
   const bucket = (name: string) => {
     let group = groups.get(name)
@@ -149,7 +152,9 @@ export function groupBy(rows: readonly SessionRow[], filter: KpiFilter, key: Gro
           ? (row.file.meta.branches.at(-1) ?? '(nessuno)')
           : key === 'tipo'
             ? row.file.kind
-            : `${row.dirName}`
+            : key === 'categoria'
+              ? (categories?.of(row.file) ?? NO_CATEGORY_GROUP)
+              : `${row.dirName}`
     const group = bucket(name)
 
     group.sessions.add(row.file.sessionId)

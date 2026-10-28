@@ -11,6 +11,7 @@ import { displayStatus } from '../core/session-file'
 import type { HostFs } from '../host'
 import { i18nOf, type Lang } from '../i18n'
 import { CODES_EN } from '../i18n/codes'
+import { NO_CATEGORY_GROUP, type Categories } from '../query/category'
 import { describeFilter, type KpiFilter } from '../query/filters'
 import type { SessionRow } from '../query/load'
 
@@ -21,8 +22,9 @@ export const DATA_BUDGET = 3_500_000
  * `lang` è la lingua con cui si apre il report; la pagina passa all'altra
  * senza rigenerarlo. `folders` sono le cartelle di report ed export, che la
  * pagina mostra con un link e il comando per aprirle nel file manager.
+ * `categories`, se attive, aggiunge filtro e colonna della categoria.
  */
-export type ReportMeta = { lang: Lang; generatedAt: number; filter: KpiFilter; folders?: { report: string; export: string | null } }
+export type ReportMeta = { lang: Lang; generatedAt: number; filter: KpiFilter; folders?: { report: string; export: string | null }; categories?: Categories | null }
 
 /** Le cartelle per la pagina: percorsi, URL `file://` e il comando `/kpi` che le apre, nelle due lingue. */
 function foldersOf(folders: NonNullable<ReportMeta['folders']>) {
@@ -75,7 +77,9 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
     origins: newDict(),
     decisions: newDict(),
     domains: newDict(),
+    categories: newDict(),
   }
+  const categories = meta.categories ?? null
   const now = meta.generatedAt
   const sessions: unknown[] = []
   const maps: unknown[] = []
@@ -127,6 +131,8 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       r6(s.cost.outsideTurns ?? 0),
       s.perms.rejected ?? 0,
       s.perms.denied,
+      // Le sessioni senza categoria hanno la loro voce, così il filtro le può scegliere.
+      categories === null ? -1 : idx(dicts.categories, categories.of(file) ?? NO_CATEGORY_GROUP),
     ])
 
     maps.push({
@@ -161,6 +167,7 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       generatedAt: meta.generatedAt,
       sessions: rows.length,
       ...(meta.folders !== undefined && { folders: foldersOf(meta.folders) }),
+      ...(categories !== null && { category: categories.column }),
     },
     dict: Object.fromEntries(Object.entries(dicts).map(([name, dict]) => [name, dict.list])),
     codes: CODES_EN,

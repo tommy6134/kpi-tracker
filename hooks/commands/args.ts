@@ -71,6 +71,8 @@ const VALUE_FLAGS: Record<string, string> = {
   kind: 'tipo',
   branch: 'branch',
   repo: 'repo',
+  categoria: 'categoria',
+  category: 'categoria',
   per: 'per',
   by: 'per',
   limite: 'limite',

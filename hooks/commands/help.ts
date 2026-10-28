@@ -9,7 +9,7 @@ const IT = `## /kpi · guida
 | \`/kpi\` | Riepilogo: sessione corrente, oggi, ultimi 7 giorni |
 | \`/kpi live\` (\`pannello\`) | Apre il pannello con i KPI della sessione |
 | \`/kpi barra on\\|off\` (\`band\`) | Attiva o disattiva la barra sopra il prompt, in modo permanente |
-| \`/kpi statistiche [filtri] [--per X]\` (\`stats\`) | Tutti i KPI dell'insieme filtrato; \`--per\` giorno, settimana, mese, progetto, modello, branch, tipo, sessione |
+| \`/kpi statistiche [filtri] [--per X]\` (\`stats\`) | Tutti i KPI dell'insieme filtrato; \`--per\` giorno, settimana, mese, progetto, modello, branch, tipo, sessione, categoria |
 | \`/kpi sessioni [filtri] [--limite 20]\` (\`sessions\`) | Elenco delle sessioni |
 | \`/kpi progetti [filtri]\` (\`projects\`) | Totali per progetto |
 | \`/kpi sessione <id\\|corrente>\` (\`session\`) | Dettaglio di una sessione |
@@ -22,10 +22,10 @@ const IT = `## /kpi · guida
 | \`/kpi aiuto\` (\`help\`) | Questa guida |
 
 **Filtri** (ripetibili, anche con valori separati da virgola):
-\`--progetto <testo|.>\` (\`.\` = progetto corrente) · \`--sessione <id>\` · \`--da\` / \`--a\` (\`oggi\`, \`ieri\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` giorno/mese/anno) · \`--mese 2026-11\` (o \`11/2026\`: da e a sul mese) · \`--modello <testo>\` · \`--tipo interattiva|print|sdk|desktop|vscode\` · \`--branch <testo>\` · \`--repo <testo>\`.
+\`--progetto <testo|.>\` (\`.\` = progetto corrente) · \`--sessione <id>\` · \`--da\` / \`--a\` (\`oggi\`, \`ieri\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` giorno/mese/anno) · \`--mese 2026-11\` (o \`11/2026\`: da e a sul mese) · \`--modello <testo>\` · \`--tipo interattiva|print|sdk|desktop|vscode\` · \`--branch <testo>\` · \`--repo <testo>\` · \`--categoria <etichetta|parola|nessuna>\` (se le categorie sono attive, vedi il README).
 
 **Lingua:** \`--lingua it|en\` (\`--lang\`) sceglie la lingua di report, export e testi di questo comando; senza, vale quella della configurazione (\`/config\`).
-Ogni comando e opzione ha anche il nome inglese: \`--project\`, \`--since\`, \`--until\`, \`--month\`, \`--model\`, \`--kind\`, \`--by\`, \`--limit\`, \`--level\`, \`--no-open\`, \`--yes\`, \`--check\`.
+Ogni comando e opzione ha anche il nome inglese: \`--project\`, \`--since\`, \`--until\`, \`--month\`, \`--category\`, \`--model\`, \`--kind\`, \`--by\`, \`--limit\`, \`--level\`, \`--no-open\`, \`--yes\`, \`--check\`.
 
 **Contesto:** il report lo vedi solo tu; a Claude arriva una riga breve. Con \`--ctx\` il report completo va anche a Claude, per fargli analizzare i KPI.`
 
@@ -36,7 +36,7 @@ const EN = `## /kpi · help
 | \`/kpi\` | Summary: current session, today, last 7 days |
 | \`/kpi live\` (\`panel\`) | Opens the panel with the session's KPIs |
 | \`/kpi band on\\|off\` | Turns the band above the prompt on or off, permanently |
-| \`/kpi stats [filters] [--by X]\` | Every KPI of the filtered set; \`--by\` day, week, month, project, model, branch, kind, session |
+| \`/kpi stats [filters] [--by X]\` | Every KPI of the filtered set; \`--by\` day, week, month, project, model, branch, kind, session, category |
 | \`/kpi sessions [filters] [--limit 20]\` | List of sessions |
 | \`/kpi projects [filters]\` | Totals per project |
 | \`/kpi session <id\\|current>\` | Detail of one session |
@@ -49,10 +49,10 @@ const EN = `## /kpi · help
 | \`/kpi help\` | This help |
 
 **Filters** (repeatable, also with comma-separated values):
-\`--project <text|.>\` (\`.\` = current project) · \`--session <id>\` · \`--since\` / \`--until\` (\`today\`, \`yesterday\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` day/month/year) · \`--month 2026-11\` (or \`11/2026\`: since and until on the month) · \`--model <text>\` · \`--kind interactive|print|sdk|desktop|vscode\` · \`--branch <text>\` · \`--repo <text>\`.
+\`--project <text|.>\` (\`.\` = current project) · \`--session <id>\` · \`--since\` / \`--until\` (\`today\`, \`yesterday\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` day/month/year) · \`--month 2026-11\` (or \`11/2026\`: since and until on the month) · \`--model <text>\` · \`--kind interactive|print|sdk|desktop|vscode\` · \`--branch <text>\` · \`--repo <text>\` · \`--category <label|keyword|none>\` (when categories are active, see the README).
 
 **Language:** \`--lang it|en\` picks the language of reports, exports and this command's text; without it, the one in the configuration (\`/config\`) applies.
-Every command and option also has its Italian name (\`statistiche\`, \`esporta\`, \`--da\`, \`--mese\`, \`--progetto\`…).
+Every command and option also has its Italian name (\`statistiche\`, \`esporta\`, \`--da\`, \`--mese\`, \`--categoria\`, \`--progetto\`…).
 
 **Context:** only you see the report; Claude gets a short line. With \`--ctx\` the full report goes to Claude too, so it can analyse your KPIs.`
 

@@ -6,6 +6,7 @@ import { displayStatus, type KpiSessionFile } from '../core/session-file'
 import type { I18n, MsgKey } from '../i18n'
 import { pairs, section, table } from '../format/markdown'
 import { groupBy, rangeOf, type GroupKey, type Totals } from '../query/aggregate'
+import { NO_CATEGORY_GROUP, type Categories } from '../query/category'
 import type { KpiFilter } from '../query/filters'
 import type { SessionRow } from '../query/load'
 
@@ -103,7 +104,7 @@ export function summaryReport(L: I18n, current: KpiSessionFile | null, today: { 
 }
 
 /** Il report completo di un insieme di sessioni: tutte le categorie di KPI. */
-export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[], filter: KpiFilter, description: string, by: GroupKey | null): string {
+export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[], filter: KpiFilter, description: string, by: GroupKey | null, categories?: Categories | null): string {
   const s = totals.summary
   const r = totals.range
   const turns = r.turns
@@ -372,7 +373,9 @@ export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[]
   out.push(section(L.t('Attività per ora'), heatmap(L, s.byHour)))
 
   if (by !== null) {
-    out.push(section(L.t('Per {group}', { group: L.t(GROUP_NAMES[by]) }), groupTable(L, groupBy(rows, filter, by), by)))
+    const name = by === 'categoria' && categories !== undefined && categories !== null ? categories.column : L.t(GROUP_NAMES[by])
+
+    out.push(section(L.t('Per {group}', { group: name }), groupTable(L, groupBy(rows, filter, by, categories), by, by === 'categoria' ? name : undefined)))
   }
 
   return out.join('\n\n')
@@ -388,6 +391,7 @@ const GROUP_NAMES: Record<GroupKey, MsgKey> = {
   branch: 'branch',
   tipo: 'tipo',
   sessione: 'sessione',
+  categoria: 'categoria',
 }
 
 /** Il titolo della colonna di un raggruppamento. */
@@ -400,6 +404,7 @@ const GROUP_TITLES: Record<GroupKey, MsgKey> = {
   branch: 'Branch',
   tipo: 'Tipo',
   sessione: 'Sessione',
+  categoria: 'Categoria',
 }
 
 /** Tabella ora × giorno della settimana in forma compatta. */
@@ -424,8 +429,8 @@ export function heatmap(L: I18n, byHour: readonly number[]): string {
   return ['```', `    ${'0'.padEnd(6)}${'6'.padEnd(6)}${'12'.padEnd(6)}18`, ...lines, '```'].join('\n')
 }
 
-/** La tabella di un raggruppamento. */
-export function groupTable(L: I18n, groups: ReturnType<typeof groupBy>, by: GroupKey): string {
+/** La tabella di un raggruppamento; `title` sostituisce il titolo della prima colonna (il nome della colonna delle categorie). */
+export function groupTable(L: I18n, groups: ReturnType<typeof groupBy>, by: GroupKey, title?: string): string {
   const { int, compact, dur, usd, pct } = L
 
   if (by === 'modello') {
@@ -439,9 +444,9 @@ export function groupTable(L: I18n, groups: ReturnType<typeof groupBy>, by: Grou
 
   return table(
     L,
-    [L.t(GROUP_TITLES[by]), L.t('Sessioni'), L.t('Turni'), L.t('Attivo'), L.t('Costo'), 'Token', 'Tool', L.t('Righe'), 'Commit'],
+    [title ?? L.t(GROUP_TITLES[by]), L.t('Sessioni'), L.t('Turni'), L.t('Attivo'), L.t('Costo'), 'Token', 'Tool', L.t('Righe'), 'Commit'],
     groups.map(group => [
-      by === 'giorno' || by === 'settimana' ? L.dayLabel(group.key) : by === 'tipo' ? L.code(group.key) : group.key,
+      by === 'giorno' || by === 'settimana' ? L.dayLabel(group.key) : by === 'tipo' || (by === 'categoria' && group.key === NO_CATEGORY_GROUP) ? L.code(group.key) : group.key,
       int(group.sessions),
       int(group.agg.turns),
       dur(group.agg.active),
@@ -538,7 +543,7 @@ export function projectsReport(L: I18n, rows: readonly SessionRow[], filter: Kpi
  * Il dettaglio di una sessione: statistiche complete e dettagli. `ledgerUsd`,
  * per la sessione in corso, è il costo come lo totalizza Claude Code (/cost).
  */
-export function sessionReport(L: I18n, row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number, ledgerUsd?: number): string {
+export function sessionReport(L: I18n, row: SessionRow, details: KpiDetails | null, totals: Totals, filter: KpiFilter, now: number, ledgerUsd?: number, categories?: Categories | null): string {
   const file = row.file
   const { int, compact, dur, usd, dateTime } = L
   const head = [
@@ -552,6 +557,7 @@ export function sessionReport(L: I18n, row: SessionRow, details: KpiDetails | nu
       [L.t('Segmenti'), file.segments.map(segment => `${L.code(segment.source)} ${dateTime(segment.startedAt)}${segment.endReason !== undefined ? ` → ${L.code(segment.endReason)}` : ''}`).join(' · ')],
       [L.t('Versioni · modelli'), `${file.meta.versions.join(', ') || '–'} · ${file.meta.models.join(', ') || '–'}`],
       ['Branch · repo', `${file.meta.branches.join(', ') || '–'} · ${file.meta.repo?.name ?? file.meta.repo?.remote ?? '–'}`],
+      ...(categories === undefined || categories === null ? [] : [[categories.column, categories.of(file) ?? L.code(NO_CATEGORY_GROUP)] as [string, string]]),
       [L.t('Sessione precedente · successiva'), `${file.links.previousSessionId?.slice(0, 8) ?? '–'} · ${file.links.nextSessionId?.slice(0, 8) ?? '–'}`],
     ]),
   ]

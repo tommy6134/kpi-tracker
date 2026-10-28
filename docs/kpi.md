@@ -2,7 +2,7 @@
 
 _Italiano: [docs/it/kpi.md](it/kpi.md)_
 
-Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed from measured values, not estimated. Every KPI aggregates by day, week, month, project, model, session kind, branch and repo.
+Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed from measured values, not estimated. Every KPI aggregates by day, week, month, project, model, session kind, branch and repo, and by activity category when the categories are on.
 
 **Source** column: the engine event (mod hook) or the field the data comes from. **Gran.** column: E = per event, T = per turn, S = per session.
 
@@ -20,6 +20,7 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 | Project, repo, branch | launch folder, git repo, branch (and changes) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
 | Resume | seconds since the last response, context tokens, expired cache | `classic.SessionStart` (resume/fork) | S |
 | Previous/next session | link between sessions split by `/clear` | storage | S |
+| Activity category | optional: from a keyword in the branch name, or else from the file class with the most lines added (rules in `categorie.json`, see the README). Computed when reading, never stored | branches, `files.byClass` | S |
 
 ## Time and activity
 

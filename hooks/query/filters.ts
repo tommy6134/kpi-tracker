@@ -14,9 +14,11 @@ export type KpiFilter = {
   kinds: string[]
   branches: string[]
   repos: string[]
+  /** Etichette o parole chiave di categoria, in minuscolo (`nessuna`/`none` = senza categoria): si confrontano in commands/kpi.ts, che ha le regole. */
+  categories: string[]
 }
 
-export const emptyFilter = (): KpiFilter => ({ projects: [], sessions: [], models: [], kinds: [], branches: [], repos: [] })
+export const emptyFilter = (): KpiFilter => ({ projects: [], sessions: [], models: [], kinds: [], branches: [], repos: [], categories: [] })
 
 const KIND_ALIASES: Record<string, string> = {
   interactive: 'interattiva',
@@ -45,6 +47,7 @@ export function filterOf(L: I18n, args: ParsedArgs, now: number, currentProject:
   filter.models.push(...(args.flags.modello ?? []).map(value => value.toLowerCase()))
   filter.branches.push(...(args.flags.branch ?? []).map(value => value.toLowerCase()))
   filter.repos.push(...(args.flags.repo ?? []).map(value => value.toLowerCase()))
+  filter.categories.push(...(args.flags.categoria ?? []).map(value => value.toLowerCase()))
 
   for (const value of args.flags.tipo ?? []) {
     const kind = KIND_ALIASES[value.toLowerCase()]
@@ -177,6 +180,7 @@ export function describeFilter(L: I18n, filter: KpiFilter): string {
   if (filter.kinds.length > 0) parts.push(`${L.t('tipo')} ${filter.kinds.map(L.code).join(', ')}`)
   if (filter.branches.length > 0) parts.push(`branch ${filter.branches.join(', ')}`)
   if (filter.repos.length > 0) parts.push(`repo ${filter.repos.join(', ')}`)
+  if (filter.categories.length > 0) parts.push(`${L.t('categoria')} ${filter.categories.join(', ')}`)
 
   return parts.length === 0 ? L.t('tutti i dati') : parts.join(' · ')
 }

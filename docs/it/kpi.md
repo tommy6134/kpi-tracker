@@ -2,7 +2,7 @@
 
 _English: [docs/kpi.md](../kpi.md)_
 
-Tutti i KPI sono **misurati**: i rapporti (cache hit, costo per turno…) sono calcolati da valori misurati, non stimati. Ogni KPI si aggrega per giorno, settimana, mese, progetto, modello, tipo di sessione, branch e repo.
+Tutti i KPI sono **misurati**: i rapporti (cache hit, costo per turno…) sono calcolati da valori misurati, non stimati. Ogni KPI si aggrega per giorno, settimana, mese, progetto, modello, tipo di sessione, branch e repo, e per categoria di attività quando le categorie sono attive.
 
 Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva il dato. Colonna **Gran.**: E = per evento, T = per turno, S = per sessione.
 
@@ -20,6 +20,7 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 | Progetto, repo, branch | cartella di avvio, repo git, branch (e cambi) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
 | Ripresa | secondi dall'ultima risposta, token di contesto, cache scaduta | `classic.SessionStart` (resume/fork) | S |
 | Sessione precedente/successiva | collegamento tra sessioni separate da `/clear` | storage | S |
+| Categoria di attività | facoltativa: da una parola chiave nel nome del branch, altrimenti dalla classe di file con più righe aggiunte (regole in `categorie.json`, vedi il README). Calcolata alla lettura, mai salvata | branch, `files.byClass` | S |
 
 ## Tempo e attività
 

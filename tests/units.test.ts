@@ -7,6 +7,7 @@ import { foldEvents } from '../hooks/analysis/reducer'
 import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
+import type { KpiSessionFile } from '../hooks/core/session-file'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
 import { dayKey, hourSlot, monthEnd, stampOf } from '../hooks/core/time'
@@ -14,6 +15,7 @@ import { csvParts, exportFileName, nameSlugOf, partPathOf, periodOf } from '../h
 import { compact, dur, fixed, usd } from '../hooks/format/fmt'
 import { i18nOf, langOf } from '../hooks/i18n'
 import { embedJson, escapeHtml } from '../hooks/report/html'
+import { categoriesOf, categoryOf, parseRules } from '../hooks/query/category'
 import { describeFilter, filterOf, matchesProject } from '../hooks/query/filters'
 import { hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
 import { kindOf } from '../hooks/tracker'
@@ -261,6 +263,75 @@ describe('righe di codice', () => {
     expect(state.summary.files.byClass).toEqual({ cobol: { n: 1, add: 7, del: 1 }, mainframe: { n: 1, add: 3, del: 0 } })
     expect(state.details.files['/w/src/PAYROLL.cbl']?.cls).toBe('cobol')
     expect(state.summary.rv).toBe(REDUCER_VERSION)
+  })
+})
+
+describe('categorie di attività', () => {
+  const L = i18nOf('it')
+  const parsed = parseRules(L, JSON.stringify({ colonna: 'categoria', parole: { docs: 'DOCUMENTAZIONE', dev: 'SVILUPPO', qa: 'TEST' }, ripiego: { doc: 'DOCUMENTAZIONE', test: 'TEST', src: 'SVILUPPO' } }))
+  const rules = 'rules' in parsed ? parsed.rules : (null as never)
+  /** Una sessione con i branch di `meta.branches`, l'ultimo branch del reducer e le righe aggiunte per classe. */
+  const session = (branches: string[], last: string | null = branches.at(-1) ?? null, added: Record<string, number> = {}): KpiSessionFile => {
+    const summary = emptySummary()
+
+    summary._r.branch = last
+
+    for (const [cls, add] of Object.entries(added)) {
+      summary.files.byClass[cls] = { n: 1, add, del: 0 }
+    }
+
+    return { meta: { branches, repo: null, models: [], versions: [], permissionModes: {} }, summary } as unknown as KpiSessionFile
+  }
+
+  test('parola chiave nel branch: parole intere su - _ / ., senza maiuscole; la prima da sinistra; l\'ultimo branch che ne ha una', () => {
+    expect(categoryOf(rules, session(['feature/PROJ-123-docs']))).toBe('DOCUMENTAZIONE')
+    expect(categoryOf(rules, session(['Feature/DOCS.v2']))).toBe('DOCUMENTAZIONE')
+    expect(categoryOf(rules, session(['latest-fix']))).toBe(null)
+    expect(categoryOf(rules, session(['testing']))).toBe(null)
+    expect(categoryOf(rules, session(['qa/docs-review']))).toBe('TEST')
+    expect(categoryOf(rules, session(['dev/login', 'qa/login', 'main']))).toBe('TEST')
+    // L'ultimo branch esatto viene dal reducer: A → B → A con A in fondo solo nel summary.
+    expect(categoryOf(rules, session(['qa/login', 'dev/login'], 'qa/login'))).toBe('TEST')
+  })
+
+  test('senza parola chiave: la classe di ripiego con più righe aggiunte, a parità l\'ordine delle chiavi; zero righe nessuna categoria', () => {
+    expect(categoryOf(rules, session(['main'], 'main', { src: 10, doc: 30, test: 30, config: 100 }))).toBe('DOCUMENTAZIONE')
+    expect(categoryOf(rules, session([], null, { src: 5 }))).toBe('SVILUPPO')
+    expect(categoryOf(rules, session(['main'], 'main', { config: 40 }))).toBe(null)
+    expect(categoryOf(rules, session([], null))).toBe(null)
+  })
+
+  test('filtro per etichetta, parola chiave o nessuna; nome della colonna', () => {
+    const categories = categoriesOf(L, rules)
+    const docs = session(['feature/docs'])
+
+    expect(categories.column).toBe('categoria')
+    expect(categories.matches(docs, ['docs'])).toBe(true)
+    expect(categories.matches(docs, ['documentazione'])).toBe(true)
+    expect(categories.matches(docs, ['qa', 'sviluppo'])).toBe(false)
+    expect(categories.matches(session(['main']), ['nessuna'])).toBe(true)
+    expect(categories.matches(session(['main']), ['none'])).toBe(true)
+  })
+
+  test('file in inglese e file non validi', () => {
+    const english = parseRules(i18nOf('en'), JSON.stringify({ keywords: { Docs: 'Docs' }, fallback: { other: 'Misc' } }))
+
+    expect('rules' in english && english.rules.fallback).toEqual([['altro', 'Misc']])
+    expect('rules' in english && categoriesOf(i18nOf('en'), english.rules).column).toBe('category')
+
+    const error = (value: string) => {
+      const result = parseRules(L, value)
+
+      return 'error' in result ? result.error : ''
+    }
+
+    expect(error('{ "parole": ')).toMatch(/^JSON non valido: /)
+    expect(error('[]')).toBe('il file deve contenere un oggetto JSON')
+    expect(error('{}')).toBe('nessuna regola: servono "parole" o "ripiego"')
+    expect(error(JSON.stringify({ colonna: 3, parole: { a: 'b' } }))).toBe('"colonna" deve essere un testo')
+    expect(error(JSON.stringify({ parole: { a: 1 } }))).toBe('"parole" deve essere un oggetto da testo a testo')
+    expect(error(JSON.stringify({ parole: { 'code-review': 'X' } }))).toContain('contiene un separatore')
+    expect(error(JSON.stringify({ ripiego: { sorgenti: 'X' } }))).toContain('classe di ripiego sconosciuta "sorgenti"')
   })
 })
 

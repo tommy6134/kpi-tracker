@@ -7,7 +7,7 @@
   var SVGNS = 'http://www.w3.org/2000/svg'
 
   // Indici delle tuple (vedi hooks/report/html.ts).
-  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35, rejected: 36, clsDenied: 37 }
+  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35, rejected: 36, clsDenied: 37, category: 38 }
   var DAY = { s: 0, day: 1, cost: 2, inp: 3, out: 4, cr: 5, cw: 6, turns: 7, active: 8, prompts: 9, req: 10, tools: 11, toolErr: 12, add: 13, del: 14, commits: 15 }
 
   // ------------------------------------------------------------ lingua
@@ -295,7 +295,7 @@
   var allDays = DATA.days.map(function (d) { return d[DAY.day] }).sort()
   var firstDay = allDays[0] || dayKey(Date.now())
   var today = dayKey(DATA.meta.generatedAt)
-  var state = { preset: 'tutto', from: firstDay, to: today, projects: [], kinds: [], models: [], branches: [], repos: [], q: '', sort: { key: 'start', dir: -1 }, selected: null }
+  var state = { preset: 'tutto', from: firstDay, to: today, projects: [], kinds: [], models: [], branches: [], repos: [], categories: [], q: '', sort: { key: 'start', dir: -1 }, selected: null }
 
   function rangeDays() {
     if (state.preset === 'tutto') return [null, null]
@@ -318,6 +318,7 @@
       if (!anyIn(s[S.models], state.models)) return
       if (!anyIn(s[S.branches], state.branches)) return
       if (state.repos.length && state.repos.indexOf(s[S.repo]) < 0) return
+      if (state.categories.length && state.categories.indexOf(s[S.category]) < 0) return
       if (state.q && s[S.id].toLowerCase().indexOf(state.q.toLowerCase()) !== 0 && D.projects[s[S.project]].toLowerCase().indexOf(state.q.toLowerCase()) < 0) return
       var days = daysBySession[i] || []
       var r = rangeDays()
@@ -348,6 +349,9 @@
   }
 
   // ------------------------------------------------------------ controlli dei filtri
+
+  /** L'etichetta di una categoria; la voce delle sessioni senza categoria si traduce come un codice. */
+  function categoryName(i) { return D.categories[i] === '(nessuna)' ? code('(nessuna)') : D.categories[i] }
 
   function multi(label, key, dict, options, labelOf) {
     var name = labelOf || function (i) { return dict[i] }
@@ -391,11 +395,12 @@
     nav.appendChild(multi(t('Modello'), 'models', D.models, used(S.models, D.models)))
     if (D.branches.length) nav.appendChild(multi('Branch', 'branches', D.branches, used(S.branches, D.branches)))
     if (D.repos.length) nav.appendChild(multi('Repo', 'repos', D.repos, used(S.repo, D.repos)))
+    if (DATA.meta.category) nav.appendChild(multi(DATA.meta.category, 'categories', D.categories, used(S.category, D.categories), categoryName))
     var q = el('input', { type: 'search', class: 'search', placeholder: t('Cerca id o progetto'), 'aria-label': t('Cerca'), value: state.q })
     q.addEventListener('input', function () { state.q = q.value.trim(); render() })
     nav.appendChild(q)
     nav.appendChild(el('button', { type: 'button', text: t('Azzera filtri'), onclick: function () {
-      state.preset = 'tutto'; state.projects = []; state.kinds = []; state.models = []; state.branches = []; state.repos = []; state.q = ''; state.selected = null
+      state.preset = 'tutto'; state.projects = []; state.kinds = []; state.models = []; state.branches = []; state.repos = []; state.categories = []; state.q = ''; state.selected = null
       buildFilters(); render()
     } }))
   }
@@ -740,6 +745,7 @@
       start: x.s[S.start], project: D.projects[x.s[S.project]], id: x.s[S.id].slice(0, 8), kind: code(D.kinds[x.s[S.kind]]), dur: Math.max(0, x.s[S.last] - x.s[S.start]),
       turns: tt.turns, active: tt.active, cost: tt.cost, tokens: tt.inp + tt.out + tt.cr + tt.cw, tools: tt.tools, add: tt.add, del: tt.del, commits: tt.commits,
       branch: (x.s[S.branches].map(function (b) { return D.branches[b] }).slice(-1)[0]) || '–', status: x.s[S.status], t: tt,
+      category: x.s[S.category] >= 0 ? categoryName(x.s[S.category]) : '',
     }
   }
 
@@ -793,9 +799,10 @@
       { key: 'add', label: t('Righe'), num: true, fmt: function (v, row) { return '+' + int(row.add) + ' −' + int(row.del) } },
       { key: 'commits', label: t('Commit'), num: true, fmt: int },
       { key: 'branch', label: 'Branch' },
+    ].concat(DATA.meta.category ? [{ key: 'category', label: DATA.meta.category }] : [], [
       // Lo stato resta un codice per la classe CSS; si mostra tradotto.
       { key: 'status', label: t('Stato'), fmt: code, cls: function (v) { return 'status-' + v.status } },
-    ], data, 'sort', function (d) { state.selected = d.x.i; render() })
+    ]), data, 'sort', function (d) { state.selected = d.x.i; render() })
     var sel = rows.filter(function (x) { return x.i === state.selected })[0]
     if (sel) box.appendChild(detail(sel))
   }
@@ -814,6 +821,8 @@
       [t('Test ok · ko'), int(s[S.testsOk]) + ' · ' + int(s[S.testsKo])], [t('Build ok · ko'), int(s[S.buildsOk]) + ' · ' + int(s[S.buildsKo])], ['Subagent', int(s[S.agents])],
       [t('Permessi consentiti · chiesti · negati · rifiutati'), int(s[S.allow]) + ' · ' + int(s[S.ask]) + ' · ' + int(s[S.deny] + (s[S.clsDenied] || 0)) + ' · ' + int(s[S.rejected] || 0)], [t('Errori turno · interruzioni · rifiuti'), int(s[S.turnErr]) + ' · ' + int(s[S.interrupts]) + ' · ' + int(s[S.refusals])],
     ]
+    // Dopo Branch: la categoria, se attiva.
+    if (DATA.meta.category) items.splice(10, 0, [DATA.meta.category, s[S.category] >= 0 ? categoryName(s[S.category]) : '–'])
     var dl = el('dl')
     items.forEach(function (it) { dl.appendChild(el('div', {}, [el('dt', { text: it[0] }), el('dd', { text: String(it[1]) })])) })
     return el('div', { class: 'detail-panel' }, [el('h2', { text: t('Dettaglio sessione {id}', { id: s[S.id].slice(0, 8) }) }), dl])

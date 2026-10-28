@@ -14,6 +14,7 @@ import { displayStatus } from '../core/session-file'
 import { monthEnd, stampOf } from '../core/time'
 import type { HostFs } from '../host'
 import type { I18n, Lang } from '../i18n'
+import type { Categories } from '../query/category'
 import { inRange, type KpiFilter } from '../query/filters'
 import { rangeOf } from '../query/aggregate'
 import type { SessionRow } from '../query/load'
@@ -171,21 +172,43 @@ const COLUMNS_EN: Readonly<Record<string, string>> = {
 /** Le colonne nella lingua di `L`. */
 const columnsIn = (L: I18n, columns: readonly string[]): string[] => (L.lang === 'en' ? columns.map(column => COLUMNS_EN[column] ?? column) : [...columns])
 
-/** La tabella di un livello, con colonne e valori nella lingua di `L`. */
-export async function tableOf(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table> {
-  const table = await italianTableOf(fs, rows, filter, level)
+/**
+ * La tabella di un livello, con colonne e valori nella lingua di `L`. Con le
+ * categorie attive, in fondo a ogni livello la colonna col loro nome e la
+ * categoria della sessione su ogni riga (vuota se non ce l'ha).
+ */
+export async function tableOf(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, categories?: Categories | null): Promise<Table> {
+  const table = await italianTableOf(fs, rows, filter, level, categories === undefined || categories === null ? null : row => categories.of(row.file) ?? '')
+  const columns = columnsIn(L, table.columns)
 
-  return { columns: columnsIn(L, table.columns), rows: table.rows.map(row => row.map((value, index) => (CODE_COLUMNS.has(table.columns[index] as string) && typeof value === 'string' ? L.code(value) : value))) }
+  if (categories !== undefined && categories !== null) {
+    columns[columns.length - 1] = categories.column
+  }
+
+  return { columns, rows: table.rows.map(row => row.map((value, index) => (CODE_COLUMNS.has(table.columns[index] as string) && typeof value === 'string' ? L.code(value) : value))) }
 }
 
 /** Le colonne che contengono codici salvati (tipo, stato): si traducono come le etichette. */
 const CODE_COLUMNS = new Set(['tipo', 'stato'])
 
-async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table> {
+/** La tabella con le colonne italiane; `category`, se c'è, aggiunge in fondo il valore della sessione a ogni riga. */
+async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, category: ((row: SessionRow) => string) | null): Promise<Table> {
+  const table = await baseTableOf(fs, rows, filter, level)
+
+  if (category === null) {
+    return table
+  }
+
+  return { columns: [...table.columns, 'categoria'], rows: table.rows.map((values, index) => [...values, category(table.sources[index] as SessionRow)]) }
+}
+
+/** Le righe di un livello con la sessione da cui viene ciascuna. */
+async function baseTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel): Promise<Table & { sources: SessionRow[] }> {
   const now = Date.now()
 
   if (level === 'sessioni') {
     return {
+      sources: [...rows],
       columns: [
         'inizio', 'progetto', 'percorso', 'sessione', 'tipo', 'stato', 'durata_min', 'attivo_min', 'turni', 'prompt', 'richieste', 'costo_usd',
         'costo_fuori_turni_usd', 'token_input', 'token_output', 'cache_letta', 'cache_scritta', 'cache_hit', 'tool', 'errori_tool', 'bash', 'test_ok', 'test_ko',
@@ -216,6 +239,7 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
 
   if (level === 'giorni') {
     const out: Value[][] = []
+    const sources: SessionRow[] = []
 
     for (const row of rows) {
       for (const [day, agg] of Object.entries(row.file.summary.byDay).sort((a, b) => a[0].localeCompare(b[0]))) {
@@ -224,10 +248,12 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
         }
 
         out.push([day, row.projectName, row.file.sessionId, row.file.kind, agg.cost, agg.in, agg.out, agg.cr, agg.cw, agg.turns, min(agg.active), agg.prompts, agg.req, agg.tools, agg.toolErr, agg.add, agg.del, agg.commits])
+        sources.push(row)
       }
     }
 
     return {
+      sources,
       columns: ['giorno', 'progetto', 'sessione', 'tipo', 'costo_usd', 'token_input', 'token_output', 'cache_letta', 'cache_scritta', 'turni', 'attivo_min', 'prompt', 'richieste', 'tool', 'errori_tool', 'righe_aggiunte', 'righe_rimosse', 'commit'],
       rows: out,
     }
@@ -235,19 +261,22 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
 
   if (level === 'turni') {
     const out: Value[][] = []
+    const sources: SessionRow[] = []
 
     for (const row of rows) {
       const details = await readJson<KpiDetails>(fs, join(row.dir, 'details.json'))
 
       for (const turn of details?.turns ?? []) {
         out.push([row.file.sessionId, row.projectName, turn.i, iso(turn.t), Math.round(turn.ms / 100) / 10, turn.tok, turn.out, turn.tools, turn.err, turn.r, turn.cost, turn.pct, turn.cpt === 1])
+        sources.push(row)
       }
     }
 
-    return { columns: ['sessione', 'progetto', 'turno', 'fine', 'durata_s', 'token', 'token_output', 'tool', 'errori_tool', 'esito', 'costo_usd', 'contesto_pct', 'compattazione'], rows: out }
+    return { sources, columns: ['sessione', 'progetto', 'turno', 'fine', 'durata_s', 'token', 'token_output', 'tool', 'errori_tool', 'esito', 'costo_usd', 'contesto_pct', 'compattazione'], rows: out }
   }
 
   const out: Value[][] = []
+  const sources: SessionRow[] = []
 
   for (const row of rows) {
     const segments = await allEventsOf(fs, row.dir, row.file.segments.map(segment => segment.id))
@@ -257,11 +286,12 @@ async function italianTableOf(fs: HostFs, rows: readonly SessionRow[], filter: K
         const { q, t, a, e, ...rest } = event as unknown as Record<string, unknown> & { q: number; t: number; a?: string; e: string }
 
         out.push([row.file.sessionId, row.projectName, q, iso(t), e, a ?? '', JSON.stringify(rest)])
+        sources.push(row)
       }
     }
   }
 
-  return { columns: ['sessione', 'progetto', 'seq', 'istante', 'evento', 'agente', 'dati'], rows: out }
+  return { sources, columns: ['sessione', 'progetto', 'seq', 'istante', 'evento', 'agente', 'dati'], rows: out }
 }
 
 function csvValue(value: Value, excel: boolean): string {
@@ -342,14 +372,14 @@ export function jsonParts(table: Table, meta: Record<string, unknown>): string[]
 
 export type ExportResult = { parts: string[]; count: number }
 
-export async function exportCsv(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, excel: boolean): Promise<ExportResult> {
-  const table = await tableOf(fs, L, rows, filter, level)
+export async function exportCsv(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, excel: boolean, categories?: Categories | null): Promise<ExportResult> {
+  const table = await tableOf(fs, L, rows, filter, level, categories)
 
   return { parts: csvParts(table, excel), count: table.rows.length }
 }
 
-export async function exportJson(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, meta: { description: string; generatedAt: number }): Promise<ExportResult> {
-  const table = await tableOf(fs, L, rows, filter, level)
+export async function exportJson(fs: HostFs, L: I18n, rows: readonly SessionRow[], filter: KpiFilter, level: ExportLevel, meta: { description: string; generatedAt: number }, categories?: Categories | null): Promise<ExportResult> {
+  const table = await tableOf(fs, L, rows, filter, level, categories)
 
   return { parts: jsonParts(table, { plugin: 'kpi-tracker', language: L.lang, level: LEVEL_NAMES[level][L.lang], filter: meta.description, generatedAt: iso(meta.generatedAt) }), count: table.rows.length }
 }

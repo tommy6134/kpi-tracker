@@ -10,7 +10,8 @@ import type { Host } from '../host'
 import { i18nOf, langOf, type I18n } from '../i18n'
 import { pruneSessions, rebuildSessions } from '../maintenance/maintenance'
 import { GROUP_ALIASES, totalsOf, type GroupKey } from '../query/aggregate'
-import { describeFilter, emptyFilter, filterOf } from '../query/filters'
+import { categoriesOf, parseRules, type Categories } from '../query/category'
+import { describeFilter, emptyFilter, filterOf, type KpiFilter } from '../query/filters'
 import { loadSessions } from '../query/load'
 import { buildReport } from '../report/html'
 import { flushNow, noticeOf, pollCost, type Tracker } from '../tracker'
@@ -110,6 +111,48 @@ async function ownerOf(ctx: KpiCommandContext): Promise<string> {
   return result !== null && result.exitCode === 0 ? nameSlugOf(result.stdout.trim()) : ''
 }
 
+/** I file delle regole delle categorie nella cartella dati, in quest'ordine. */
+const CATEGORY_FILES = ['categorie.json', 'categories.json']
+
+/**
+ * Le categorie di attività per questo comando: dal file dell'opzione
+ * `categoriesFile`, altrimenti da `categorie.json` o `categories.json` nella
+ * cartella dati. Senza file sono spente; `warning` dice perché lo sono quando
+ * il file c'è ma non vale (si legge a ogni comando: una modifica vale subito).
+ */
+async function loadCategories(tracker: Tracker, host: Host, root: string, L: I18n): Promise<{ categories: Categories | null; warning: string | null }> {
+  const option = tracker.options.categoriesFile
+  let path: string | null = null
+
+  if (option !== '') {
+    path = resolvePath(tracker.env, option)
+
+    if (path === null) {
+      return { categories: null, warning: L.t('Categorie spente: l\'opzione categoriesFile non è un percorso assoluto (anche `~/…`): correggila da /config.') }
+    }
+  } else {
+    for (const name of CATEGORY_FILES) {
+      if (path === null && (await host.fs.exists(join(root, name)).catch(() => false))) {
+        path = join(root, name)
+      }
+    }
+
+    if (path === null) {
+      return { categories: null, warning: null }
+    }
+  }
+
+  const text = await host.fs.read(path).catch(() => null)
+
+  if (text === null) {
+    return { categories: null, warning: L.t('Categorie spente: non riesco a leggere {path}.', { path }) }
+  }
+
+  const parsed = parseRules(L, text)
+
+  return 'error' in parsed ? { categories: null, warning: L.t('Categorie spente: {path} non è valido: {error}.', { path, error: parsed.error }) } : { categories: categoriesOf(L, parsed.rules), warning: null }
+}
+
 /** Un errore degli argomenti nella lingua di `L`. */
 const argError = (L: I18n, error: ArgError): string =>
   error.kind === 'valore' ? L.t('--{name} richiede un valore', { name: error.name }) : L.t('opzione sconosciuta --{name}', { name: error.name })
@@ -207,6 +250,21 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
   }
 
   const description = describeFilter(L, filter)
+  const { categories, warning } = await loadCategories(tracker, host, root, L)
+  const inactive = (): string => warning ?? L.t('Le categorie non sono attive: scrivi le regole in {path} o indica il file nell\'opzione categoriesFile.', { path: join(root, CATEGORY_FILES[0] as string) })
+
+  if (filter.categories.length > 0 && categories === null) {
+    return done({ text: inactive() })
+  }
+
+  /** Le sessioni del filtro, categoria compresa. */
+  const load = async (wanted: KpiFilter, live: typeof override = override) => {
+    const rows = await loadSessions(host.fs, root, wanted, live)
+
+    return wanted.categories.length === 0 || categories === null ? rows : rows.filter(row => categories.matches(row.file, wanted.categories))
+  }
+  /** Il testo con l'avviso sulle categorie in testa, se il file c'è ma non vale. */
+  const warned = (text: string): string => (warning === null ? text : `⚠ ${warning}\n\n${text}`)
 
   switch (args.sub) {
     case 'riepilogo': {
@@ -228,34 +286,38 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     }
 
     case 'statistiche': {
-      const rows = await loadSessions(host.fs, root, filter, override)
+      const rows = await load(filter)
       const rawBy = args.flags.per?.at(-1)
       const by: GroupKey | null = rawBy === undefined ? null : (GROUP_ALIASES[rawBy.toLowerCase()] ?? null)
 
       if (rawBy !== undefined && by === null) {
-        return done({ text: L.t('Raggruppamento sconosciuto: {value}. Valori: giorno, settimana, mese, progetto, modello, branch, tipo, sessione.', { value: rawBy }) })
+        return done({ text: L.t('Raggruppamento sconosciuto: {value}. Valori: giorno, settimana, mese, progetto, modello, branch, tipo, sessione, categoria.', { value: rawBy }) })
+      }
+
+      if (by === 'categoria' && categories === null) {
+        return done({ text: inactive() })
       }
 
       const totals = totalsOf(rows, filter)
 
       return done({
-        text: statsReport(L, totals, rows, filter, description, by),
+        text: warned(statsReport(L, totals, rows, filter, description, by, categories)),
         short: privateNote(L, L.t('Statistiche KPI ({sessions}, {cost})', { sessions: L.count(rows.length, 'sessione', 'sessioni'), cost: L.usd(totals.range.cost) })),
         toModel,
       })
     }
 
     case 'sessioni': {
-      const rows = await loadSessions(host.fs, root, filter, override)
+      const rows = await load(filter)
       const limit = Math.max(1, Math.min(1000, Number(args.flags.limite?.at(-1) ?? 20) || 20))
 
-      return done({ text: sessionsReport(L, rows, filter, limit, now, description), short: privateNote(L, L.t('Elenco di {sessions}', { sessions: L.count(rows.length, 'sessione', 'sessioni') })), toModel })
+      return done({ text: warned(sessionsReport(L, rows, filter, limit, now, description)), short: privateNote(L, L.t('Elenco di {sessions}', { sessions: L.count(rows.length, 'sessione', 'sessioni') })), toModel })
     }
 
     case 'progetti': {
-      const rows = await loadSessions(host.fs, root, filter, override)
+      const rows = await load(filter)
 
-      return done({ text: projectsReport(L, rows, filter, description), short: privateNote(L, L.t('Elenco dei progetti')), toModel })
+      return done({ text: warned(projectsReport(L, rows, filter, description)), short: privateNote(L, L.t('Elenco dei progetti')), toModel })
     }
 
     case 'sessione': {
@@ -282,7 +344,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const ledger = isCurrent ? (await host.usage().catch(() => null))?.cost?.usd : undefined
       const all = emptyFilter()
 
-      return done({ text: sessionReport(L, row, details, totalsOf([row], all), all, now, ledger), short: privateNote(L, L.t('Dettaglio della sessione {id}', { id: row.file.sessionId.slice(0, 8) })), toModel })
+      return done({ text: warned(sessionReport(L, row, details, totalsOf([row], all), all, now, ledger, categories)), short: privateNote(L, L.t('Dettaglio della sessione {id}', { id: row.file.sessionId.slice(0, 8) })), toModel })
     }
 
     case 'report': {
@@ -292,11 +354,11 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
         return done({ text: badReportDir(L) })
       }
 
-      const rows = await loadSessions(host.fs, root, filter, override)
+      const rows = await load(filter)
       const stamp = stampOf(now)
       const path = join(dir, `report-${stamp}.html`)
       // La pagina mostra le cartelle e il comando per aprirle: da `file://` non può avviare il file manager.
-      const built = await buildReport(host.fs, host.pluginRoot, rows, { lang, generatedAt: now, filter, folders: { report: dir, export: outDirOf(tracker, root, EXPORTS_DIR) } })
+      const built = await buildReport(host.fs, host.pluginRoot, rows, { lang, generatedAt: now, filter, folders: { report: dir, export: outDirOf(tracker, root, EXPORTS_DIR) }, categories })
 
       await host.fs.write(path, built.html)
       await host.fs.write(join(dir, 'latest.html'), built.html)
@@ -327,7 +389,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
         lines.push(await openFolder(ctx, L, dir))
       }
 
-      return done({ text: lines.join(' ') })
+      return done({ text: warned(lines.join(' ')) })
     }
 
     case 'esporta': {
@@ -357,12 +419,12 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
         return done({ text: badReportDir(L) })
       }
 
-      const rows = await loadSessions(host.fs, root, filter, override)
+      const rows = await load(filter)
       const levelName = LEVEL_NAMES[level][lang]
       const path = outPath ?? join(dir as string, exportFileName(await ownerOf(ctx), periodOf(filter, now), level === 'sessioni' ? null : levelName, format))
       // Il CSV segue la lingua (Excel italiano o standard); --standard e --excel lo forzano.
       const excel = args.bools.has('excel') || (!args.bools.has('standard') && lang === 'it')
-      const result = format === 'csv' ? await exportCsv(host.fs, L, rows, filter, level, excel) : await exportJson(host.fs, L, rows, filter, level, { description, generatedAt: now })
+      const result = format === 'csv' ? await exportCsv(host.fs, L, rows, filter, level, excel, categories) : await exportJson(host.fs, L, rows, filter, level, { description, generatedAt: now }, categories)
       const paths = result.parts.map((_, index) => (index === 0 ? path : partPathOf(path, L.t('parte'), index + 1)))
 
       for (const [index, part] of result.parts.entries()) {
@@ -374,7 +436,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
       const text = L.t('Esportate {rows} ({level}) in {where}{kind}.', { rows: L.count(result.count, 'riga', 'righe'), level: levelName, where, kind })
 
       // La cartella del file scritto, anche con --out.
-      return done({ text: args.bools.has('cartella') && tracker.interactive !== false ? `${text} ${await openFolder(ctx, L, dirName(path))}` : text })
+      return done({ text: warned(args.bools.has('cartella') && tracker.interactive !== false ? `${text} ${await openFolder(ctx, L, dirName(path))}` : text) })
     }
 
     case 'pulisci': {
@@ -391,7 +453,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     }
 
     case 'ricostruisci': {
-      const rows = await loadSessions(host.fs, root, filter, [])
+      const rows = await load(filter, [])
       const result = await rebuildSessions(host.fs, L, rows, current?.sessionId ?? null)
 
       return done({ text: result })

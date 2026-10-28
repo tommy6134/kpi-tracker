@@ -46,6 +46,12 @@
       "description": "Name and surname in the CSV/JSON export file names, e.g. \"Mario Rossi\" gives kpi_mario_rossi_2026-11.csv (lower case, no accents, spaces become _). Empty = the name in git config user.name; without either, the files have no name.",
       "default": ""
     },
+    "categoriesFile": {
+      "type": "string",
+      "title": "Activity categories file",
+      "description": "JSON file with the rules of the activity categories (a keyword in the git branch name gives the category, see the README). Empty = categorie.json or categories.json in the KPI data folder; without a file the categories are off.",
+      "default": ""
+    },
     "streamTiming": {
       "type": "boolean",
       "title": "Per-request metrics (TTFT)",

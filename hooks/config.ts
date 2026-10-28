@@ -15,6 +15,8 @@ export type KpiOptions = {
   reportDir: string
   /** Nome e cognome nel nome dei file di export ('' = `git config user.name`). */
   fullName: string
+  /** Il file delle regole delle categorie ('' = `categorie.json` o `categories.json` nella cartella dati). */
+  categoriesFile: string
   /** Agganciare `turn.step` per TTFT, latenza e token per richiesta. */
   streamTiming: boolean
   /** Cosa fare quando nel marketplace c'è una versione nuova. */
@@ -46,6 +48,7 @@ export function optionsOf(raw: PluginOptions | undefined): KpiOptions {
   const dataDir = raw?.dataDir
   const reportDir = raw?.reportDir
   const fullName = raw?.fullName
+  const categoriesFile = raw?.categoriesFile
   const streamTiming = raw?.streamTiming
   const autoUpdate = typeof raw?.autoUpdate === 'string' ? raw.autoUpdate.trim() : ''
   const mode = UPDATE_MODES[autoUpdate.toLowerCase()]
@@ -55,6 +58,7 @@ export function optionsOf(raw: PluginOptions | undefined): KpiOptions {
     dataDir: typeof dataDir === 'string' ? dataDir : '',
     reportDir: typeof reportDir === 'string' ? reportDir : '',
     fullName: typeof fullName === 'string' ? fullName.trim() : '',
+    categoriesFile: typeof categoriesFile === 'string' ? categoriesFile.trim() : '',
     streamTiming: typeof streamTiming === 'boolean' ? streamTiming : true,
     autoUpdate: mode ?? 'auto',
     badAutoUpdate: mode === undefined ? autoUpdate : null,

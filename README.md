@@ -124,7 +124,7 @@ The full format is in [docs/storage.md](docs/storage.md).
 | `/kpi` | Summary: current session, today, last 7 days |
 | `/kpi live` | Panel with the session's KPIs |
 | `/kpi band on\|off` | Band above the prompt, permanently ("Hide" on the band applies to the session) |
-| `/kpi stats [filters] [--by day\|week\|month\|project\|model\|branch\|kind\|session]` | Every KPI of the filtered set |
+| `/kpi stats [filters] [--by day\|week\|month\|project\|model\|branch\|kind\|session\|category]` | Every KPI of the filtered set |
 | `/kpi sessions [filters] [--limit N]` | List of sessions |
 | `/kpi projects [filters]` | Totals per project |
 | `/kpi session <id\|current>` | Detail of one session |
@@ -136,7 +136,7 @@ The full format is in [docs/storage.md](docs/storage.md).
 | `/kpi update [--check]` | Update status; installs the latest version right away if compatible (`--check` only checks) |
 | `/kpi help` | Help |
 
-**Filters:** `--project <text|.>`, `--session <id>`, `--since` / `--until` (`today`, `yesterday`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026` day/month/year), `--month 2026-11` (or `11/2026`: since and until on that month), `--model`, `--kind interactive|print|sdk|desktop|vscode`, `--branch`, `--repo`. Every subcommand and option also has its Italian name (`statistiche`, `sessioni`, `esporta`, `pulisci`, `--da`, `--mese`, `--progetto`, `--per`…), whatever the language.
+**Filters:** `--project <text|.>`, `--session <id>`, `--since` / `--until` (`today`, `yesterday`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026` day/month/year), `--month 2026-11` (or `11/2026`: since and until on that month), `--model`, `--kind interactive|print|sdk|desktop|vscode`, `--branch`, `--repo`, `--category` (see [Activity categories](#activity-categories)). Every subcommand and option also has its Italian name (`statistiche`, `sessioni`, `esporta`, `pulisci`, `--da`, `--mese`, `--progetto`, `--per`…), whatever the language.
 
 **Export file names:** `kpi_<name_surname>_<period>[_<level>].csv|json`, for example `kpi_mario_rossi_2026-11.csv`. The name comes from the `fullName` option, or else from `git config user.name`, in lower case, without accents and with `_` for spaces; without either it is left out. The period is the one of the filter: a day (`2026-11-03`), a month (`2026-11`, also with `--month`), whole months (`2026-09_2026-11`) or the range (`2026-09-15_2026-11-02`), and exporting the same period again overwrites the file. Without a date filter, or with only `--since` or `--until`, it is the date and time of the export (`2026-11-03_14-30-05`), as before. The sessions level has no suffix; the others add it in the export's language (`_days`, `_giorni`), and so do the parts beyond ~3.5 MB (`_part2`, `_parte2`). `--out` picks the file freely.
 
@@ -158,8 +158,31 @@ From `/config` (the plugin's section) or in `settings.json` under `pluginConfigs
 | `dataDir` | `""` | Absolute data folder (`~/…` works too); empty = `<config>/kpi` |
 | `reportDir` | `""` | Absolute folder (`~/…` works too) for HTML reports and exports; empty = `_reports/` and `_exports/` in the data folder |
 | `fullName` | `""` | Name and surname in the export file names (`kpi_mario_rossi_2026-11.csv`); empty = `git config user.name` |
+| `categoriesFile` | `""` | File with the rules of the [activity categories](#activity-categories) (`~/…` works too); empty = `categorie.json` or `categories.json` in the data folder |
 | `streamTiming` | `true` | Hooks the response stream for TTFT, latency and per-request tokens; turn it off if you notice slowdowns |
 | `autoUpdate` | `"auto"` | `auto` installs compatible new versions by itself; `avviso` (notify) only reports them (install with `/kpi update`); `off` no automatic check |
+
+## Activity categories
+
+Optional, off by default: whoever does not use it sees no change. A category says what kind of work a session was (documentation, development, testing…), worked out from the **git branch** name, so you can filter and group by it.
+
+The rules go in a JSON file: `categorie.json` or `categories.json` in the data folder (`<config>/kpi/`), or the file named in the `categoriesFile` option. Not in the plugin folder: every update replaces it.
+
+```json
+{
+  "column": "category",
+  "keywords": { "docs": "Documentation", "dev": "Development", "qa": "Testing" },
+  "fallback": { "doc": "Documentation", "test": "Testing", "src": "Development" }
+}
+```
+
+The keys can also be written in Italian (`colonna`, `parole`, `ripiego`); the labels stay as you write them.
+
+- **Keyword in the branch name.** The name is split on `-`, `_`, `/` and `.`, and whole words are compared, ignoring case: `feature/PROJ-123-docs` contains `docs`, while `latest-fix` and `testing` do not contain `test`. In a session with several branches the last one holding a keyword counts; in a branch with several keywords, the first from the left.
+- **Fallback.** Without a keyword, the file class with the most lines added among the `fallback` keys counts (classes: `src`, `test`, `doc`, `cobol`, `mainframe`, `config`, `other`); on a tie, the order of the keys. With zero lines the session has no category.
+- **Where it shows.** A column at the end of every export level, named after `column` (`category` by default), with the session's value on every row; `--category <label|keyword|none>` on every command (`none` = sessions without a category); `/kpi stats --by category`; filter and column in the HTML report; a line in `/kpi session`.
+- **Computed when reading, never stored**: it applies to every recorded session, and changing the rules needs no recomputation. The file is read at every `/kpi`, so a change applies right away.
+- **Invalid file** (broken JSON, a value that is not a text, an unknown fallback class): the categories stay off, and `/kpi` says why on its first line.
 
 ## Development
 
@@ -186,7 +209,7 @@ Code layout:
 | `hooks/core/` | Paths, time, events, writer, on-disk binding and recovery |
 | `hooks/collect/` | Translation of tool results into metadata (never text) |
 | `hooks/analysis/` | Pure reducer, statistics, Bash classifier, lines of code, merge |
-| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Filtered reads, aggregates, `/kpi` and text reports |
+| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Filtered reads, aggregates, activity categories, `/kpi` and text reports |
 | `hooks/report/`, `assets/report/` | HTML report (dataset + template, style and plain-JS app) |
 | `hooks/export/`, `hooks/maintenance/` | CSV/JSON export, pruning, rebuild |
 | `hooks/ui/` | Band, panel, sparklines |

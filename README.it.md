@@ -124,7 +124,7 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 | `/kpi` | Riepilogo: sessione corrente, oggi, ultimi 7 giorni |
 | `/kpi live` | Pannello con i KPI della sessione |
 | `/kpi barra on\|off` | Barra sopra il prompt, in modo permanente ("Nascondi" sulla barra vale per la sessione) |
-| `/kpi statistiche [filtri] [--per giorno\|settimana\|mese\|progetto\|modello\|branch\|tipo\|sessione]` | Tutti i KPI dell'insieme filtrato |
+| `/kpi statistiche [filtri] [--per giorno\|settimana\|mese\|progetto\|modello\|branch\|tipo\|sessione\|categoria]` | Tutti i KPI dell'insieme filtrato |
 | `/kpi sessioni [filtri] [--limite N]` | Elenco delle sessioni |
 | `/kpi progetti [filtri]` | Totali per progetto |
 | `/kpi sessione <id\|corrente>` | Dettaglio di una sessione |
@@ -136,7 +136,7 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 | `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
 | `/kpi aiuto` | Guida |
 
-**Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--mese 2026-11` (o `11/2026`: da e a su quel mese), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode`, `--branch`, `--repo`. Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--month`, `--project`, `--by`…), qualunque sia la lingua.
+**Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--mese 2026-11` (o `11/2026`: da e a su quel mese), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode`, `--branch`, `--repo`, `--categoria` (vedi [Categorie di attività](#categorie-di-attività)). Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--month`, `--project`, `--by`…), qualunque sia la lingua.
 
 **Nome dei file di export:** `kpi_<nome_cognome>_<periodo>[_<livello>].csv|json`, per esempio `kpi_mario_rossi_2026-11.csv`. Il nome viene dall'opzione `fullName`, altrimenti da `git config user.name`, in minuscolo, senza accenti e con `_` al posto degli spazi; senza nessuno dei due non c'è. Il periodo è quello del filtro: un giorno (`2026-11-03`), un mese (`2026-11`, anche con `--mese`), mesi interi (`2026-09_2026-11`) o l'intervallo (`2026-09-15_2026-11-02`), e rifare l'export dello stesso periodo sovrascrive il file. Senza filtro di data, o con solo `--da` o `--a`, è la data e l'ora dell'export (`2026-11-03_14-30-05`), come prima. Il livello sessioni non ha suffisso; gli altri lo aggiungono nella lingua dell'export (`_giorni`, `_days`), e così le parti oltre ~3,5 MB (`_parte2`, `_part2`). `--out` sceglie il file liberamente.
 
@@ -158,8 +158,31 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 | `dataDir` | `""` | Cartella dati assoluta (anche `~/…`); vuoto = `<configurazione>/kpi` |
 | `reportDir` | `""` | Cartella assoluta (anche `~/…`) per report HTML ed export; vuoto = `_reports/` e `_exports/` nella cartella dati |
 | `fullName` | `""` | Nome e cognome nel nome dei file di export (`kpi_mario_rossi_2026-11.csv`); vuoto = `git config user.name` |
+| `categoriesFile` | `""` | File con le regole delle [categorie di attività](#categorie-di-attività) (anche `~/…`); vuoto = `categorie.json` o `categories.json` nella cartella dati |
 | `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
 | `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
+
+## Categorie di attività
+
+Facoltative e spente di default: chi non le usa non vede nessun cambiamento. Una categoria dice che tipo di lavoro è stata una sessione (documentazione, sviluppo, test…), ricavato dal nome del **branch git**, per filtrare e raggruppare.
+
+Le regole stanno in un file JSON: `categorie.json` o `categories.json` nella cartella dati (`<config>/kpi/`), oppure il file indicato nell'opzione `categoriesFile`. Non nella cartella del plugin: ogni aggiornamento la sostituisce.
+
+```json
+{
+  "colonna": "categoria",
+  "parole": { "docs": "DOCUMENTAZIONE", "dev": "SVILUPPO", "qa": "TEST" },
+  "ripiego": { "doc": "DOCUMENTAZIONE", "test": "TEST", "src": "SVILUPPO" }
+}
+```
+
+Le chiavi si possono scrivere anche in inglese (`column`, `keywords`, `fallback`); le etichette restano come le scrivi.
+
+- **Parola chiave nel nome del branch.** Il nome si divide su `-`, `_`, `/` e `.` e si confrontano parole intere, senza distinzione tra maiuscole e minuscole: `feature/PROJ-123-docs` contiene `docs`, mentre `latest-fix` e `testing` non contengono `test`. In una sessione con più branch vale l'ultimo che contiene una parola chiave; in un branch con più parole chiave, la prima da sinistra.
+- **Ripiego.** Senza parola chiave vale la classe di file con più righe aggiunte tra le chiavi di `ripiego` (classi: `src`, `test`, `doc`, `cobol`, `mainframe`, `config`, `altro`); a parità, l'ordine delle chiavi. Con zero righe la sessione resta senza categoria.
+- **Dove compare.** Una colonna in fondo a ogni livello di export, col nome di `colonna` (`categoria` di default) e il valore della sessione su ogni riga; `--categoria <etichetta|parola|nessuna>` su tutti i comandi (`nessuna` = sessioni senza categoria); `/kpi statistiche --per categoria`; filtro e colonna nel report HTML; una riga in `/kpi sessione`.
+- **Calcolata alla lettura, mai salvata**: vale per tutte le sessioni registrate, e cambiare le regole non richiede ricalcoli. Il file si legge a ogni `/kpi`, quindi una modifica vale subito.
+- **File non valido** (JSON rotto, un valore che non è un testo, una classe di ripiego sconosciuta): le categorie restano spente, e `/kpi` dice perché nella prima riga.
 
 ## Sviluppo
 
@@ -186,7 +209,7 @@ Struttura del codice:
 | `hooks/core/` | Percorsi, tempo, eventi, writer, aggancio e ripristino su disco |
 | `hooks/collect/` | Traduzione dei risultati dei tool in metadati (mai testo) |
 | `hooks/analysis/` | Reducer puro, statistiche, classificatore Bash, righe di codice, merge |
-| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Lettura con filtri, aggregati, `/kpi` e report testuali |
+| `hooks/query/`, `hooks/commands/`, `hooks/format/` | Lettura con filtri, aggregati, categorie di attività, `/kpi` e report testuali |
 | `hooks/report/`, `assets/report/` | Report HTML (dataset + template, stile e app in JS puro) |
 | `hooks/export/`, `hooks/maintenance/` | Export CSV/JSON, pulizia, ricostruzione |
 | `hooks/ui/` | Barra, pannello, sparkline |

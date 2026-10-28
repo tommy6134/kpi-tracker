@@ -311,6 +311,87 @@ describe('report HTML', () => {
   })
 })
 
+describe('categorie di attività', () => {
+  const RULES = JSON.stringify({ colonna: 'categoria', parole: { docs: 'DOCUMENTAZIONE', dev: 'SVILUPPO', qa: 'TEST' }, ripiego: { doc: 'DOCUMENTAZIONE', test: 'TEST', src: 'SVILUPPO' } })
+  const run = async ($: Engine, args: string) => ((await $.command.run(command('kpi', args))) as { text: string }).text
+  const lastColumn = (world: World, suffix: string) => {
+    const path = world.under(`${ROOT}/_exports/`).find(one => one.endsWith(suffix)) as string
+    const lines = (world.files.get(path) ?? '').replace(/^﻿/, '').split('\r\n').filter(line => line !== '')
+
+    return lines.map(line => line.split(';').at(-1))
+  }
+
+  test('dal file nella cartella dati: colonna in fondo a ogni livello, filtro per etichetta, parola o nessuna, --per categoria, dettaglio e report', IT, async ($, on) => {
+    const world = worldOf(on, { files: { [`${ROOT}/categorie.json`]: RULES } })
+    const clock = mock.clock(on)
+
+    world.branch = 'feature/PROJ-123-docs'
+    await workedSession($, on, world, clock)
+
+    for (const level of ['sessioni', 'giorni', 'turni', 'eventi']) {
+      await run($, `esporta csv --livello ${level}`)
+
+      const column = lastColumn(world, level === 'sessioni' ? '.csv' : `_${level}.csv`)
+
+      expect(column[0]).toBe('categoria')
+      expect(column.length > 1 && column.slice(1).every(value => value === 'DOCUMENTAZIONE')).toBe(true)
+    }
+
+    expect(await run($, 'sessioni --categoria docs')).toContain('Elenco di 1 sessione')
+    expect(await run($, 'sessioni --category documentazione')).toContain('Elenco di 1 sessione')
+    expect(await run($, 'sessioni --categoria SVILUPPO')).toContain('Elenco di 0 sessioni')
+    expect(await run($, 'sessioni --categoria nessuna')).toContain('Elenco di 0 sessioni')
+    expect(await run($, 'statistiche --per categoria --ctx')).toMatch(/Per categoria[\s\S]*\| DOCUMENTAZIONE \| 1 \|/)
+    expect(await run($, 'sessione corrente --ctx')).toContain('| categoria | DOCUMENTAZIONE |')
+
+    await run($, 'report --no-apri')
+
+    const html = world.files.get(`${ROOT}/_reports/latest.html`) ?? ''
+    const data = JSON.parse(/<script type="application\/json" id="kpi-data">(.*?)<\/script>/s.exec(html)?.[1] ?? '{}') as { meta: { category?: string }; dict: { categories: string[] }; sessions: unknown[][] }
+
+    expect(data.meta.category).toBe('categoria')
+    expect(data.dict.categories).toEqual(['DOCUMENTAZIONE'])
+    expect(data.sessions[0]?.at(-1)).toBe(0)
+  })
+
+  test('senza file nessuna colonna e --categoria o --per categoria dicono come attivarle; un file rotto le spegne con un avviso', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    await workedSession($, on, world, clock)
+    await run($, 'esporta csv')
+
+    expect(lastColumn(world, '.csv')[0]).toBe('build_ko')
+    expect(await run($, 'sessioni --categoria docs')).toContain(`Le categorie non sono attive: scrivi le regole in ${ROOT}/categorie.json`)
+    expect(await run($, 'statistiche --per categoria')).toContain('Le categorie non sono attive')
+
+    world.files.set(`${ROOT}/categories.json`, '{ "parole": { "docs": ')
+
+    expect(await run($, 'statistiche --ctx')).toMatch(new RegExp(`^⚠ Categorie spente: ${ROOT}/categories.json non è valido: JSON non valido`))
+
+    world.files.set(`${ROOT}/categories.json`, JSON.stringify({ ripiego: { sorgenti: 'X' } }))
+
+    expect(await run($, 'sessioni --ctx')).toContain('classe di ripiego sconosciuta "sorgenti"')
+  })
+
+  test('dall\'opzione categoriesFile, con le chiavi in inglese e il ripiego sulle righe aggiunte', { options: { language: 'en', categoriesFile: '~/kpi/rules.json' } }, async ($, on) => {
+    const world = worldOf(on, { files: { [`${HOME}/kpi/rules.json`]: JSON.stringify({ column: 'area', keywords: { qa: 'Quality' }, fallback: { doc: 'Docs', src: 'Code' } }) } })
+    const clock = mock.clock(on)
+
+    // Branch senza parole chiave: vale la classe con più righe aggiunte (src).
+    world.branch = 'latest-fix'
+    await workedSession($, on, world, clock)
+    await run($, 'export csv --standard')
+
+    const path = world.under(`${ROOT}/_exports/`)[0] as string
+    const [header, row] = (world.files.get(path) ?? '').split('\n')
+
+    expect(header?.endsWith(',builds_failed,area')).toBe(true)
+    expect(row?.endsWith(',Code')).toBe(true)
+    expect(await run($, 'stats --by category --ctx')).toMatch(/By area[\s\S]*\| Code \| 1 \|/)
+  })
+})
+
 describe('privacy', () => {
   test('nessun file scritto contiene testo di prompt, argomenti di comandi o messaggi di commit', IT, async ($, on) => {
     const world = worldOf(on)
