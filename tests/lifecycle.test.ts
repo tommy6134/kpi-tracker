@@ -525,6 +525,43 @@ describe('Cowork sul computer', () => {
     expect(((await $.command.run(command('kpi'))) as { text: string }).text).toContain('Today')
   })
 
+  test('in /var/empty il progetto è la cartella collegata, con il suo repo e il suo branch', IT, async ($, on) => {
+    const FOLDER = '/home/tester/Documenti/offerte'
+    const world = worldOf(on, { env: COWORK })
+
+    world.session.root = '/var/empty'
+    world.session.repo = null
+    world.gitTop = FOLDER
+    world.gitRemote = 'https://mario:segreto@git.example.com/team/offerte.git'
+    world.branch = 'feature/preventivi'
+    on('settings.read', () => ({ value: { permissions: { additionalDirectories: [FOLDER] } } }) as never)
+    mock.clock(on)
+    await $.session.start({ surface: null, isInteractive: false, cwd: '/var/empty' })
+
+    const dir = `${CLI_ROOT}/-home-tester-Documenti-offerte`
+    const project = world.json<KpiProjectFile>(`${dir}/project.json`)
+    const name = [...new Set(world.under(dir).map(path => path.slice(dir.length + 1).split('/')[0] ?? ''))].find(one => /_\w{8}$/.test(one))
+    const file = world.json<KpiSessionFile>(`${dir}/${name}/session.json`)
+
+    expect(project.path).toBe(FOLDER)
+    expect(project.repo).toEqual({ root: FOLDER, remote: 'https://git.example.com/team/offerte.git', name: 'offerte' })
+    expect(file.meta.branches).toEqual(['feature/preventivi'])
+    expect(world.written()).not.toContain('segreto')
+    expect(world.under(`${CLI_ROOT}/-var-empty`)).toEqual([])
+  })
+
+  test('senza cartelle collegate i task vanno nel progetto Cowork, senza comandi git', IT, async ($, on) => {
+    const world = worldOf(on, { env: COWORK })
+
+    world.session.root = '/var/empty'
+    world.session.repo = null
+    mock.clock(on)
+    await $.session.start({ surface: null, isInteractive: false, cwd: '/var/empty' })
+
+    expect(world.json<KpiProjectFile>(`${CLI_ROOT}/Cowork/project.json`).name).toBe('Cowork')
+    expect(world.runs.some(argv => argv[0] === 'git')).toBe(false)
+  })
+
   test('se la radice della CLI non si scrive, ripiega sulla cartella del task e /kpi lo dice', IT, async ($, on) => {
     const world = worldOf(on, { env: COWORK })
 

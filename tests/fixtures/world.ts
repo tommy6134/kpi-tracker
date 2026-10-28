@@ -23,6 +23,9 @@ export type World = {
   branch: string
   /** Ciò che risponde `git config user.name` (vuoto = nessun nome). */
   gitUser: string
+  /** Ciò che rispondono `git rev-parse --show-toplevel` e `git config --get remote.origin.url` (vuoto = fuori da un repo, nessun remote). */
+  gitTop: string
+  gitRemote: string
   /** Ciò che rispondono `git status --porcelain=v2 -z` e `git diff --name-status -z` dei documenti. */
   gitStatus: string
   gitDiff: string
@@ -92,6 +95,8 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     },
     branch: 'main',
     gitUser: '',
+    gitTop: '',
+    gitRemote: '',
     gitStatus: '',
     gitDiff: '',
     refuseWrite: () => false,
@@ -193,25 +198,31 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     world.runs.push([...e.argv])
     world.runEnvs.push({ ...e.init?.env })
 
-    const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse')
+    const isTop = e.argv[0] === 'git' && e.argv.includes('--show-toplevel')
+    const isRemote = e.argv[0] === 'git' && e.argv.includes('remote.origin.url')
+    const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse') && !isTop
     const isUser = e.argv[0] === 'git' && e.argv.includes('user.name')
     const isStatus = e.argv[0] === 'git' && e.argv.includes('status')
     const isDiff = e.argv[0] === 'git' && e.argv.includes('diff')
-    const stdout = isBranch
-      ? `${world.branch}\n`
-      : isUser
-        ? `${world.gitUser}\n`
-        : isStatus
-          ? world.gitStatus
-          : isDiff
-            ? world.gitDiff
-            : e.argv[0] === 'uname'
-        ? `${options.os ?? 'Darwin'}\n`
-        : e.argv[0] === 'xdg-user-dir'
-          ? `${DOWNLOADS}\n`
-          : e.argv[0] === 'wslpath'
-            ? `${wslPathOf(e.argv.at(-1) ?? '')}\n`
-            : ''
+    const stdout = isTop
+      ? `${world.gitTop}\n`
+      : isRemote
+        ? `${world.gitRemote}\n`
+        : isBranch
+          ? `${world.branch}\n`
+          : isUser
+            ? `${world.gitUser}\n`
+            : isStatus
+              ? world.gitStatus
+              : isDiff
+                ? world.gitDiff
+                : e.argv[0] === 'uname'
+                  ? `${options.os ?? 'Darwin'}\n`
+                  : e.argv[0] === 'xdg-user-dir'
+                    ? `${DOWNLOADS}\n`
+                    : e.argv[0] === 'wslpath'
+                      ? `${wslPathOf(e.argv.at(-1) ?? '')}\n`
+                      : ''
     // explorer.exe esce con 1 anche quando apre la cartella.
     const exitCode = e.argv[0] === 'explorer.exe' ? 1 : 0
 

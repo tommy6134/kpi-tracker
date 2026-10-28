@@ -17,7 +17,7 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 | End reason | clear, resume, logout, prompt_input_exit, other, interrupted | `session.end.reason`, heartbeat | S |
 | Duration | from the start to the last activity | `$.session.usage().startedAt`, events | S |
 | Claude Code versions | per segment | `$.session.version()` | S |
-| Project, repo, branch | launch folder, git repo, branch (and changes) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
+| Project, repo, branch | launch folder, git repo, branch (and changes). In Cowork, where the task starts in `/var/empty`: the first connected folder, otherwise the `Cowork` project (no repo, no branch) | `session.start.cwd`, `$.session.repo()`, `git rev-parse`; in Cowork `permissions.additionalDirectories`, `git rev-parse --show-toplevel`, `git config --get remote.origin.url` (without user and password) | S/E |
 | Resume | seconds since the last response, context tokens, expired cache | `classic.SessionStart` (resume/fork) | S |
 | Previous/next session | link between sessions split by `/clear` | storage | S |
 | Activity category | optional: from a keyword in the branch name, or else from the file class with the most lines added (rules in `categorie.json`, see the README). Computed when reading, never stored | branches, `files.byClass` | S |

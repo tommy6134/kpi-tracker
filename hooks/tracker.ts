@@ -15,9 +15,9 @@ import { customOf, type CustomCommands } from './analysis/bash-classify'
 import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
 import { cliOptionsOf, optionsOf, withCliOptions, type KpiOptions } from './config'
 import { closeSegment, ensureRoot, moveLast, openSession } from './core/binding'
-import { cliPathsOf, coworkOf, type CoworkMode } from './core/cowork'
+import { cliPathsOf, coworkOf, coworkProjectOf, type CoworkMode } from './core/cowork'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
-import { configDirOf, join, kpiRootOf, type EnvValues } from './core/paths'
+import { baseName, configDirOf, isAbsolute, join, kpiRootOf, type EnvValues } from './core/paths'
 import { readJson } from './core/recover'
 import type { KpiRepo } from './core/session-file'
 import type { SessionStore } from './core/writer'
@@ -199,6 +199,11 @@ export function ensureAttached(tracker: Tracker): void {
 
 /** Il branch git corrente della cartella di avvio, o `null`. */
 export async function readBranch(host: Host, cwd: string | null, timeoutMs = 3000): Promise<string | null> {
+  // Il progetto fisso dei task Cowork senza cartella non è una cartella: niente git.
+  if (cwd !== null && !isAbsolute(cwd)) {
+    return null
+  }
+
   try {
     const result = await host.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { ...(cwd !== null && { cwd }), timeoutMs })
     const branch = result.exitCode === 0 ? result.stdout.trim() : ''
@@ -207,6 +212,44 @@ export async function readBranch(host: Host, cwd: string | null, timeoutMs = 300
   } catch {
     return null
   }
+}
+
+/** Toglie utente e password da un URL remoto (`https://user:token@host/…`): non vanno su disco. */
+export const cleanRemote = (url: string): string => url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]*@/i, '$1')
+
+/**
+ * Il repo git che contiene `dir`, letto con git: per la cartella collegata a
+ * un task Cowork, che non è la cartella di lavoro della sessione. `null` fuori
+ * da un repo o senza git.
+ */
+async function repoAt(host: Host, dir: string): Promise<KpiRepo | null> {
+  const top = await host.run(['git', 'rev-parse', '--show-toplevel'], { cwd: dir, timeoutMs: 2000 }).catch(() => null)
+  const root = top !== null && top.exitCode === 0 ? top.stdout.trim() : ''
+
+  if (root === '') {
+    return null
+  }
+
+  const url = await host.run(['git', 'config', '--get', 'remote.origin.url'], { cwd: root, timeoutMs: 2000 }).catch(() => null)
+  const remote = url !== null && url.exitCode === 0 && url.stdout.trim() !== '' ? cleanRemote(url.stdout.trim()) : null
+
+  return { root, remote, name: baseName(root) }
+}
+
+/**
+ * Il progetto di un task Cowork: la cartella di lavoro è vuota (`/var/empty`),
+ * quindi conta la prima cartella collegata (`permissions.additionalDirectories`
+ * nei settings), altrimenti il progetto fisso `Cowork`.
+ */
+export async function adoptCoworkProject(tracker: Tracker, host: Host): Promise<void> {
+  if (tracker.cowork !== 'host') {
+    return
+  }
+
+  const permissions = (await host.settingsRead('permissions').catch(() => undefined)) as { additionalDirectories?: unknown } | undefined
+  const added = permissions?.additionalDirectories
+
+  tracker.launchCwd = coworkProjectOf(tracker.launchCwd ?? (await host.sessionRoot().catch(() => null)), Array.isArray(added) ? added : [])
 }
 
 export type AttachExtra = {
@@ -261,7 +304,9 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
       // Un reload rifà session.start ma non classic.SessionStart: solo un avvio 'startup' può esserlo.
       const isReload = (source === 'startup' || source === 'sconosciuta') && binding !== null && binding.sessionId === sessionId && current === null
       const effectiveSource = isReload ? 'ricarica' : source
-      const kpiRepo: KpiRepo | null = repo === null ? null : { root: repo.root, remote: repo.remote, name: repo.name }
+      // In Cowork la sessione gira in /var/empty: il repo è quello della cartella collegata.
+      const kpiRepo: KpiRepo | null =
+        repo !== null ? { root: repo.root, remote: repo.remote, name: repo.name } : tracker.cowork === 'host' && isAbsolute(launchCwd) ? await repoAt(host, launchCwd) : null
       const previous = extra.previousSessionId ?? (source === 'clear' ? (current?.file.sessionId ?? tracker.lastClosedId ?? undefined) : undefined)
       const costNow = usage?.cost?.usd ?? 0
 

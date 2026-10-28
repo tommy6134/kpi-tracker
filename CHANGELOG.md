@@ -6,6 +6,7 @@
 - A Cowork task that runs in the cloud, or with Claude Code inside the virtual machine, is not recorded: its files would be lost when the task ends. `/kpi` says so and why.
 - **Cowork tasks write to the CLI's data folder**, `~/.claude/kpi` (or `dataDir`), not to the task's own `.claude`, which is deleted with the task: one archive for the CLI, the Code tab and Cowork. If that folder cannot be written, the task's KPIs stay in the task folder and `/kpi` warns that they are lost with it. `~` in the options and in `--out` is the real home. In Cowork the automatic recomputation keeps its mark in `_meta/rebuild-r<N>.json` (the plugin's store there belongs to the task) and the language migration of 0.4.0 does not run.
 - **In Cowork the options come from the CLI.** Cowork does not ask for the plugin's options and does not read the CLI's `/config`, so every option it leaves at its default (all but `streamTiming` and `autoUpdate`) takes the value in `~/.claude/settings.json`: same language, same data and reports folders, same name in the exports.
+- **Project of a Cowork task.** Cowork starts its tasks in `/var/empty`: the project is the first folder connected to the task, with its git repo (remote without user and password) and branch, so working on the same folder from the CLI and from Cowork lands in the same project. Without a connected folder the task goes to a `Cowork` project, and no git command runs.
 
 ## 0.5.8
 

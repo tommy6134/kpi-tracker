@@ -3,7 +3,7 @@
  * dove gira. Tutto puro: i valori d'ambiente arrivano da register.ts.
  */
 
-import { trimSlash, type EnvValues } from './paths'
+import { isAbsolute, trimSlash, type EnvValues } from './paths'
 
 /**
  * Dove gira un task Cowork: `host` è Claude Code sul computer (dall'app 3.x,
@@ -87,4 +87,34 @@ export function cliPathsOf(env: EnvValues): EnvValues | null {
   const home = realHomeOf(env)
 
   return home === null ? null : { HOME: home, USERPROFILE: home }
+}
+
+/** Il progetto dei task Cowork che non hanno una cartella collegata visibile al plugin. */
+export const COWORK_PROJECT = 'Cowork'
+
+/** Le cartelle di lavoro vuote da cui l'app avvia i task Cowork (`/var/empty`, anche risolta su macOS). */
+const PLACEHOLDER_CWDS = new Set(['/var/empty', '/private/var/empty'])
+
+/** `true` se la cartella di lavoro di un task non è una cartella dell'utente: vuota, o dentro i dati dell'app. */
+export function isPlaceholderCwd(cwd: string | null): boolean {
+  if (cwd === null || cwd.trim() === '' || !isAbsolute(cwd)) {
+    return true
+  }
+
+  return PLACEHOLDER_CWDS.has(trimSlash(slashed(cwd))) || isInCoworkSessions(cwd)
+}
+
+/**
+ * Il progetto di un task Cowork: la cartella di lavoro se è dell'utente,
+ * altrimenti la prima cartella collegata (assoluta e non dell'app),
+ * altrimenti il progetto fisso `Cowork`.
+ */
+export function coworkProjectOf(cwd: string | null, added: readonly unknown[]): string {
+  if (!isPlaceholderCwd(cwd)) {
+    return trimSlash(cwd as string)
+  }
+
+  const folder = added.find((dir): dir is string => typeof dir === 'string' && !isPlaceholderCwd(dir))
+
+  return folder === undefined ? COWORK_PROJECT : trimSlash(folder)
 }

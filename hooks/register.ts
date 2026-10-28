@@ -9,6 +9,7 @@ import { lengthsOf, safeName, toolEventOf } from './collect/tool-extract'
 import type { Host, OpenResult } from './host'
 import {
   adoptCliOptions,
+  adoptCoworkProject,
   attach,
   awaitToolMs,
   checkDocs,
@@ -131,6 +132,7 @@ export function register(on: On, raw: PluginOptions) {
     })
     await adoptCliOptions(tracker, host)
     await confirmRoot(tracker, host)
+    await adoptCoworkProject(tracker, host)
 
     tracker.ui.bandDisabled = (await host.storeGet('band').catch(() => undefined)) === 'off'
 

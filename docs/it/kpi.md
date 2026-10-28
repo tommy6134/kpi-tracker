@@ -17,7 +17,7 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 | Motivo di chiusura | clear, resume, logout, prompt_input_exit, other, interrotta | `session.end.reason`, heartbeat | S |
 | Durata | dall'inizio all'ultima attività | `$.session.usage().startedAt`, eventi | S |
 | Versioni di Claude Code | per segmento | `$.session.version()` | S |
-| Progetto, repo, branch | cartella di avvio, repo git, branch (e cambi) | `session.start.cwd`, `$.session.repo()`, `git rev-parse` | S/E |
+| Progetto, repo, branch | cartella di avvio, repo git, branch (e cambi). In Cowork, dove il task parte in `/var/empty`: la prima cartella collegata, altrimenti il progetto `Cowork` (senza repo né branch) | `session.start.cwd`, `$.session.repo()`, `git rev-parse`; in Cowork `permissions.additionalDirectories`, `git rev-parse --show-toplevel`, `git config --get remote.origin.url` (senza utente e password) | S/E |
 | Ripresa | secondi dall'ultima risposta, token di contesto, cache scaduta | `classic.SessionStart` (resume/fork) | S |
 | Sessione precedente/successiva | collegamento tra sessioni separate da `/clear` | storage | S |
 | Categoria di attività | facoltativa: da una parola chiave nel nome del branch, altrimenti dalla classe di file con più righe aggiunte (regole in `categorie.json`, vedi il README). Calcolata alla lettura, mai salvata | branch, `files.byClass` | S |

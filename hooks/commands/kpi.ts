@@ -107,7 +107,7 @@ async function ownerOf(ctx: KpiCommandContext): Promise<string> {
   }
 
   const cwd = tracker.launchCwd
-  const result = await host.run(['git', 'config', 'user.name'], { ...(cwd !== null && { cwd }), timeoutMs: 2000 }).catch(() => null)
+  const result = await host.run(['git', 'config', 'user.name'], { ...(cwd !== null && isAbsolute(cwd) && { cwd }), timeoutMs: 2000 }).catch(() => null)
 
   return result !== null && result.exitCode === 0 ? nameSlugOf(result.stdout.trim()) : ''
 }

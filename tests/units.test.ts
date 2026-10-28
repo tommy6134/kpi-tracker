@@ -9,7 +9,7 @@ import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/s
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import type { KpiSessionFile } from '../hooks/core/session-file'
 import { cliOptionsOf, optionsOf, withCliOptions } from '../hooks/config'
-import { cliPathsOf, coworkOf, isInCoworkSessions, realHomeOf } from '../hooks/core/cowork'
+import { cliPathsOf, coworkOf, coworkProjectOf, COWORK_PROJECT, isInCoworkSessions, isPlaceholderCwd, realHomeOf } from '../hooks/core/cowork'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
 import { dayKey, hourSlot, monthEnd, stampOf } from '../hooks/core/time'
@@ -21,7 +21,7 @@ import { categoriesOf, categoryOf, parseRules } from '../hooks/query/category'
 import { describeFilter, filterOf, matchesProject } from '../hooks/query/filters'
 import { compareDocs, DOCUMENT_EXT, parseDiff, parseStatus } from '../hooks/collect/docs'
 import { failedOutput, hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
-import { kindOf } from '../hooks/tracker'
+import { cleanRemote, kindOf } from '../hooks/tracker'
 import { toneOf, worstOf } from '../hooks/ui/palette'
 
 const T0 = Date.UTC(2026, 9, 12, 8, 0, 0)
@@ -553,6 +553,25 @@ describe('Cowork', () => {
     expect(kpiRootOf(paths ?? {}, '')).toBe('/Users/me/.claude/kpi')
     expect(kpiRootOf(paths ?? {}, '~/Documenti/kpi')).toBe('/Users/me/Documenti/kpi')
     expect(cliPathsOf({ CLAUDE_CONFIG_DIR: TASK })).toBeNull()
+  })
+
+  test('il progetto: la cartella di lavoro se è vera, poi la prima cartella collegata, poi Cowork', () => {
+    expect(isPlaceholderCwd('/var/empty')).toBe(true)
+    expect(isPlaceholderCwd('/private/var/empty/')).toBe(true)
+    expect(isPlaceholderCwd(`${TASK}/..`)).toBe(true)
+    expect(isPlaceholderCwd('Cowork')).toBe(true)
+    expect(isPlaceholderCwd('/Users/me/Documenti/offerte')).toBe(false)
+
+    expect(coworkProjectOf('/Users/me/lavoro/', [])).toBe('/Users/me/lavoro')
+    expect(coworkProjectOf('/var/empty', [TASK, 42, '/Users/me/offerte/'])).toBe('/Users/me/offerte')
+    expect(coworkProjectOf('/private/var/empty', [])).toBe(COWORK_PROJECT)
+    expect(coworkProjectOf(null, ['relativa'])).toBe(COWORK_PROJECT)
+  })
+
+  test('un URL remoto perde utente e token prima di andare su disco', () => {
+    expect(cleanRemote('https://mario:ghp_abc@github.com/org/repo.git')).toBe('https://github.com/org/repo.git')
+    expect(cleanRemote('git@github.com:org/repo.git')).toBe('git@github.com:org/repo.git')
+    expect(cleanRemote('ssh://git@host:22/org/repo')).toBe('ssh://host:22/org/repo')
   })
 
   test('le opzioni della CLI: la voce abilitata, poi il marketplace, poi @synced', () => {
