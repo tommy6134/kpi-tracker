@@ -12,6 +12,7 @@ In Cowork every task has a `.claude` of its own, inside the desktop app's `local
 | --- | --- |
 | `_meta/kpi-root.json` | root marker (`schemaVersion`, `plugin`, `createdAt`): pruning refuses to delete without it |
 | `categorie.json` or `categories.json` | optional rules of the activity categories, written by you (see the README): `/kpi` reads them, the plugin never writes them |
+| `_meta/ambiente-cowork.json` | written only by Cowork tasks at every start: what `/kpi env` shows, to find out where the plugin runs even where `/kpi` is not available |
 | `_meta/rebuild-r<N>.json` | written only by Cowork tasks: the mark of the automatic recomputation for computation version `N` (in the CLI it lives in the plugin's store, which in Cowork is the task's) |
 | `_meta/upstream.git/` | bare git repo with the plugin's latest commit, no checkout: present only if the marketplace lists the plugin with a URL, used by updates to read the version and `compat.json` (can be deleted, it is recreated) |
 | `_reports/report-<date-time>.html`, `latest.html` | HTML reports (in the `reportDir` folder, if set). `/kpi folder` creates the folder, with an empty `.keep`, if it does not exist yet |

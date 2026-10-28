@@ -14,7 +14,8 @@ The only network traffic comes from **updates** (the `autoUpdate` option, unless
 - Bash commands reduced to `program subcommand` (e.g. `git commit`, `mvn test`), with a category;
 - for commits: 7-character sha, kind, branch; for PRs: number, action, URL without query;
 - for WebFetch: the host only (e.g. `docs.spring.io`);
-- for documents created by commands (Word, Excel, PDF…): only how many, per extension.
+- for documents created by commands (Word, Excel, PDF…): only how many, per extension;
+- in Cowork only, `_meta/ambiente-cowork.json`, rewritten at every start: what `/kpi env` shows (session kind, Claude Code version, `HOME`, `USERPROFILE`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE`, folders and the name of the CLI's options entry). No other environment variable and no option value.
 
 ## What is never stored
 

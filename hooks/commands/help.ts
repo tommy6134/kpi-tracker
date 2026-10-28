@@ -19,6 +19,7 @@ const IT = `## /kpi · guida
 | \`/kpi pulisci --piu-vecchie-di 180d [--si]\` (\`prune --older-than\`) | Elenca (e con \`--si\` cancella) le sessioni più vecchie |
 | \`/kpi ricostruisci [filtri]\` (\`rebuild\`) | Ricalcola i KPI dagli eventi grezzi |
 | \`/kpi aggiorna [--verifica]\` (\`update --check\`) | Controlla gli aggiornamenti e installa l'ultima versione se il tuo Claude Code la supporta; \`--verifica\` controlla soltanto |
+| \`/kpi ambiente\` (\`env\`) | Dove gira kpi-tracker (CLI, app desktop, Cowork) e dove scrive: tipo di sessione, variabili, cartelle, opzioni |
 | \`/kpi aiuto\` (\`help\`) | Questa guida |
 
 **Filtri** (ripetibili, anche con valori separati da virgola):
@@ -46,6 +47,7 @@ const EN = `## /kpi · help
 | \`/kpi prune --older-than 180d [--yes]\` | Lists (and with \`--yes\` deletes) the older sessions |
 | \`/kpi rebuild [filters]\` | Recomputes the KPIs from the raw events |
 | \`/kpi update [--check]\` | Checks for updates and installs the latest version if your Claude Code supports it; \`--check\` only checks |
+| \`/kpi env\` | Where kpi-tracker runs (CLI, desktop app, Cowork) and where it writes: session kind, variables, folders, options |
 | \`/kpi help\` | This help |
 
 **Filters** (repeatable, also with comma-separated values):

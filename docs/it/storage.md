@@ -12,6 +12,7 @@ In Cowork ogni task ha una sua `.claude`, dentro `local-agent-mode-sessions` del
 | --- | --- |
 | `_meta/kpi-root.json` | marcatore della radice (`schemaVersion`, `plugin`, `createdAt`): la pulizia rifiuta di cancellare se manca |
 | `categorie.json` o `categories.json` | regole facoltative delle categorie di attività, scritte da te (vedi il README): `/kpi` le legge, il plugin non le scrive mai |
+| `_meta/ambiente-cowork.json` | scritto solo dai task Cowork a ogni avvio: quello che mostra `/kpi ambiente`, per sapere dove gira il plugin anche dove `/kpi` non c'è |
 | `_meta/rebuild-r<N>.json` | scritto solo dai task Cowork: il segno del ricalcolo automatico per la versione `N` del calcolo (nella CLI sta nello store del plugin, che in Cowork è del task) |
 | `_meta/upstream.git/` | repo git bare con l'ultimo commit del plugin, senza checkout: c'è solo se il marketplace indica il plugin con un URL, e serve agli aggiornamenti per leggere versione e `compat.json` (si può cancellare, si ricrea) |
 | `_reports/report-<data-ora>.html`, `latest.html` | report HTML (nella cartella `reportDir`, se impostata). `/kpi cartella` crea la cartella, con un `.keep` vuoto, se non c'è ancora |

@@ -14,7 +14,8 @@ L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`
 - comandi Bash ridotti a `programma sottocomando` (es. `git commit`, `mvn test`), con una categoria;
 - per i commit: sha a 7 caratteri, tipo, branch; per le PR: numero, azione, URL senza query;
 - per WebFetch: solo l'host (es. `docs.spring.io`);
-- per i documenti creati dai comandi (Word, Excel, PDF…): solo quanti, per estensione.
+- per i documenti creati dai comandi (Word, Excel, PDF…): solo quanti, per estensione;
+- solo in Cowork, `_meta/ambiente-cowork.json`, riscritto a ogni avvio: quello che mostra `/kpi ambiente` (tipo di sessione, versione di Claude Code, `HOME`, `USERPROFILE`, `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE`, cartelle e il nome della voce delle opzioni della CLI). Nessun'altra variabile d'ambiente e nessun valore delle opzioni.
 
 ## Cosa non si salva mai
 

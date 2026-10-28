@@ -47,6 +47,12 @@ export type Host = {
   bindingSet: (value: { sessionId: string; at: number } | null) => Promise<void>
   sessionId: () => Promise<string>
   sessionRoot: () => Promise<string>
+  /** La cartella in cui gira la sessione (per /kpi ambiente). */
+  sessionCwd: () => Promise<string>
+  /** Le superfici su cui la sessione disegna (`terminal`, `desktop`…); vuota dove non disegna niente. */
+  surfaces: () => Promise<readonly string[]>
+  /** I nomi dei comandi che la persona può lanciare ora. */
+  commandNames: () => Promise<string[]>
   usage: () => Promise<SessionUsage>
   repo: () => Promise<SessionRepo | null>
   version: () => Promise<{ version: string; base?: string }>

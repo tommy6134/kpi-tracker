@@ -20,6 +20,8 @@ export const EN = {
   'kpi-tracker non riesce a scrivere in {path}: i KPI di questo task Cowork restano nella cartella del task e si perdono quando lo cancelli.':
     'kpi-tracker cannot write to {path}: the KPIs of this Cowork task stay in the task folder and are lost when you delete it.',
   'Pannello KPI aperto.': 'KPI panel opened.',
+  "In Cowork il pannello non c'è: `/kpi` e gli altri comandi rispondono con il testo, e dalla CLI o dalla scheda Code vedi questi KPI con `--tipo cowork`.":
+    'Cowork has no panel: `/kpi` and the other commands answer with text, and from the CLI or the Code tab you see these KPIs with `--kind cowork`.',
   'Il pannello non si può mostrare ora: {reason}.': 'The panel cannot be shown now: {reason}.',
   'motivo sconosciuto': 'unknown reason',
   'La barra KPI è disattivata. Usa `/kpi barra on` o `/kpi barra off`.': 'The KPI band is off. Use `/kpi band on` or `/kpi band off`.',
@@ -68,7 +70,7 @@ export const EN = {
   '--{flag} non si combina con --{since} e --{until}': '--{flag} cannot be combined with --{since} and --{until}',
   'mese non valido per --{flag}: {value} (per esempio 2026-11 o 11/2026)': 'invalid month for --{flag}: {value} (for example 2026-11 or 11/2026)',
   'KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export': 'Claude Code usage KPIs: summary, live panel, statistics, sessions, HTML report, export',
-  '[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]': '[live|stats|sessions|projects|session|report|export|folder|prune|rebuild|band|update|help] [filters] [--lang it|en]',
+  '[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|ambiente|aiuto] [filtri] [--lingua it|en]': '[live|stats|sessions|projects|session|report|export|folder|prune|rebuild|band|update|env|help] [filters] [--lang it|en]',
   'KPI · sessione': 'KPI · session',
   'Cartella aperta: {dir}.': 'Folder opened: {dir}.',
   'Apri la cartella dal percorso: {dir}.': 'Open the folder from this path: {dir}.',
@@ -271,6 +273,22 @@ export const EN = {
   A: 'To',
   Origine: 'Origin',
 
+  // ------------------------------------------------------------ /kpi ambiente
+  'Ambiente di kpi-tracker': 'kpi-tracker environment',
+  sì: 'yes',
+  no: 'no',
+  'Tipo di sessione': 'Session kind',
+  Interattiva: 'Interactive',
+  Superfici: 'Surfaces',
+  'Cartella di lavoro': 'Working folder',
+  'Radice della sessione': 'Session root',
+  'Progetto KPI': 'KPI project',
+  'Cartelle aggiunte': 'Added folders',
+  'Opzioni dalla CLI': 'Options from the CLI',
+  'Marcatore della cartella dati': 'Data folder marker',
+  'Cartella dati non scrivibile': 'Data folder not writable',
+  'Comando /kpi registrato': '/kpi command registered',
+
   // ------------------------------------------------------------ manutenzione
   'Pulizia annullata: {root} non porta il marcatore di kpi-tracker ({marker}).': 'Prune cancelled: {root} does not carry the kpi-tracker marker ({marker}).',
   'Nessuna sessione con ultima attività prima del {date}.': 'No session with last activity before {date}.',
@@ -320,6 +338,10 @@ export const EN = {
   'Asset del report non trovati in {dir}: dati grezzi qui sotto.': 'Report assets not found in {dir}: raw data below.',
 
   // ------------------------------------------------------------ aggiornamenti
+  "in Cowork kpi-tracker viene dal tuo account claude.ai: lo aggiorna l'app (Customize → Plugins → Check for updates sul marketplace), e la versione nuova vale dal task successivo.":
+    'in Cowork kpi-tracker comes from your claude.ai account: the app updates it (Customize → Plugins → Check for updates on the marketplace), and the new version applies from the next task.',
+  "questa copia di kpi-tracker arriva dal tuo account claude.ai (`@synced`): si aggiorna quando cambia sull'account, all'avvio successivo di Claude Code.":
+    'this copy of kpi-tracker comes from your claude.ai account (`@synced`): it updates when it changes on the account, at the next start of Claude Code.',
   'codice di uscita {code}': 'exit code {code}',
   'versione illeggibile in {file} di {url}': 'unreadable version in {file} of {url}',
   '⚠ kpi-tracker {version} richiede Claude Code ≥ {min} (in uso {engine}) · claude update': '⚠ kpi-tracker {version} requires Claude Code ≥ {min} (running {engine}) · claude update',

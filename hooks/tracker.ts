@@ -24,7 +24,12 @@ import type { SessionStore } from './core/writer'
 import type { Host } from './host'
 import { i18nOf, type I18n } from './i18n'
 
-export type TrackerEnv = EnvValues & { CLAUDE_CODE_ENTRYPOINT?: string | undefined; CLAUDE_CODE_EXECPATH?: string | undefined }
+export type TrackerEnv = EnvValues & {
+  CLAUDE_CODE_ENTRYPOINT?: string | undefined
+  CLAUDE_CODE_EXECPATH?: string | undefined
+  /** Nel cloud (`cloud_default`…): solo per /kpi ambiente. */
+  CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE?: string | undefined
+}
 
 type Early = { body: KpiEventBody; t: number; a?: string }
 

@@ -67,6 +67,8 @@ export type Decision = { kind: 'aggiornato' } | { kind: 'bloccato'; minClaudeCod
 /** L'esito di un controllo. */
 export type CheckOutcome =
   | { kind: 'cartella' }
+  /** Il plugin viene dall'account claude.ai: in Cowork, o come copia `@synced` nella CLI. */
+  | { kind: 'account'; where: 'cowork' | 'synced' }
   | { kind: 'spento'; why: string }
   | { kind: 'rinviato' }
   | { kind: 'nativo'; marketplace: string }
@@ -253,7 +255,11 @@ async function runCheck(tracker: Tracker, request: { force: boolean; install: bo
   const L = tracker.i18n
 
   if (host === null || installation === null) {
-    return { kind: 'cartella' }
+    if (tracker.cowork !== null) {
+      return { kind: 'account', where: 'cowork' }
+    }
+
+    return host !== null && /[\\/]plugins[\\/]synced[\\/]/.test(host.pluginRoot) ? { kind: 'account', where: 'synced' } : { kind: 'cartella' }
   }
 
   const { configDir, marketplace, plugin } = installation
@@ -454,6 +460,10 @@ function outcomeText(L: I18n, outcome: CheckOutcome, engine: string): string {
   switch (outcome.kind) {
     case 'cartella':
       return L.t('kpi-tracker è caricato da una cartella (`--plugin-dir`), non da un marketplace: gli aggiornamenti automatici sono disattivati.')
+    case 'account':
+      return outcome.where === 'cowork'
+        ? L.t('in Cowork kpi-tracker viene dal tuo account claude.ai: lo aggiorna l\'app (Customize → Plugins → Check for updates sul marketplace), e la versione nuova vale dal task successivo.')
+        : L.t('questa copia di kpi-tracker arriva dal tuo account claude.ai (`@synced`): si aggiorna quando cambia sull\'account, all\'avvio successivo di Claude Code.')
     case 'spento':
       return outcome.why
     case 'rinviato':

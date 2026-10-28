@@ -134,6 +134,7 @@ The full format is in [docs/storage.md](docs/storage.md).
 | `/kpi prune --older-than 180d [--yes]` | Lists, and with `--yes` deletes, the older sessions |
 | `/kpi rebuild [filters]` | Recomputes the KPIs from the raw events |
 | `/kpi update [--check]` | Update status; installs the latest version right away if compatible (`--check` only checks) |
+| `/kpi env` | Where kpi-tracker runs (CLI, desktop app, Cowork) and where it writes: session kind, variables, folders, options |
 | `/kpi help` | Help |
 
 **Filters:** `--project <text|.>`, `--session <id>`, `--since` / `--until` (`today`, `yesterday`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026` day/month/year), `--month 2026-11` (or `11/2026`: since and until on that month), `--model`, `--kind interactive|print|sdk|desktop|vscode|cowork`, `--branch`, `--repo`, `--category` (see [Activity categories](#activity-categories)). Every subcommand and option also has its Italian name (`statistiche`, `sessioni`, `esporta`, `pulisci`, `--da`, `--mese`, `--progetto`, `--per`…), whatever the language.

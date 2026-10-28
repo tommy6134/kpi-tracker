@@ -19,6 +19,7 @@ export type Subcommand =
   | 'pulisci'
   | 'ricostruisci'
   | 'aggiorna'
+  | 'ambiente'
   | 'cartella'
   | 'aiuto'
 
@@ -49,6 +50,9 @@ const SUBCOMMANDS: Record<string, Subcommand> = {
   rebuild: 'ricostruisci',
   aggiorna: 'aggiorna',
   update: 'aggiorna',
+  ambiente: 'ambiente',
+  env: 'ambiente',
+  environment: 'ambiente',
   aiuto: 'aiuto',
   help: 'aiuto',
 }

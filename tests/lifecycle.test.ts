@@ -562,6 +562,23 @@ describe('Cowork sul computer', () => {
     expect(world.runs.some(argv => argv[0] === 'git')).toBe(false)
   })
 
+  test('a ogni avvio la sonda va in _meta/ambiente-cowork.json; /kpi aggiorna rimanda all\'account', IT, async ($, on) => {
+    const world = worldOf(on, { env: COWORK })
+    const clock = mock.clock(on)
+
+    await $.session.start(HEADLESS)
+    await clock.advance(100)
+
+    const probe = world.json<{ kind: string; cowork: string; entrypoint: string; dataRoot: string; env: { CLAUDE_CONFIG_DIR: string } }>(`${CLI_ROOT}/_meta/ambiente-cowork.json`)
+
+    expect(probe.kind).toBe('cowork')
+    expect(probe.cowork).toBe('host')
+    expect(probe.entrypoint).toBe('local-agent')
+    expect(probe.dataRoot).toBe(CLI_ROOT)
+    expect(probe.env.CLAUDE_CONFIG_DIR).toBe(`${TASK}/.claude`)
+    expect(((await $.command.run(command('kpi', 'aggiorna'))) as { text: string }).text).toContain('in Cowork kpi-tracker viene dal tuo account claude.ai')
+  })
+
   test('se la radice della CLI non si scrive, ripiega sulla cartella del task e /kpi lo dice', IT, async ($, on) => {
     const world = worldOf(on, { env: COWORK })
 

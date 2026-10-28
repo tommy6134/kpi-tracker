@@ -30,6 +30,7 @@ import {
 } from './tracker'
 import { i18nOf } from './i18n'
 import { migrateLanguage } from './i18n/migrate'
+import { writeProbe } from './commands/env-probe'
 import { fileMarks, rebuildOnce, storeMarks } from './maintenance/maintenance'
 import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
@@ -71,6 +72,9 @@ function hostOf($: EngineInterface): Host {
     },
     sessionId: () => $.session.id(),
     sessionRoot: () => $.session.root(),
+    sessionCwd: () => $.session.cwd(),
+    surfaces: () => $.session.surfaces(),
+    commandNames: async () => (await $.command.list()).map(command => command.name),
     usage: () => $.session.usage(),
     repo: () => $.session.repo(),
     version: () => $.session.version(),
@@ -129,6 +133,7 @@ export function register(on: On, raw: PluginOptions) {
       USERPROFILE: await $.env.get('USERPROFILE'),
       CLAUDE_CODE_ENTRYPOINT: await $.env.get('CLAUDE_CODE_ENTRYPOINT'),
       CLAUDE_CODE_EXECPATH: await $.env.get('CLAUDE_CODE_EXECPATH'),
+      CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE: await $.env.get('CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE'),
     })
     await adoptCliOptions(tracker, host)
     await confirmRoot(tracker, host)
@@ -142,7 +147,7 @@ export function register(on: On, raw: PluginOptions) {
       .registerCommand({
         name: 'kpi',
         description: L.t('KPI di utilizzo di Claude Code: riepilogo, pannello live, statistiche, sessioni, report HTML, export'),
-        argumentHint: L.t('[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|aiuto] [filtri] [--lingua it|en]'),
+        argumentHint: L.t('[live|statistiche|sessioni|progetti|sessione|report|esporta|cartella|pulisci|ricostruisci|barra|aggiorna|ambiente|aiuto] [filtri] [--lingua it|en]'),
         immediate: true,
       })
       .catch(() => undefined)
@@ -159,6 +164,11 @@ export function register(on: On, raw: PluginOptions) {
     pendingStart = null
     await attach(tracker, sessionId, pending?.source ?? 'startup', pending?.extra ?? {})
     void startUpdates(tracker).catch(() => undefined)
+
+    // In Cowork la sonda va anche su disco: /kpi lì potrebbe non esserci.
+    if (inCowork) {
+      void writeProbe(tracker, host).catch(() => undefined)
+    }
 
     if (maintains) {
       // La lingua dopo il ricalcolo: il suo config.set ricarica il modulo, che lo interromperebbe a metà.

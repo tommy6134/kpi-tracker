@@ -134,6 +134,7 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 | `/kpi pulisci --piu-vecchie-di 180d [--si]` | Elenca, e con `--si` cancella, le sessioni più vecchie |
 | `/kpi ricostruisci [filtri]` | Ricalcola i KPI dagli eventi grezzi |
 | `/kpi aggiorna [--verifica]` | Stato degli aggiornamenti; installa subito l'ultima versione se compatibile (`--verifica` controlla soltanto) |
+| `/kpi ambiente` | Dove gira kpi-tracker (CLI, app desktop, Cowork) e dove scrive: tipo di sessione, variabili, cartelle, opzioni |
 | `/kpi aiuto` | Guida |
 
 **Filtri:** `--progetto <testo|.>`, `--sessione <id>`, `--da` / `--a` (`oggi`, `ieri`, `7d`, `24h`, `2w`, `3m`, `2026-10-01`, `01/10/2026`), `--mese 2026-11` (o `11/2026`: da e a su quel mese), `--modello`, `--tipo interattiva|print|sdk|desktop|vscode|cowork`, `--branch`, `--repo`, `--categoria` (vedi [Categorie di attività](#categorie-di-attività)). Ogni sottocomando e opzione ha anche il nome inglese (`stats`, `sessions`, `export`, `prune`, `--since`, `--month`, `--project`, `--by`…), qualunque sia la lingua.

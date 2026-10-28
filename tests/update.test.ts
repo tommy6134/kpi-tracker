@@ -383,6 +383,18 @@ describe('controllo degli aggiornamenti', () => {
 
     expect((await checkForUpdates(dev.tracker, { force: true, install: true })).kind).toBe('cartella')
 
+    // Dall'account claude.ai: copia @synced nella CLI, o Cowork; nessun comando, e il testo dice chi aggiorna.
+    const synced = installed({ pluginRoot: `${CONFIG}/plugins/synced/kpi-tracker` })
+    const outcome = await checkForUpdates(synced.tracker, { force: true, install: true })
+
+    expect(outcome).toEqual({ kind: 'account', where: 'synced' })
+    expect(await updateReport(synced.tracker, synced.tracker.host as Host, outcome)).toContain('arriva dal tuo account claude.ai (`@synced`)')
+
+    const cowork = installed({ pluginRoot: '/Users/me/Library/Application Support/Claude/local-agent-mode-sessions/a/o/rpm/plugin_1' })
+
+    cowork.tracker.cowork = 'host'
+    expect(await checkForUpdates(cowork.tracker, { force: true, install: true })).toEqual({ kind: 'account', where: 'cowork' })
+
     const off = installed({ mode: 'off', remote: { version: '0.3.1' } })
 
     expect((await checkForUpdates(off.tracker, auto)).kind).toBe('spento')

@@ -189,6 +189,21 @@ describe('/kpi', () => {
     expect(((await $.command.run(command('kpi', 'stats --da domani'))) as { text: string }).text).toContain('data non valida')
   })
 
+  test('ambiente: tipo, variabili e cartella dati, in italiano e in inglese', IT, async ($, on) => {
+    worldOf(on)
+    mock.clock(on)
+    await $.session.start(SESSION)
+
+    const it = ((await $.command.run(command('kpi', 'ambiente --ctx'))) as { text: string }).text
+    const en = ((await $.command.run(command('kpi', 'env --lang en --ctx'))) as { text: string }).text
+
+    expect(it).toContain('## Ambiente di kpi-tracker')
+    expect(it).toContain('| Tipo di sessione | interattiva |')
+    expect(it).toContain(`| Cartella dati | \`${ROOT}\` |`)
+    expect(it).toContain('| Marcatore della cartella dati | sì |')
+    expect(en).toContain('| Session kind | interactive |')
+  })
+
   test('report HTML, export CSV/JSON e barra off', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)

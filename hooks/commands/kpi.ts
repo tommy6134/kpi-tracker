@@ -18,6 +18,7 @@ import { buildReport } from '../report/html'
 import { flushNow, noticeOf, pollCost, type Tracker } from '../tracker'
 import { checkForUpdates, updateReport } from '../update/update'
 import { daysOfAge, parseArgs, type ArgError } from './args'
+import { probeOf, probeText } from './env-probe'
 import { helpOf } from './help'
 import { projectsReport, sessionReport, sessionsReport, statsReport, summaryReport } from './report-text'
 
@@ -197,6 +198,10 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
     return done({ text: L.t('Argomenti non validi: {errors}.\n\nScrivi `/kpi aiuto` per la guida.', { errors: args.errors.map(error => argError(L, error)).join('; ') }) })
   }
 
+  if (args.sub === 'ambiente') {
+    return done({ text: probeText(L, await probeOf(tracker, host)), short: privateNote(L, L.t('Ambiente di kpi-tracker')), toModel })
+  }
+
   if (args.sub === 'aggiorna') {
     const outcome = await checkForUpdates(tracker, { force: true, install: !args.bools.has('verifica') })
 
@@ -211,6 +216,10 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
 
   if (args.sub === 'live') {
     const opened = await ctx.openPane()
+
+    if (!opened.isPlaced && tracker.cowork !== null) {
+      return done({ text: L.t('In Cowork il pannello non c\'è: `/kpi` e gli altri comandi rispondono con il testo, e dalla CLI o dalla scheda Code vedi questi KPI con `--tipo cowork`.') })
+    }
 
     return done({ text: opened.isPlaced ? L.t('Pannello KPI aperto.') : L.t('Il pannello non si può mostrare ora: {reason}.', { reason: opened.reason ?? L.t('motivo sconosciuto') }) })
   }
