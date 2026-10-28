@@ -24,6 +24,8 @@ export type World = {
   /** Ciò che rispondono `git status --porcelain=v2 -z` e `git diff --name-status -z` dei documenti. */
   gitStatus: string
   gitDiff: string
+  /** Le scritture che il motore rifiuta, come per un modulo già scaricato (`true` = rifiutata). */
+  refuseWrite: (path: string) => boolean
   /** Tutto il testo scritto su disco, per i controlli di privacy. */
   written: () => string
   /** I file scritti sotto un prefisso. */
@@ -89,6 +91,7 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     gitUser: '',
     gitStatus: '',
     gitDiff: '',
+    refuseWrite: () => false,
     written: () => [...world.files.values()].join('\n'),
     under: prefix => [...world.files.keys()].filter(path => path.startsWith(prefix)).sort(),
     json: <T,>(path: string) => JSON.parse(world.files.get(path) ?? 'null') as T,
@@ -155,6 +158,10 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
   })
 
   on('fs.write', ($, e) => {
+    if (world.refuseWrite(e.path)) {
+      return { deny: `modulo scaricato: ${e.path}` }
+    }
+
     tick += 1
     world.writes.push({ path: e.path, text: e.text })
     world.files.set(e.path, e.text)

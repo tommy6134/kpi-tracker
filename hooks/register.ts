@@ -153,13 +153,11 @@ export function register(on: On, raw: PluginOptions) {
     void startUpdates(tracker).catch(() => undefined)
 
     if (isInteractive) {
+      // La lingua dopo il ricalcolo: il suo config.set ricarica il modulo, che lo interromperebbe a metà.
       void rebuildOnce(host, L, root, sessionId)
         .then(line => line !== null && host.log(line))
         .catch(() => undefined)
-    }
-
-    if (isInteractive && tracker.options.language !== 'it') {
-      void migrateLanguage(host, root)
+        .then(() => tracker.options.language !== 'it' && migrateLanguage(host, root))
         .then(ok => ok && host.log(i18nOf('it').t('kpi-tracker ora parla anche inglese: resta in italiano come prima. Per cambiare lingua: /config → Language / Lingua.')))
         .catch(() => undefined)
     }

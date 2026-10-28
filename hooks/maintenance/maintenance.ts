@@ -99,8 +99,11 @@ export async function pruneSessions(host: Host, L: I18n, root: string, options: 
 /** L'esito di una ricostruzione: sessioni rifatte, eventi letti, saltate, costo totale prima e dopo. */
 export type RebuildResult = { done: number; events: number; skipped: string[]; costBefore: number; costAfter: number }
 
-/** Ricalcola summary e dettagli dagli eventi di ogni sessione, tranne quelle per cui `skip` è vero. */
-export async function rebuildAll(fs: HostFs, rows: readonly SessionRow[], skip: (row: SessionRow) => boolean): Promise<RebuildResult> {
+/**
+ * Ricalcola summary e dettagli dagli eventi di ogni sessione, tranne quelle
+ * per cui `skip` è vero; `done` dopo ognuna rifatta.
+ */
+export async function rebuildAll(fs: HostFs, rows: readonly SessionRow[], skip: (row: SessionRow) => boolean, done?: () => Promise<void>): Promise<RebuildResult> {
   const result: RebuildResult = { done: 0, events: 0, skipped: [], costBefore: 0, costAfter: 0 }
 
   for (const row of rows) {
@@ -119,8 +122,10 @@ export async function rebuildAll(fs: HostFs, rows: readonly SessionRow[], skip: 
     }
 
     file.summary = rebuilt.summary
-    await fs.write(join(row.dir, 'session.json'), JSON.stringify(file))
+    // Prima i dettagli: session.json porta `rv`, e una sessione col calcolo nuovo non si rifà più.
     await fs.write(join(row.dir, 'details.json'), JSON.stringify(rebuilt.details))
+    await fs.write(join(row.dir, 'session.json'), JSON.stringify(file))
+    await done?.()
     result.done += 1
     result.events += rebuilt.events
     result.costBefore += before
@@ -140,41 +145,55 @@ export async function rebuildSessions(fs: HostFs, L: I18n, rows: readonly Sessio
 /** La chiave di `$.store` che segna il ricalcolo per la versione corrente del summary. */
 export const REBUILD_KEY = `rebuild-r${REDUCER_VERSION}`
 
-/** Il segno del ricalcolo: quando è partito e le sessioni rimaste da rifare perché erano aperte in un altro processo. */
-type RebuildMark = { at: number; pending?: string[] }
+/**
+ * Il segno del ricalcolo. In corso (`running`): da quale sessione è partito e
+ * quando ha rifatto l'ultima. Finito: le sessioni rimaste da rifare perché
+ * erano aperte in un altro processo.
+ */
+type RebuildMark = { at: number; by?: string; running?: true; pending?: string[] }
+
+/** Dopo quanto un ricalcolo in corso che non avanza si considera interrotto (uscita, crash). */
+const REBUILD_STALE_MS = 10 * 60_000
 
 /**
  * Ricalcola dagli eventi le sessioni passate fatte con una versione
  * precedente del calcolo (`summary.rv`): una volta per versione, e di nuovo
  * agli avvii successivi solo per quelle che allora erano attive in un altro
- * processo. Il segno in `$.store` si scrive prima di partire, così due
- * processi non lo fanno insieme; la sessione in corso si ricalcola già
- * all'aggancio (core/binding.ts). Restituisce la riga per il transcript, o
- * `null` se non c'era nulla da fare.
+ * processo. Il segno in `$.store` dice "in corso" finché non ha finito, così
+ * due processi non lo fanno insieme. Un ricalcolo interrotto riparte: subito
+ * se l'ha lasciato questa sessione (il modulo si è ricaricato a metà, per
+ * esempio per il `config.set` della lingua), altrimenti quando non avanza da
+ * 10 minuti; le sessioni già rifatte hanno `rv` nuovo e si saltano. La
+ * sessione in corso si ricalcola già all'aggancio (core/binding.ts).
+ * Restituisce la riga per il transcript, o `null` se non c'era nulla da fare.
  */
 export async function rebuildOnce(host: Host, L: I18n, root: string, current: string | null): Promise<string | null> {
   const mark = (await host.storeGet(REBUILD_KEY).catch(() => null)) as RebuildMark | null | undefined
 
-  if (mark === null || (mark !== undefined && (mark.pending ?? []).length === 0)) {
+  if (mark === null) {
     return null
   }
 
   const now = await host.now()
+  const interrupted = mark?.running === true && (mark.by === current || now - mark.at > REBUILD_STALE_MS)
 
-  await host.storeSet(REBUILD_KEY, { at: now, pending: [] })
+  if (mark !== undefined && !interrupted && (mark.running === true || (mark.pending ?? []).length === 0)) {
+    return null
+  }
 
-  const wanted = mark === undefined ? null : new Set(mark.pending)
+  const running = (at: number): RebuildMark => ({ at, ...(current !== null && { by: current }), running: true })
+
+  await host.storeSet(REBUILD_KEY, running(now))
+
+  const wanted = mark === undefined || interrupted ? null : new Set(mark.pending)
   const rows = (await loadSessions(host.fs, root, emptyFilter(), [])).filter(
     row => row.file.sessionId !== current && (row.file.summary.rv ?? 1) < REDUCER_VERSION && (wanted === null || wanted.has(row.file.sessionId)),
   )
   const busy = (row: SessionRow): boolean => displayStatus(row.file, now) === 'attiva'
   const pending = rows.filter(busy).map(row => row.file.sessionId)
+  const result = await rebuildAll(host.fs, rows, busy, async () => host.storeSet(REBUILD_KEY, running(await host.now())).catch(() => undefined))
 
-  if (pending.length > 0) {
-    await host.storeSet(REBUILD_KEY, { at: now, pending })
-  }
-
-  const result = await rebuildAll(host.fs, rows, busy)
+  await host.storeSet(REBUILD_KEY, { at: await host.now(), pending })
 
   if (result.done === 0) {
     return null

@@ -381,6 +381,67 @@ describe('ciclo di vita della sessione', () => {
     expect(world.json<KpiSessionFile>(path).summary.rv).toBe(REDUCER_VERSION)
   })
 
+  test('un ricalcolo interrotto riparte; uno in corso in un altro processo si lascia finire, salvo che sia fermo', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const start = async (id: string): Promise<void> => {
+      world.session.id = id
+      world.session.usage = usageOf(0)
+      await $.session.start(SESSION)
+      await clock.advance(2000)
+    }
+
+    for (const id of ['5a4b3c2d-0000-0000-0000-000000000000', '6b5c4d3e-0000-0000-0000-000000000000']) {
+      await start(id)
+      world.session.usage = usageOf(0.4)
+      await $.session.measure({ context: { tokens: 24000, window: 200000, percent: 12 }, rateLimits: [], cost: { usd: 0.4 }, changed: ['cost'] })
+      await $.session.end({ reason: 'prompt_input_exit', sessionId: id, resume: { id } } as never)
+      await clock.advance(2000)
+    }
+
+    const dirs = sessionDirs(world).map(name => `${PROJECT_DIR}/${name}`)
+    // Come le avrebbe lasciate una versione precedente del calcolo.
+    const stale = (): void => {
+      for (const dir of dirs) {
+        const file = world.json<KpiSessionFile>(`${dir}/session.json`)
+
+        file.summary.cost.usd = 0.1
+        delete file.summary.rv
+        world.files.set(`${dir}/session.json`, JSON.stringify(file))
+      }
+    }
+    const costs = (): number[] => dirs.map(dir => Math.round(world.json<KpiSessionFile>(`${dir}/session.json`).summary.cost.usd * 100) / 100)
+
+    expect(dirs).toHaveLength(2)
+    stale()
+    world.store.delete(REBUILD_KEY)
+    // Il modulo scaricato a metà ricalcolo (config.set della lingua, /reload-plugins) non scrive più.
+    world.refuseWrite = path => dirs.some(dir => path.startsWith(`${dir}/`))
+    await start('7c6d5e4f-0000-0000-0000-000000000000')
+
+    expect(costs()).toEqual([0.1, 0.1])
+
+    // La ricarica rifà session.start nella stessa sessione: il ricalcolo riparte.
+    world.refuseWrite = () => false
+    await start('7c6d5e4f-0000-0000-0000-000000000000')
+
+    expect(costs()).toEqual([0.4, 0.4])
+    expect(world.store.get(REBUILD_KEY)).toMatchObject({ pending: [] })
+
+    // In corso in un altro processo da poco: lo si lascia finire.
+    stale()
+    world.store.set(REBUILD_KEY, { at: clock.now(), by: '8d7e6f5a-0000-0000-0000-000000000000', running: true })
+    await start('9e8f7a6b-0000-0000-0000-000000000000')
+
+    expect(costs()).toEqual([0.1, 0.1])
+
+    // Fermo da più di 10 minuti (uscita, crash): riparte.
+    world.store.set(REBUILD_KEY, { at: clock.now() - 11 * 60_000, by: '8d7e6f5a-0000-0000-0000-000000000000', running: true })
+    await start('af9e8b7c-0000-0000-0000-000000000000')
+
+    expect(costs()).toEqual([0.4, 0.4])
+  })
+
   test('una sessione -p è di tipo print e salva a fine turno', IT, async ($, on) => {
     const world = worldOf(on)
 
