@@ -70,7 +70,7 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 | Subagent share | subagent tokens over the total | `agentId` | S |
 | Cost | USD computed by Claude Code: sum of the ledger's deltas, including what was spent between one segment and the next (module reload, resume from a new process) | `session.measure.cost.usd`, `$.session.usage().cost` | S |
 | Cost per turn | cost delta between two end-of-turn measurements, attributed to the last turn | derived | T |
-| Cost outside turns | the part of the cost spent outside a main turn: background subagents that finish later, service calls, exit. `session.measure` fires only at the end of a turn, so the ledger is read when a subagent finishes, every minute, before `/kpi` and when the session closes | `$.session.usage().cost` | S |
+| Cost outside turns | the part of the cost spent outside a main turn: background subagents that finish later, service calls, exit. `session.measure` fires only at the end of a turn, so the ledger is read when a subagent finishes, every minute, before `/kpi` and when the session closes. On sessions recorded by 0.3.0, a `/resume` inside a process that had worked on another session after the resumed one had been closed normally counts the difference with the other session's cost too: those events do not say whether the process changed | `$.session.usage().cost` | S |
 | Cost per commit, per 100 lines, per session | | derived | A |
 | Context | fill % (max, mean at turn end, last), window size | `session.measure.context` | T |
 | Compactions | by trigger (manual, auto…), tokens before/after, reduction %, tokens spent | `session.compact` | E |

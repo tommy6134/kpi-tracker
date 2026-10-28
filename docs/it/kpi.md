@@ -70,7 +70,7 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 | Quota dei subagent | token dei subagent sul totale | `agentId` | S |
 | Costo | USD calcolati da Claude Code: somma dei delta del ledger, compreso quanto speso tra un segmento e l'altro (ricarica del modulo, ripresa da un processo nuovo) | `session.measure.cost.usd`, `$.session.usage().cost` | S |
 | Costo per turno | delta di costo tra due misurazioni di fine turno, attribuito all'ultimo turno | derivato | T |
-| Costo fuori dai turni | la parte del costo spesa fuori da un turno principale: subagent in background che finiscono dopo, chiamate di servizio, uscita. `session.measure` scatta solo a fine turno, quindi si legge il ledger quando finisce un subagent, ogni minuto, prima di `/kpi` e alla chiusura | `$.session.usage().cost` | S |
+| Costo fuori dai turni | la parte del costo spesa fuori da un turno principale: subagent in background che finiscono dopo, chiamate di servizio, uscita. `session.measure` scatta solo a fine turno, quindi si legge il ledger quando finisce un subagent, ogni minuto, prima di `/kpi` e alla chiusura. Nelle sessioni registrate dalla 0.3.0, un `/resume` dentro un processo che aveva lavorato su un'altra sessione, dopo che quella ripresa era stata chiusa normalmente, conta anche la differenza col costo dell'altra: quegli eventi non dicono se il processo era cambiato | `$.session.usage().cost` | S |
 | Costo per commit, per 100 righe, per sessione | | derivato | A |
 | Contesto | riempimento % (massimo, medio a fine turno, ultimo), dimensione della finestra | `session.measure.context` | T |
 | Compattazioni | per trigger (manual, auto…), token prima/dopo, riduzione %, token spesi | `session.compact` | E |

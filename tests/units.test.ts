@@ -679,6 +679,13 @@ describe('costo tra i segmenti', () => {
     expect(near(costOf([['startup', 0, [1], 'prompt_input_exit', 0], ['resume', 3, [3.2], null, 0]]).usd, 3.2)).toBe(true)
   })
 
+  test('limite noto senza `sw` (0.3.0): un /resume in un processo che ha lavorato su un\'altra sessione, dopo un\'uscita normale, conta il costo dell\'altra', () => {
+    // A esce dopo $1; un altro processo spende $3 sulla sessione B e riprende A: il ledger è quello di B, e i $2 vanno ad A.
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit'], ['resume', 3, [3.2], null]]).usd, 3.2)).toBe(true)
+    // Dalla 0.4.0 `sw` dice il cambio nello stesso processo.
+    expect(near(costOf([['startup', 0, [1], 'prompt_input_exit', 0], ['resume', 3, [3.2], null, 1]]).usd, 1.2)).toBe(true)
+  })
+
   test('ledger azzerato o più basso: nessun recupero, e un avvio nuovo non recupera mai', () => {
     expect(near(costOf([['startup', 0, [1], 'prompt_input_exit'], ['resume', 0.1, [0.3], null]]).usd, 1.2)).toBe(true)
     expect(near(costOf([['startup', 0, [1], 'prompt_input_exit'], ['startup', 2, [2.5], null]]).usd, 1.5)).toBe(true)

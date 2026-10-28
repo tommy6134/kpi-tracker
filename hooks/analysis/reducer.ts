@@ -121,6 +121,9 @@ export function ledgerGap(seg: SegLedger, src: string): number {
   }
 
   // Prima della 0.4.0 il cambio nello stesso processo si deduce da come è finito il segmento precedente.
+  // Non si vede un /resume in un processo che ha lavorato su un'altra sessione dopo un'uscita normale
+  // di questa: si conta anche il costo dell'altra. Lasciato così: sui dati reali della 0.3.0 le riprese
+  // dopo un'uscita vengono da un processo nuovo, e contare il passaggio dà il costo di /cost.
   const sameProcess = seg.sw === undefined ? seg.end !== null && SWITCH_ENDS.has(seg.end) : seg.sw === 1
 
   return sameProcess ? 0 : seg.cost0 - seg.prev
