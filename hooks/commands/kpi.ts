@@ -1,5 +1,6 @@
 /** Il dispatcher di /kpi. */
 
+import type { CoworkMode } from '../core/cowork'
 import { openPath, type Platform } from '../core/open'
 import { dirName, hasHiddenSegment, isAbsolute, join, resolvePath, trimSlash, REPORTS_DIR, EXPORTS_DIR } from '../core/paths'
 import { readJson } from '../core/recover'
@@ -153,6 +154,19 @@ async function loadCategories(tracker: Tracker, host: Host, root: string, L: I18
   return 'error' in parsed ? { categories: null, warning: L.t('Categorie spente: {path} non è valido: {error}.', { path, error: parsed.error }) } : { categories: categoriesOf(L, parsed.rules), warning: null }
 }
 
+/** Perché non c'è una cartella dati: Cowork nel cloud o nella VM, altrimenti ambiente e opzione. */
+function noRootText(L: I18n, cowork: CoworkMode | null): string {
+  if (cowork === 'cloud') {
+    return L.t('kpi-tracker: questo task Cowork gira nel cloud, dove i file si perdono a fine task, quindi non viene misurato. I task che girano sul computer sì: in Cowork spegni "Run new tasks in the cloud".')
+  }
+
+  if (cowork === 'vm') {
+    return L.t('kpi-tracker: in questo task Cowork Claude Code gira dentro la macchina virtuale, che si azzera a fine task, quindi non viene misurato.')
+  }
+
+  return L.t('kpi-tracker: cartella dati non disponibile (né CLAUDE_CONFIG_DIR né HOME sono definite, oppure dataDir non è un percorso assoluto).')
+}
+
 /** Un errore degli argomenti nella lingua di `L`. */
 const argError = (L: I18n, error: ArgError): string =>
   error.kind === 'valore' ? L.t('--{name} richiede un valore', { name: error.name }) : L.t('opzione sconosciuta --{name}', { name: error.name })
@@ -192,7 +206,7 @@ export async function runKpi(ctx: KpiCommandContext, argsText: string): Promise<
   const root = tracker.root
 
   if (root === null) {
-    return done({ text: L.t('kpi-tracker: cartella dati non disponibile (né CLAUDE_CONFIG_DIR né HOME sono definite, oppure dataDir non è un percorso assoluto).') })
+    return done({ text: noRootText(L, tracker.cowork) })
   }
 
   if (args.sub === 'live') {

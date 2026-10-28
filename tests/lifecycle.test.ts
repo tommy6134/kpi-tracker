@@ -1,9 +1,9 @@
-import { describe, expect, mock, test } from 'claude-code/testing'
+import { describe, expect, mock, test, type TestBody } from 'claude-code/testing'
 
 import { REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import type { KpiProjectFile, KpiSessionFile } from '../hooks/core/session-file'
 import { REBUILD_KEY } from '../hooks/maintenance/maintenance'
-import { classicStart, HEADLESS, IT, SESSION } from './fixtures/inputs'
+import { classicStart, command, EN, HEADLESS, IT, SESSION } from './fixtures/inputs'
 import { CWD, PROJECT_DIR, ROOT, SESSION_ID, usageOf, worldOf } from './fixtures/world'
 
 const sessionDirs = (world: ReturnType<typeof worldOf>): string[] =>
@@ -454,5 +454,33 @@ describe('ciclo di vita della sessione', () => {
 
     expect(file.kind).toBe('print')
     expect(file.summary.turns.main).toBe(1)
+  })
+})
+
+describe('Cowork nel cloud e nella VM', () => {
+  const kpiText = async ($: Parameters<TestBody>[0], args = '') => ((await $.command.run(command('kpi', args))) as { text: string }).text
+
+  test('nel cloud non si scrive niente e /kpi spiega perché', IT, async ($, on) => {
+    const world = worldOf(on, { env: { CLAUDE_CODE_ENTRYPOINT: 'remote_cowork', HOME: '/home/claude', CLAUDE_CONFIG_DIR: '/home/claude/.claude' } })
+
+    mock.clock(on)
+    await $.session.start(HEADLESS)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+    await $.turn.complete({ answer: '', durationMs: 10, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+
+    expect(world.writes).toEqual([])
+    expect(await kpiText($)).toContain('gira nel cloud')
+    expect(await kpiText($, 'sessioni')).toContain('non viene misurato')
+    expect(world.writes).toEqual([])
+  })
+
+  test('con Claude Code dentro la VM non si scrive niente, in inglese il testo è tradotto', EN, async ($, on) => {
+    const world = worldOf(on, { env: { CLAUDE_CODE_ENTRYPOINT: 'local-agent', HOME: '/sessions/brave-owl', CLAUDE_CONFIG_DIR: '/sessions/brave-owl/mnt/.claude' } })
+
+    mock.clock(on)
+    await $.session.start(HEADLESS)
+
+    expect(world.writes).toEqual([])
+    expect(await kpiText($)).toContain('runs inside the virtual machine')
   })
 })

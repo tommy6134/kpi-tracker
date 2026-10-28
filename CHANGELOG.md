@@ -3,6 +3,7 @@
 ## Unreleased
 
 - New session kind **cowork**: tasks of Cowork, the agent mode of the Claude desktop app, are recognised from `CLAUDE_CODE_ENTRYPOINT` (`local-agent`, `remote_cowork` in the cloud) or from a configuration folder inside the app's `local-agent-mode-sessions`, before the desktop surface. `--kind cowork` filters them.
+- A Cowork task that runs in the cloud, or with Claude Code inside the virtual machine, is not recorded: its files would be lost when the task ends. `/kpi` says so and why.
 
 ## 0.5.8
 

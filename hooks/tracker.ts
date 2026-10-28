@@ -331,11 +331,15 @@ function refineSource(tracker: Tracker, store: SessionStore, source: string, ext
   tracker.host?.invalidate()
 }
 
-/** Imposta la radice dei dati dalle variabili d'ambiente e dall'opzione. */
+/**
+ * Imposta la radice dei dati dalle variabili d'ambiente e dall'opzione. Un
+ * task Cowork nel cloud o dentro la VM non ha radice: i file si perderebbero
+ * a fine task, quindi non si registra niente.
+ */
 export function setRoot(tracker: Tracker, env: TrackerEnv): void {
   tracker.env = env
   tracker.cowork = coworkOf(env)
-  tracker.root = kpiRootOf(env, tracker.options.dataDir)
+  tracker.root = tracker.cowork === 'cloud' || tracker.cowork === 'vm' ? null : kpiRootOf(env, tracker.options.dataDir)
 }
 
 /** Salva subito quanto in attesa. */

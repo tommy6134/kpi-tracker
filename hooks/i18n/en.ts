@@ -13,6 +13,10 @@ export const EN = {
   'Argomenti non validi: {errors}.\n\nScrivi `/kpi aiuto` per la guida.': 'Invalid arguments: {errors}.\n\nType `/kpi help` for the help.',
   "{what}: mostrato all'utente, non incluso nel contesto (usa /kpi … --ctx per includerlo).": '{what}: shown to the user, not included in the context (use /kpi … --ctx to include it).',
   'kpi-tracker: cartella dati non disponibile (né CLAUDE_CONFIG_DIR né HOME sono definite, oppure dataDir non è un percorso assoluto).': 'kpi-tracker: data folder not available (neither CLAUDE_CONFIG_DIR nor HOME is set, or dataDir is not an absolute path).',
+  'kpi-tracker: questo task Cowork gira nel cloud, dove i file si perdono a fine task, quindi non viene misurato. I task che girano sul computer sì: in Cowork spegni "Run new tasks in the cloud".':
+    'kpi-tracker: this Cowork task runs in the cloud, where files are lost when the task ends, so it is not measured. Tasks that run on your computer are: in Cowork turn off "Run new tasks in the cloud".',
+  'kpi-tracker: in questo task Cowork Claude Code gira dentro la macchina virtuale, che si azzera a fine task, quindi non viene misurato.':
+    'kpi-tracker: in this Cowork task Claude Code runs inside the virtual machine, which is reset when the task ends, so it is not measured.',
   'Pannello KPI aperto.': 'KPI panel opened.',
   'Il pannello non si può mostrare ora: {reason}.': 'The panel cannot be shown now: {reason}.',
   'motivo sconosciuto': 'unknown reason',
