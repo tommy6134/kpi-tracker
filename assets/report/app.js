@@ -7,7 +7,7 @@
   var SVGNS = 'http://www.w3.org/2000/svg'
 
   // Indici delle tuple (vedi hooks/report/html.ts).
-  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35, rejected: 36, clsDenied: 37, category: 38 }
+  var S = { id: 0, project: 1, path: 2, kind: 3, start: 4, last: 5, status: 6, branches: 7, models: 8, repo: 9, segments: 10, ctxMax: 11, r5: 12, r7: 13, compactions: 14, agents: 15, pushes: 16, prs: 17, testsOk: 18, testsKo: 19, buildsOk: 20, buildsKo: 21, created: 22, modified: 23, read: 24, subTurns: 25, ttft: 26, allow: 27, ask: 28, deny: 29, dialogs: 30, turnErr: 31, interrupts: 32, refusals: 33, version: 34, costOut: 35, rejected: 36, clsDenied: 37, category: 38, docs: 39, docsRegen: 40 }
   var DAY = { s: 0, day: 1, cost: 2, inp: 3, out: 4, cr: 5, cw: 6, turns: 7, active: 8, prompts: 9, req: 10, tools: 11, toolErr: 12, add: 13, del: 14, commits: 15 }
 
   // ------------------------------------------------------------ lingua
@@ -104,6 +104,11 @@
     'Comando': 'Command',
     'Volte': 'Times',
     'Righe per estensione': 'Lines per extension',
+    'Documenti creati': 'Documents created',
+    'Per estensione, dai comandi Bash (git status del repo)': 'By extension, from Bash commands (git status of the repo)',
+    'Creati': 'Created',
+    'Rigenerati': 'Regenerated',
+    'Documenti creati · rigenerati': 'Documents created · regenerated',
     'Aggiunte + rimosse': 'Added + removed',
     'aggiunte': 'added',
     'rimosse': 'removed',
@@ -705,6 +710,8 @@
     }, { head: [t('Modello'), t('Richieste'), 'Input', 'Output', t('Cache letta'), t('Cache scritta')], rows: models.map(function (x) { return [x.name, int(x.v[0]), int(x.v[1]), int(x.v[2]), int(x.v[3]), int(x.v[4])] }), num: [1, 2, 3, 4, 5] })
     var cmds = mapSum(rows, 'b', null, D.cmds).slice(0, 12)
     card(t('Comandi Bash più usati'), t('Solo programma e sottocomando'), null, function (n) { hbars(n, cmds.map(function (x) { return { label: x.name, value: x.v[0] } }), int, C.s1) }, { head: [t('Comando'), t('Volte'), 'Ok', t('Errori')], rows: cmds.map(function (x) { return [x.name, int(x.v[0]), int(x.v[1]), int(x.v[2])] }), num: [1, 2, 3] })
+    var docs = mapSum(rows, 'u', function (v) { return v[0] + v[1] }, D.exts)
+    if (docs.length) card(t('Documenti creati'), t('Per estensione, dai comandi Bash (git status del repo)'), null, function (n) { hbars(n, docs.map(function (x) { return { label: x.name, value: x.v[0] + x.v[1], created: x.v[0], regen: x.v[1] } }), int, C.s1, function (it) { return [{ value: int(it.created), label: t('Creati') }, { value: int(it.regen), label: t('Rigenerati') }] }) }, { head: [t('Estensione'), t('Creati'), t('Rigenerati')], rows: docs.map(function (x) { return [x.name, int(x.v[0]), int(x.v[1])] }), num: [1, 2] })
     var exts = mapSum(rows, 'x', function (v) { return v[1] + v[2] }, D.exts).slice(0, 12)
     card(t('Righe per estensione'), t('Aggiunte + rimosse'), null, function (n) { hbars(n, exts.map(function (x) { return { label: x.name, value: x.v[1] + x.v[2], add: x.v[1], del: x.v[2] } }), int, C.s1, function (it) { return [{ value: '+' + int(it.add), label: t('aggiunte') }, { value: '−' + int(it.del), label: t('rimosse') }] }) }, { head: [t('Estensione'), t('Modifiche'), t('Aggiunte'), t('Rimosse')], rows: exts.map(function (x) { return [x.name, int(x.v[0]), int(x.v[1]), int(x.v[2])] }), num: [1, 2, 3] })
 
@@ -818,7 +825,7 @@
       [t('TTFT mediano'), s[S.ttft] ? dur(s[S.ttft]) : '–'], [t('Contesto max'), int(s[S.ctxMax]) + '%'], [t('Rate limit 5h · 7g (max)'), (s[S.r5] >= 0 ? int(s[S.r5]) + '%' : '–') + ' · ' + (s[S.r7] >= 0 ? int(s[S.r7]) + '%' : '–')],
       [t('Compattazioni'), int(s[S.compactions])], [t('Tool (errori)'), int(tt.tools) + ' (' + int(tt.toolErr) + ')'], [t('Righe'), '+' + int(tt.add) + ' −' + int(tt.del)],
       [t('File creati · modificati · letti'), int(s[S.created]) + ' · ' + int(s[S.modified]) + ' · ' + int(s[S.read])], [t('Commit · push · PR'), int(tt.commits) + ' · ' + int(s[S.pushes]) + ' · ' + int(s[S.prs])],
-      [t('Test ok · ko'), int(s[S.testsOk]) + ' · ' + int(s[S.testsKo])], [t('Build ok · ko'), int(s[S.buildsOk]) + ' · ' + int(s[S.buildsKo])], ['Subagent', int(s[S.agents])],
+      [t('Test ok · ko'), int(s[S.testsOk]) + ' · ' + int(s[S.testsKo])], [t('Build ok · ko'), int(s[S.buildsOk]) + ' · ' + int(s[S.buildsKo])], [t('Documenti creati · rigenerati'), int(s[S.docs] || 0) + ' · ' + int(s[S.docsRegen] || 0)], ['Subagent', int(s[S.agents])],
       [t('Permessi consentiti · chiesti · negati · rifiutati'), int(s[S.allow]) + ' · ' + int(s[S.ask]) + ' · ' + int(s[S.deny] + (s[S.clsDenied] || 0)) + ' · ' + int(s[S.rejected] || 0)], [t('Errori turno · interruzioni · rifiuti'), int(s[S.turnErr]) + ' · ' + int(s[S.interrupts]) + ' · ' + int(s[S.refusals])],
     ]
     // Dopo Branch: la categoria, se attiva.

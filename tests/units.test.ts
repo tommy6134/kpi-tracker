@@ -17,6 +17,7 @@ import { i18nOf, langOf } from '../hooks/i18n'
 import { embedJson, escapeHtml } from '../hooks/report/html'
 import { categoriesOf, categoryOf, parseRules } from '../hooks/query/category'
 import { describeFilter, filterOf, matchesProject } from '../hooks/query/filters'
+import { compareDocs, DOCUMENT_EXT, parseDiff, parseStatus } from '../hooks/collect/docs'
 import { hostOf as urlHost, statusOf } from '../hooks/collect/tool-extract'
 import { kindOf } from '../hooks/tracker'
 import { toneOf, worstOf } from '../hooks/ui/palette'
@@ -263,6 +264,44 @@ describe('righe di codice', () => {
     expect(state.summary.files.byClass).toEqual({ cobol: { n: 1, add: 7, del: 1 }, mainframe: { n: 1, add: 3, del: 0 } })
     expect(state.details.files['/w/src/PAYROLL.cbl']?.cls).toBe('cobol')
     expect(state.summary.rv).toBe(REDUCER_VERSION)
+  })
+})
+
+describe('documenti creati', () => {
+  test('git status porcelain v2: HEAD, nuovi, modificati, rinominati; cancellati e altri file esclusi', () => {
+    const text = [
+      '# branch.oid 582dbd048743be376092c2233078e62b62ab9396',
+      '# branch.head main',
+      '1 .M N... 100644 100644 100644 7898192 7898192 conti/budget 2026.xlsx',
+      '1 A. N... 000000 100644 100644 0000000 1234567 nuovo.odt',
+      '1 .D N... 100644 100644 000000 7898192 7898192 vecchio.pdf',
+      '2 R. N... 100644 100644 100644 7898192 7898192 R100 slides/finale.pptx',
+      'slides/bozza.pptx',
+      '? sub dir/Relazione.DOCX',
+      '? appunti.txt',
+      '',
+    ].join('\0')
+    const parsed = parseStatus(text)
+
+    expect(parsed.head).toBe('582dbd048743be376092c2233078e62b62ab9396')
+    expect([...parsed.files]).toEqual([
+      ['conti/budget 2026.xlsx', 'changed'],
+      ['nuovo.odt', 'new'],
+      ['slides/finale.pptx', 'changed'],
+      ['sub dir/Relazione.DOCX', 'new'],
+    ])
+    expect(parseStatus('# branch.oid (initial)\0').head).toBe(null)
+    expect(parseDiff(['A', 'a.pdf', 'M', 'b.xlsx', 'R100', 'c.doc', 'd.docx', 'A', 'e.txt', ''].join('\0'))).toEqual({ added: ['a.pdf'], modified: ['b.xlsx'] })
+  })
+
+  test('confronto: creati, rigenerati per stato o ora di modifica, aggiunti o modificati in un commit', () => {
+    const snap = (entries: [string, 'new' | 'changed', number | null][], head = 'a1b2c3d') => ({ head, files: new Map(entries.map(([path, state, mtime]) => [path, { state, mtime }])) })
+    const before = snap([['old.pdf', 'new', 1], ['budget.xlsx', 'changed', 5]])
+    const after = snap([['old.pdf', 'new', 2], ['budget.xlsx', 'changed', 5], ['nuovo.docx', 'new', 3], ['slides.pptx', 'changed', 4]])
+
+    expect(compareDocs(before, after, null)).toEqual({ created: { docx: 1 }, regen: { pdf: 1, pptx: 1 } })
+    expect(compareDocs(before, snap([]), { added: ['x.odt', 'old.pdf'], modified: ['y.ods', 'budget.xlsx'] })).toEqual({ created: { odt: 1 }, regen: { ods: 1 } })
+    expect(DOCUMENT_EXT.every(ext => classOf(`/w/out/file.${ext}`) === 'doc')).toBe(true)
   })
 })
 

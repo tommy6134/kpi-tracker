@@ -233,6 +233,7 @@ Documentation (in Italian in [docs/it/](docs/it/)): [KPI catalogue](docs/kpi.md)
 - Of the **user's answer** in a permission dialog only the "no" is seen (since 0.5.0; before, it counted as an interruption): decisions, dialogs, denials and rejections are counted.
 - The outcome of **piped** Bash commands reflects only the last command.
 - On **Linux** browsers installed as snap or flatpak (Firefox on Ubuntu, Brave, Chromium) cannot read hidden folders such as `~/.claude`: `/kpi report` then opens a copy of the report in the Downloads folder (`kpi-report.html`, overwritten each time). To avoid the copy set `reportDir` to a visible folder, for example `~/Documents/kpi`.
+- **Documents created** (Word, Excel, PDF…) are seen only inside a git repo: files outside it, ignored by git or created and deleted in the same turn are not counted.
 - Sessions from before the install are not imported.
 
 ## License

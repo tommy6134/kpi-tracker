@@ -5,7 +5,7 @@
  * leggono dal plugin; niente CDN.
  */
 
-import { percentileOf } from '../analysis/stats'
+import { percentileOf, totalOf } from '../analysis/stats'
 import { fileUrlOf, join } from '../core/paths'
 import { displayStatus } from '../core/session-file'
 import type { HostFs } from '../host'
@@ -133,6 +133,8 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       s.perms.denied,
       // Le sessioni senza categoria hanno la loro voce, così il filtro le può scegliere.
       categories === null ? -1 : idx(dicts.categories, categories.of(file) ?? NO_CATEGORY_GROUP),
+      totalOf(s.docs?.created),
+      totalOf(s.docs?.regen),
     ])
 
     maps.push({
@@ -142,6 +144,7 @@ export function datasetOf(rows: readonly SessionRow[], meta: ReportMeta): { data
       m: Object.entries(s.byModel).map(([model, agg]) => [idx(dicts.models, model), agg.req, agg.in, agg.out, agg.cr, agg.cw]),
       x: Object.entries(s.files.byExt).map(([ext, agg]) => [idx(dicts.exts, ext), agg.n, agg.add, agg.del]),
       k: Object.entries(s.files.byClass).map(([cls, agg]) => [idx(dicts.classes, cls), agg.add, agg.del]),
+      u: [...new Set([...Object.keys(s.docs?.created ?? {}), ...Object.keys(s.docs?.regen ?? {})])].map(ext => [idx(dicts.exts, ext), s.docs?.created[ext] ?? 0, s.docs?.regen[ext] ?? 0]),
       a: Object.entries(s.agents.byType).map(([type, agg]) => [idx(dicts.agents, type), agg.n, Math.round(agg.ms), agg.tok, agg.tools, agg.err]),
       s: Object.entries(s.skills).map(([name, agg]) => [idx(dicts.skills, name), agg.n]),
       o: Object.entries(s.commands).map(([name, count]) => [idx(dicts.commands, name), count]),

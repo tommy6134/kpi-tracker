@@ -600,6 +600,20 @@ export function apply(state: ReduceState, event: KpiEvent): ReduceState {
       }
 
       break
+
+    case 'docs': {
+      const docs = (s.docs ??= { created: {}, regen: {} })
+
+      for (const [ext, count] of Object.entries(event.cr ?? {})) {
+        bump(docs.created, ext, count)
+      }
+
+      for (const [ext, count] of Object.entries(event.rg ?? {})) {
+        bump(docs.regen, ext, count)
+      }
+
+      break
+    }
   }
 
   return state

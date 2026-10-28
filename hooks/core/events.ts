@@ -169,6 +169,8 @@ export type KpiEventBody =
   | { e: 'instr'; mt: string; lr: string }
   | { e: 'cwd'; to: string }
   | { e: 'task'; ev: 'created' | 'completed' }
+  /** Documenti creati e rigenerati da un turno, per estensione (dalla 0.5.0; mai i nomi dei file). */
+  | { e: 'docs'; cr?: Record<string, number>; rg?: Record<string, number> }
 
 export type KpiEvent = Base & KpiEventBody
 

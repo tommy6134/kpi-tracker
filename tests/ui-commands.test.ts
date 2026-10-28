@@ -205,9 +205,9 @@ describe('/kpi', () => {
     expect(csv).toContain('formato Excel italiano')
     expect(world.files.get(csvPath)?.startsWith('﻿inizio;progetto;percorso;sessione')).toBe(true)
     expect(world.files.get(csvPath)?.split('\r\n')[0]).toMatch(
-      /;versione;tool_negate;rifiutate_utente;negate_classificatore;dialoghi_permesso;righe_aggiunte_src;righe_rimosse_src;righe_aggiunte_test;righe_rimosse_test;righe_aggiunte_doc;righe_rimosse_doc;righe_aggiunte_cobol;righe_rimosse_cobol;righe_aggiunte_mainframe;righe_rimosse_mainframe;righe_aggiunte_config;righe_rimosse_config;righe_aggiunte_altro;righe_rimosse_altro;build_ok;build_ko$/,
+      /;versione;tool_negate;rifiutate_utente;negate_classificatore;dialoghi_permesso;righe_aggiunte_src;righe_rimosse_src;righe_aggiunte_test;righe_rimosse_test;righe_aggiunte_doc;righe_rimosse_doc;righe_aggiunte_cobol;righe_rimosse_cobol;righe_aggiunte_mainframe;righe_rimosse_mainframe;righe_aggiunte_config;righe_rimosse_config;righe_aggiunte_altro;righe_rimosse_altro;build_ok;build_ko;documenti_creati;documenti_rigenerati$/,
     )
-    expect(world.files.get(csvPath)?.split('\r\n')[1]).toMatch(/;2;1;0;0;0;0;0;0;0;0;0;0;0;0;0;0$/)
+    expect(world.files.get(csvPath)?.split('\r\n')[1]).toMatch(/;2;1;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0$/)
 
     await $.command.run(command('kpi', 'esporta json --livello giorni'))
 
@@ -361,7 +361,7 @@ describe('categorie di attività', () => {
     await workedSession($, on, world, clock)
     await run($, 'esporta csv')
 
-    expect(lastColumn(world, '.csv')[0]).toBe('build_ko')
+    expect(lastColumn(world, '.csv')[0]).toBe('documenti_rigenerati')
     expect(await run($, 'sessioni --categoria docs')).toContain(`Le categorie non sono attive: scrivi le regole in ${ROOT}/categorie.json`)
     expect(await run($, 'statistiche --per categoria')).toContain('Le categorie non sono attive')
 
@@ -386,7 +386,7 @@ describe('categorie di attività', () => {
     const path = world.under(`${ROOT}/_exports/`)[0] as string
     const [header, row] = (world.files.get(path) ?? '').split('\n')
 
-    expect(header?.endsWith(',builds_failed,area')).toBe(true)
+    expect(header?.endsWith(',builds_failed,documents_created,documents_regenerated,area')).toBe(true)
     expect(row?.endsWith(',Code')).toBe(true)
     expect(await run($, 'stats --by category --ctx')).toMatch(/By area[\s\S]*\| Code \| 1 \|/)
   })
@@ -480,7 +480,7 @@ describe('in inglese', () => {
     expect(csv).toContain('standard format')
     expect(csvPath).toMatch(/\/kpi_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.csv$/)
     expect(text.startsWith('start,project,path,session,kind,status,duration_min')).toBe(true)
-    expect(text.split('\n')[0]).toMatch(/,version,tools_denied,rejected_by_user,denied_by_classifier,permission_dialogs,lines_added_src,lines_removed_src,.*,lines_added_mainframe,lines_removed_mainframe,lines_added_config,lines_removed_config,lines_added_other,lines_removed_other,builds_ok,builds_failed$/)
+    expect(text.split('\n')[0]).toMatch(/,version,tools_denied,rejected_by_user,denied_by_classifier,permission_dialogs,lines_added_src,lines_removed_src,.*,lines_added_mainframe,lines_removed_mainframe,lines_added_config,lines_removed_config,lines_added_other,lines_removed_other,builds_ok,builds_failed,documents_created,documents_regenerated$/)
     expect(text).toContain(',interactive,active,')
 
     await $.command.run(command('kpi', 'export csv --excel --level days'))

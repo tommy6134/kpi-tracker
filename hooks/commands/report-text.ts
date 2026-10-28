@@ -1,6 +1,6 @@
 /** I report testuali (Markdown) di /kpi, nella lingua di `L`. */
 
-import { meanOf, percentileOf, topOf, type Stat } from '../analysis/stats'
+import { meanOf, percentileOf, topOf, totalOf, type Stat } from '../analysis/stats'
 import { cacheHit, totalTokens, type DayAgg, type KpiDetails } from '../analysis/summary-types'
 import { displayStatus, type KpiSessionFile } from '../core/session-file'
 import type { I18n, MsgKey } from '../i18n'
@@ -10,7 +10,6 @@ import { NO_CATEGORY_GROUP, type Categories } from '../query/category'
 import type { KpiFilter } from '../query/filters'
 import type { SessionRow } from '../query/load'
 
-const sumValues = (map: Record<string, number>): number => Object.values(map).reduce((a, b) => a + b, 0)
 
 /** Le voci più frequenti di una mappa; le chiavi sono codici salvati, quindi si traducono. */
 const counts = (L: I18n, map: Record<string, number>, limit = 12): string => {
@@ -284,6 +283,7 @@ export function statsReport(L: I18n, totals: Totals, rows: readonly SessionRow[]
         [L.t('File fuori dal progetto'), int(s.files.outside)],
         [L.t('File modificati 3+ volte (churn)'), int(s.files.churn)],
         [L.t('Per classe'), Object.entries(s.files.byClass).map(([cls, agg]) => `${L.code(cls)} +${int(agg.add)} −${int(agg.del)}`).join(' · ') || '–'],
+        [L.t('Documenti creati · rigenerati'), [s.docs?.created, s.docs?.regen].map(map => `${int(totalOf(map))}${totalOf(map) > 0 ? ` (${Object.entries(map ?? {}).map(([ext, n]) => `${ext} ${int(n)}`).join(', ')})` : ''}`).join(' · ')],
       ]) +
         '\n\n' +
         table(
@@ -622,6 +622,3 @@ export function sessionReport(L: I18n, row: SessionRow, details: KpiDetails | nu
 
   return parts.join('\n\n')
 }
-
-/** Somma dei valori di una mappa (esportata per i test). */
-export const totalOf = sumValues

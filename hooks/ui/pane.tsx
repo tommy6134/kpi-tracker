@@ -392,6 +392,7 @@ export function paneView(kit: PaneKit, L: I18n, live: LiveView | null, columns: 
     count(L.t('Creati'), live.files.created),
     count(L.t('Modificati'), live.files.modified),
     count(L.t('Letti'), live.files.read),
+    count(L.t('Documenti creati'), live.files.docs),
     ...(live.files.byClass.length > 0 ? [subtitle(L.t('Per classe')), ...live.files.byClass.map(cls => count(L.code(cls.cls), cls.add, `+${int(cls.add)}`, GOOD))] : []),
     ...(live.files.top.length > 0
       ? [

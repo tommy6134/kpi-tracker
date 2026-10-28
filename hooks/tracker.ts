@@ -11,10 +11,11 @@
  * - `session.end` chiude il segmento e salva entro il limite di 1,5 s.
  */
 
+import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
 import type { KpiOptions } from './config'
 import { closeSegment, moveLast, openSession } from './core/binding'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
-import { kpiRootOf, type EnvValues } from './core/paths'
+import { join, kpiRootOf, type EnvValues } from './core/paths'
 import type { KpiRepo } from './core/session-file'
 import type { SessionStore } from './core/writer'
 import type { Host } from './host'
@@ -61,6 +62,12 @@ export type Tracker = {
   branch: string | null
   /** Lettura del branch (a ogni prompt e dopo i comandi git, una alla volta): `again` se ne serve un'altra appena finisce. */
   branchReading: 'no' | 'yes' | 'again'
+  /**
+   * Documenti creati: l'ultima istantanea di git (solo in memoria), `dirty` se
+   * da allora è girato un comando Bash, `pending` l'istantanea iniziale in
+   * corso, `reading` un confronto alla volta.
+   */
+  docs: { snapshot: DocSnapshot | null; dirty: boolean; pending: Promise<void> | null; reading: 'no' | 'yes' | 'again' }
   ui: { bandHidden: boolean; bandDisabled: boolean; paneOpen: boolean; reports: Map<string, string>; reportSeq: number }
   /**
    * Aggiornamenti: `self` se questa versione vuole un Claude Code più recente,
@@ -99,6 +106,7 @@ export function newTracker(options: KpiOptions): Tracker {
     timers: {},
     branch: null,
     branchReading: 'no',
+    docs: { snapshot: null, dirty: false, pending: null, reading: 'no' },
     ui: { bandHidden: false, bandDisabled: false, paneOpen: false, reports: new Map(), reportSeq: 0 },
     update: { self: null, check: null, installed: null, queue: Promise.resolve() },
     diag: { attachErrors: 0 },
@@ -258,6 +266,7 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
       tracker.branch = branch
       tracker.store = store
       tracker.openingId = null
+      startDocs(tracker)
       tracker.lastTurnEnd = null
       tracker.lastCost = usage?.cost === undefined ? null : costNow
 
@@ -436,6 +445,7 @@ export async function endSession(tracker: Tracker, reason: string, budgetMs: num
   tracker.lastTurnEnd = null
   tracker.turnOpen = false
   tracker.lastCost = null
+  tracker.docs = { snapshot: null, dirty: false, pending: null, reading: 'no' }
   tracker.stepsByTurn.clear()
   tracker.toolMs.clear()
   tracker.toolsAwaitingMs.clear()
@@ -539,6 +549,121 @@ export function awaitToolMs(tracker: Tracker, id: string, tool: string, agentId?
 
     if (first !== undefined) {
       tracker.toolsAwaitingMs.delete(first)
+    }
+  }
+}
+
+/** Quanto può durare un comando git dei documenti. */
+const DOCS_TIMEOUT_MS = 2000
+/** Oltre questo numero di documenti nel repo non si leggono le ore di modifica (bastano i cambi di stato). */
+const DOCS_STAT_MAX = 300
+
+/** L'istantanea dei documenti del repo in `root`, o `null` (git assente, non è un repo, timeout). */
+export async function readDocs(host: Host, root: string): Promise<DocSnapshot | null> {
+  const result = await host.run(statusArgv(), { cwd: root, timeoutMs: DOCS_TIMEOUT_MS }).catch(() => null)
+
+  if (result === null || result.exitCode !== 0) {
+    return null
+  }
+
+  const parsed = parseStatus(result.stdout)
+  const stat = parsed.files.size <= DOCS_STAT_MAX
+  const files: DocSnapshot['files'] = new Map()
+
+  for (const [path, state] of parsed.files) {
+    const mtime = stat ? await host.fs.stat(join(root, path)).then(info => info.mtimeMs, () => null) : null
+
+    files.set(path, { state, mtime })
+  }
+
+  return { head: parsed.head, files }
+}
+
+/** All'aggancio: l'istantanea iniziale dei documenti, in background (niente se la cartella non è in un repo git). */
+function startDocs(tracker: Tracker): void {
+  const host = tracker.host
+  const store = tracker.store
+  const root = store?.file.meta.repo?.root ?? null
+
+  tracker.docs = { snapshot: null, dirty: false, pending: null, reading: 'no' }
+
+  if (host === null || store === null || root === null) {
+    return
+  }
+
+  tracker.docs.pending = readDocs(host, root)
+    .then(snapshot => {
+      if (tracker.store === store) {
+        tracker.docs.snapshot = snapshot
+      }
+    })
+    .finally(() => {
+      tracker.docs.pending = null
+    })
+}
+
+/**
+ * A fine turno, se da quel momento è girato un comando Bash: confronta i
+ * documenti del repo con l'istantanea precedente e registra quanti ne sono
+ * stati creati e rigenerati, per estensione. Un confronto alla volta; mai i
+ * percorsi su disco.
+ */
+export async function checkDocs(tracker: Tracker): Promise<void> {
+  const host = tracker.host
+  const store = tracker.store
+  const root = store?.file.meta.repo?.root ?? null
+
+  if (host === null || store === null || root === null || !tracker.docs.dirty) {
+    return
+  }
+
+  if (tracker.docs.reading !== 'no') {
+    tracker.docs.reading = 'again'
+
+    return
+  }
+
+  tracker.docs.reading = 'yes'
+
+  try {
+    await tracker.docs.pending
+    tracker.docs.dirty = false
+
+    const before = tracker.docs.snapshot
+    const after = await readDocs(host, root)
+
+    if (after === null || tracker.store !== store) {
+      return
+    }
+
+    tracker.docs.snapshot = after
+
+    if (before === null) {
+      return
+    }
+
+    const moved = before.head !== null && after.head !== null && before.head !== after.head
+    const diff = moved ? await host.run(diffArgv(before.head as string, after.head as string), { cwd: root, timeoutMs: DOCS_TIMEOUT_MS }).catch(() => null) : null
+    const counts = compareDocs(before, after, diff !== null && diff.exitCode === 0 ? parseDiff(diff.stdout) : null)
+
+    if (tracker.store !== store) {
+      return
+    }
+
+    const created = Object.keys(counts.created).length > 0
+    const regen = Object.keys(counts.regen).length > 0
+
+    if (created || regen) {
+      record(tracker, { e: 'docs', ...(created && { cr: counts.created }), ...(regen && { rg: counts.regen }) })
+    }
+  } finally {
+    // Un confronto richiesto durante questo (l'await ha lasciato correre gli altri hook).
+    const again = (tracker.docs.reading as Tracker['docs']['reading']) === 'again'
+
+    tracker.docs.reading = 'no'
+
+    if (again) {
+      await checkDocs(tracker)
     }
   }
 }

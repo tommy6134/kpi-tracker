@@ -108,6 +108,69 @@ describe('ciclo di vita della sessione', () => {
     expect(world.runs.filter(argv => argv.includes('rev-parse'))).toHaveLength(4)
   })
 
+  test('documenti creati e rigenerati dai comandi Bash, visti da git status a fine turno: solo conteggi per estensione', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+    const status = (head: string, ...entries: string[]) => [`# branch.oid ${head}`, '# branch.head main', ...entries, ''].join('\0')
+    const turn = async (id: string, command?: string) => {
+      await $.turn.start({ text: 'x', turnId: id })
+
+      if (command !== undefined) {
+        await $.tool.call({ tool: 'Bash', command } as never)
+      }
+
+      await $.turn.complete({ answer: '', durationMs: 100, isAborted: false, turnId: id, reason: 'answer' } as never)
+      await clock.advance(6000)
+    }
+    const summary = () => world.json<KpiSessionFile>(`${PROJECT_DIR}/${sessionDirs(world)[0]}/session.json`).summary
+    const statusRuns = () => world.runs.filter(argv => argv.includes('status')).length
+
+    on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: 'ok' }))
+    world.files.set(`${CWD}/old.pdf`, '%PDF')
+    world.mtimes.set(`${CWD}/old.pdf`, 10)
+    world.gitStatus = status('aaaaaaa', '? old.pdf', '? notes.txt')
+    await $.session.start(SESSION)
+
+    // Un documento nuovo, un PDF non tracciato riscritto, un foglio tracciato modificato.
+    world.gitStatus = status('aaaaaaa', '? old.pdf', '? out/Report Q3.DOCX', '1 .M N... 100644 100644 100644 1111111 1111111 budget.xlsx')
+    world.mtimes.set(`${CWD}/old.pdf`, 20)
+    await turn('t1', 'python3 genera_report.py')
+
+    expect(summary().docs).toEqual({ created: { docx: 1 }, regen: { pdf: 1, xlsx: 1 } })
+
+    // Un commit nel turno: il documento creato e committato si vede dal diff; il foglio già contato no.
+    world.gitStatus = status('bbbbbbb', '? old.pdf', '? out/Report Q3.DOCX')
+    world.gitDiff = ['A', 'slides/deck.pptx', 'M', 'budget.xlsx', ''].join('\0')
+    await turn('t2', 'git add -A && git commit -m x')
+
+    expect(summary().docs).toEqual({ created: { docx: 1, pptx: 1 }, regen: { pdf: 1, xlsx: 1 } })
+
+    // Un turno senza comandi Bash non interroga git.
+    const before = statusRuns()
+
+    await turn('t3')
+
+    expect(statusRuns()).toBe(before)
+    expect(world.runs.find(argv => argv.includes('status'))?.slice(0, 3)).toEqual(['git', '--no-optional-locks', 'status'])
+    expect(world.written()).not.toContain('Report Q3')
+    expect(world.written()).not.toContain('deck')
+  })
+
+  test('documenti: fuori da un repo git nessun comando', IT, async ($, on) => {
+    const world = worldOf(on)
+    const clock = mock.clock(on)
+
+    on('tool.call', () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: 'ok' }))
+    world.session.repo = null
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'x', turnId: 't1' })
+    await $.tool.call({ tool: 'Bash', command: 'pandoc a.md -o a.docx' } as never)
+    await $.turn.complete({ answer: '', durationMs: 100, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+    await clock.advance(6000)
+
+    expect(world.runs.some(argv => argv.includes('status'))).toBe(false)
+  })
+
   test('una ripresa riusa la cartella con un nuovo segmento; /clear ne crea una collegata', IT, async ($, on) => {
     const world = worldOf(on)
     const clock = mock.clock(on)

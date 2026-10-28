@@ -13,7 +13,8 @@ The only network traffic comes from **updates** (the `autoUpdate` option, unless
 - absolute paths of the files read and modified, launch folder, git repo and branch;
 - Bash commands reduced to `program subcommand` (e.g. `git commit`, `mvn test`), with a category;
 - for commits: 7-character sha, kind, branch; for PRs: number, action, URL without query;
-- for WebFetch: the host only (e.g. `docs.spring.io`).
+- for WebFetch: the host only (e.g. `docs.spring.io`);
+- for documents created by commands (Word, Excel, PDF…): only how many, per extension.
 
 ## What is never stored
 
@@ -22,7 +23,8 @@ The only network traffic comes from **updates** (the `autoUpdate` option, unless
 - the arguments of slash commands and skills;
 - URL queries and paths;
 - file contents, tool output, error messages;
-- the session title (generated from the prompt text).
+- the session title (generated from the prompt text);
+- the names of the documents created: the list of the repo's documents that `git status` returns stays in memory, only the counts are written.
 
 ## How it is guaranteed
 

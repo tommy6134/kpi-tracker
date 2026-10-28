@@ -6,6 +6,7 @@
  * Oltre ~3,5 MB il file si divide in parti (limite di scrittura di 4 MiB).
  */
 
+import { totalOf } from '../analysis/stats'
 import { cacheHit, type KpiDetails } from '../analysis/summary-types'
 import type { FileClass } from '../core/events'
 import { allEventsOf, readJson } from '../core/recover'
@@ -167,6 +168,8 @@ const COLUMNS_EN: Readonly<Record<string, string>> = {
   ),
   build_ok: 'builds_ok',
   build_ko: 'builds_failed',
+  documenti_creati: 'documents_created',
+  documenti_rigenerati: 'documents_regenerated',
 }
 
 /** Le colonne nella lingua di `L`. */
@@ -216,7 +219,7 @@ async function baseTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiF
         'contesto_max_pct', 'rate_5h_max_pct', 'rate_7g_max_pct', 'branch', 'modelli', 'versione',
         // Dalla 0.5.0, in fondo per non spostare le colonne di chi usa fogli già fatti.
         'tool_negate', 'rifiutate_utente', 'negate_classificatore', 'dialoghi_permesso',
-        ...CLASSES.flatMap(cls => [`righe_aggiunte_${cls}`, `righe_rimosse_${cls}`]), 'build_ok', 'build_ko',
+        ...CLASSES.flatMap(cls => [`righe_aggiunte_${cls}`, `righe_rimosse_${cls}`]), 'build_ok', 'build_ko', 'documenti_creati', 'documenti_rigenerati',
       ],
       rows: rows.map(row => {
         const s = row.file.summary
@@ -232,6 +235,7 @@ async function baseTableOf(fs: HostFs, rows: readonly SessionRow[], filter: KpiF
           s.perms.toolDenied, s.perms.rejected ?? 0, s.perms.denied, s.perms.dialogs,
           // Righe per classe e build: dell'intera sessione, come le altre colonne prese dal summary.
           ...CLASSES.flatMap(cls => [s.files.byClass[cls]?.add ?? 0, s.files.byClass[cls]?.del ?? 0]), s.builds.ok, s.builds.err,
+          totalOf(s.docs?.created), totalOf(s.docs?.regen),
         ]
       }),
     }

@@ -3,7 +3,7 @@
  * proiettati dal summary in memoria. Puro.
  */
 
-import { meanOf, percentileOf, topOf } from '../analysis/stats'
+import { meanOf, percentileOf, topOf, totalOf } from '../analysis/stats'
 import { cacheHit, totalTokens, type KpiDetails, type KpiSummary, type KpiTurnPoint, type Tokens } from '../analysis/summary-types'
 import type { KpiSessionFile } from '../core/session-file'
 
@@ -35,7 +35,7 @@ export type LiveView = {
   tools: { n: number; errors: number; top: { name: string; n: number; err: number; msMean: number }[] }
   bash: { cat: string; n: number; ok: number; err: number }[]
   tests: { n: number; ok: number; err: number }
-  files: { add: number; del: number; created: number; modified: number; read: number; top: { path: string; add: number; del: number }[]; byClass: { cls: string; add: number }[] }
+  files: { add: number; del: number; created: number; modified: number; read: number; docs: number; top: { path: string; add: number; del: number }[]; byClass: { cls: string; add: number }[] }
   git: { commits: number; pushes: number; prs: { n: number; action: string }[] }
   /** `denied`: tool call negate da regola, modalità, hook o classificatore; `rejected`: rifiutate dall'utente nel dialogo. */
   perms: { allow: number; ask: number; dialogs: number; denied: number; rejected: number }
@@ -114,6 +114,7 @@ export function liveOf(file: KpiSessionFile, details: KpiDetails, now: number): 
       created: s.files.created,
       modified: s.files.uniqueModified,
       read: s.files.uniqueRead,
+      docs: totalOf(s.docs?.created),
       top: Object.entries(details.files)
         .filter(([, file]) => file.add + file.del > 0)
         .sort((a, b) => b[1].add + b[1].del - (a[1].add + a[1].del))

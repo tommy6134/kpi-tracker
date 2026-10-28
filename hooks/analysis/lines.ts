@@ -1,6 +1,7 @@
 /** Righe aggiunte e rimosse, e classe di un file, dai risultati di Edit/Write. */
 
 import type { FileClass } from '../core/events'
+import { DOCUMENT_EXT } from '../collect/docs'
 import { baseName, extOf } from '../core/paths'
 
 type Hunk = { lines?: readonly unknown[] }
@@ -69,7 +70,7 @@ export function linesOfResult(result: unknown): { add: number; del: number; crea
   return { ...patch, created }
 }
 
-const DOC_EXT = new Set(['md', 'mdx', 'markdown', 'rst', 'txt', 'adoc', 'asciidoc', 'org', 'tex', 'rtf'])
+const DOC_EXT = new Set(['md', 'mdx', 'markdown', 'rst', 'txt', 'adoc', 'asciidoc', 'org', 'tex', 'rtf', ...DOCUMENT_EXT])
 const CONFIG_EXT = new Set(['json', 'jsonc', 'json5', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'properties', 'xml', 'plist', 'env', 'lock', 'gradle', 'editorconfig', 'npmrc', 'nvmrc', 'tf', 'tfvars', 'hcl'])
 const CONFIG_NAMES = new Set(['dockerfile', 'makefile', 'jenkinsfile', 'procfile', 'gemfile', 'rakefile', 'justfile', 'vagrantfile', '.gitignore', '.gitattributes', '.dockerignore', '.env', '.prettierrc', '.eslintrc', 'pom.xml', 'build.gradle', 'settings.gradle', 'package.json', 'tsconfig.json', 'cargo.toml', 'go.mod', 'go.sum', 'pyproject.toml', 'requirements.txt'])
 const CODE_EXT = new Set([

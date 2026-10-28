@@ -21,6 +21,9 @@ export type World = {
   branch: string
   /** Ciò che risponde `git config user.name` (vuoto = nessun nome). */
   gitUser: string
+  /** Ciò che rispondono `git status --porcelain=v2 -z` e `git diff --name-status -z` dei documenti. */
+  gitStatus: string
+  gitDiff: string
   /** Tutto il testo scritto su disco, per i controlli di privacy. */
   written: () => string
   /** I file scritti sotto un prefisso. */
@@ -84,6 +87,8 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
     },
     branch: 'main',
     gitUser: '',
+    gitStatus: '',
+    gitDiff: '',
     written: () => [...world.files.values()].join('\n'),
     under: prefix => [...world.files.keys()].filter(path => path.startsWith(prefix)).sort(),
     json: <T,>(path: string) => JSON.parse(world.files.get(path) ?? 'null') as T,
@@ -179,11 +184,17 @@ export function worldOf(on: On, options: { env?: Record<string, string>; files?:
 
     const isBranch = e.argv[0] === 'git' && e.argv.includes('rev-parse')
     const isUser = e.argv[0] === 'git' && e.argv.includes('user.name')
+    const isStatus = e.argv[0] === 'git' && e.argv.includes('status')
+    const isDiff = e.argv[0] === 'git' && e.argv.includes('diff')
     const stdout = isBranch
       ? `${world.branch}\n`
       : isUser
         ? `${world.gitUser}\n`
-        : e.argv[0] === 'uname'
+        : isStatus
+          ? world.gitStatus
+          : isDiff
+            ? world.gitDiff
+            : e.argv[0] === 'uname'
         ? `${options.os ?? 'Darwin'}\n`
         : e.argv[0] === 'xdg-user-dir'
           ? `${DOWNLOADS}\n`

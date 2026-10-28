@@ -105,6 +105,9 @@ export function bump(map: Record<string, number>, key: string, by = 1): void {
   map[key] = (map[key] ?? 0) + by
 }
 
+/** La somma dei valori di una mappa di contatori (0 se manca). */
+export const totalOf = (map: Record<string, number> | undefined): number => Object.values(map ?? {}).reduce((a, b) => a + b, 0)
+
 /** Unisce mappe di contatori. */
 export function mergeCounts(into: Record<string, number>, from: Record<string, number> | undefined): void {
   for (const [key, value] of Object.entries(from ?? {})) {

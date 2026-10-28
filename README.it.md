@@ -233,6 +233,7 @@ Documentazione (in inglese in [docs/](docs/)): [catalogo dei KPI](docs/it/kpi.md
 - Della **risposta dell'utente** in un dialogo di permesso si vede solo il "no" (dalla 0.5.0; prima contava come interruzione): si contano decisioni, dialoghi, negazioni e rifiuti.
 - L'esito dei comandi Bash **con pipe** riflette solo l'ultimo comando.
 - Su **Linux** i browser installati come snap o flatpak (Firefox su Ubuntu, Brave, Chromium) non leggono le cartelle nascoste come `~/.claude`: `/kpi report` apre allora una copia del report nella cartella Scaricati (`kpi-report.html`, sovrascritta ogni volta). Per evitare la copia imposta `reportDir` su una cartella visibile, per esempio `~/Documenti/kpi`.
+- I **documenti creati** (Word, Excel, PDF…) si vedono solo dentro un repo git: non si contano i file fuori dal repo, ignorati da git o creati e cancellati nello stesso turno.
 - Le sessioni precedenti all'installazione non vengono importate.
 
 ## Licenza

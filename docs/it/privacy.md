@@ -13,7 +13,8 @@ L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`
 - percorsi assoluti dei file letti e modificati, cartella di avvio, repo e branch git;
 - comandi Bash ridotti a `programma sottocomando` (es. `git commit`, `mvn test`), con una categoria;
 - per i commit: sha a 7 caratteri, tipo, branch; per le PR: numero, azione, URL senza query;
-- per WebFetch: solo l'host (es. `docs.spring.io`).
+- per WebFetch: solo l'host (es. `docs.spring.io`);
+- per i documenti creati dai comandi (Word, Excel, PDF…): solo quanti, per estensione.
 
 ## Cosa non si salva mai
 
@@ -22,7 +23,8 @@ L'unico traffico di rete è quello degli **aggiornamenti** (opzione `autoUpdate`
 - gli argomenti dei comandi slash e delle skill;
 - query e percorsi degli URL;
 - il contenuto dei file, l'output dei tool, i messaggi di errore;
-- il titolo della sessione (generato dal testo del prompt).
+- il titolo della sessione (generato dal testo del prompt);
+- i nomi dei documenti creati: l'elenco dei documenti del repo che restituisce `git status` resta in memoria, si scrivono solo i conteggi.
 
 ## Come è garantito
 

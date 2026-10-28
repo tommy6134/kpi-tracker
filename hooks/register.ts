@@ -10,6 +10,7 @@ import type { Host, OpenResult } from './host'
 import {
   attach,
   awaitToolMs,
+  checkDocs,
   endSession,
   flushNow,
   newTracker,
@@ -404,9 +405,12 @@ export function register(on: On, raw: PluginOptions) {
       tracker.lastTurnEnd = Date.now()
       tracker.turnOpen = false
 
+      // I documenti creati dai comandi Bash del turno: in -p prima del salvataggio, altrimenti in background.
       if (tracker.interactive === false) {
+        await checkDocs(tracker).catch(() => undefined)
         await flushNow(tracker)
       } else {
+        void checkDocs(tracker).catch(() => undefined)
         scheduleFlush(tracker)
       }
     }
@@ -438,6 +442,10 @@ export function register(on: On, raw: PluginOptions) {
           awaitToolMs(tracker, body.id, body.tool, e.agentId)
 
           const x = body.x
+
+          if (x?.k === 'bash') {
+            tracker.docs.dirty = true
+          }
 
           if (x?.k === 'bash' && (x.git?.b !== undefined || x.cmds.some(cmd => /^git (checkout|switch|merge|rebase|branch|worktree|pull)/.test(cmd)))) {
             refreshBranch(tracker)

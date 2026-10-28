@@ -10,9 +10,10 @@ import { emptyStat, type Stat } from './stats'
 /**
  * La versione del calcolo del summary. Quando cambia, le sessioni passate si
  * ricalcolano dagli eventi: all'avvio (maintenance.ts) e alla ripresa di una
- * sessione (core/binding.ts). 2 = classe dei file dal percorso (cobol, mainframe).
+ * sessione (core/binding.ts). 2 = classe dei file dal percorso (cobol,
+ * mainframe); 3 = documenti (docx, pdf…) nella classe doc.
  */
-export const REDUCER_VERSION = 2
+export const REDUCER_VERSION = 3
 
 export type Tokens = { in: number; out: number; cr: number; cw: number }
 
@@ -188,6 +189,8 @@ export type KpiSummary = {
   instr: Record<string, number>
   cwdChanges: number
   tasks: { created: number; completed: number }
+  /** Documenti creati e rigenerati per estensione; assente prima della 0.5.0. */
+  docs?: { created: Record<string, number>; regen: Record<string, number> }
   diag: { events: number; reloads: number }
   _r: ReducerCursor
 }
@@ -283,6 +286,7 @@ export function emptySummary(kind: KpiKind = 'sconosciuta'): KpiSummary {
     instr: {},
     cwdChanges: 0,
     tasks: { created: 0, completed: 0 },
+    docs: { created: {}, regen: {} },
     diag: { events: 0, reloads: 0 },
     _r: emptyCursor(),
   }
