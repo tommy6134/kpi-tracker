@@ -15,6 +15,7 @@ import { customOf, type CustomCommands } from './analysis/bash-classify'
 import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
 import type { KpiOptions } from './config'
 import { closeSegment, moveLast, openSession } from './core/binding'
+import { coworkOf, type CoworkMode } from './core/cowork'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
 import { join, kpiRootOf, type EnvValues } from './core/paths'
 import type { KpiRepo } from './core/session-file'
@@ -41,6 +42,8 @@ export type Tracker = {
   launchCwd: string | null
   interactive: boolean | null
   surface: string | null
+  /** Dove gira il task Cowork, `null` fuori da Cowork. */
+  cowork: CoworkMode | null
   store: SessionStore | null
   /** Coda di attach: un aggancio alla volta. */
   attaching: Promise<void>
@@ -96,6 +99,7 @@ export function newTracker(options: KpiOptions): Tracker {
     launchCwd: null,
     interactive: null,
     surface: null,
+    cowork: null,
     store: null,
     attaching: Promise.resolve(),
     openingId: null,
@@ -120,8 +124,12 @@ export function newTracker(options: KpiOptions): Tracker {
 /** L'avviso da mostrare: prima quello sulla versione in uso, poi l'esito del controllo. */
 export const noticeOf = (tracker: Tracker): UpdateNotice | null => tracker.update.self ?? tracker.update.check
 
-/** Il tipo di sessione dai segnali disponibili. */
-export function kindOf(interactive: boolean | null, surface: string | null, entrypoint?: string): KpiKind {
+/** Il tipo di sessione dai segnali disponibili; Cowork prima della superficie, che può essere quella del desktop. */
+export function kindOf(interactive: boolean | null, surface: string | null, entrypoint?: string, cowork: CoworkMode | null = null): KpiKind {
+  if (cowork !== null) {
+    return 'cowork'
+  }
+
   if (surface === 'desktop') {
     return 'desktop'
   }
@@ -253,7 +261,7 @@ export function attach(tracker: Tracker, sessionId: string, source: string, extr
         sessionId,
         now: nowMs(),
         ...(usage !== null && usage.startedAt > 0 && { startedAt: usage.startedAt }),
-        kind: kindOf(tracker.interactive, tracker.surface, tracker.env.CLAUDE_CODE_ENTRYPOINT),
+        kind: kindOf(tracker.interactive, tracker.surface, tracker.env.CLAUDE_CODE_ENTRYPOINT, tracker.cowork),
         interactive: tracker.interactive === true,
         source: effectiveSource,
         version,
@@ -326,6 +334,7 @@ function refineSource(tracker: Tracker, store: SessionStore, source: string, ext
 /** Imposta la radice dei dati dalle variabili d'ambiente e dall'opzione. */
 export function setRoot(tracker: Tracker, env: TrackerEnv): void {
   tracker.env = env
+  tracker.cowork = coworkOf(env)
   tracker.root = kpiRootOf(env, tracker.options.dataDir)
 }
 

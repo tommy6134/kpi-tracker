@@ -10,7 +10,7 @@
 export const SCHEMA_VERSION = 1
 
 /** Il tipo di sessione, come lo mostrano i report. */
-export type KpiKind = 'interattiva' | 'print' | 'sdk' | 'desktop' | 'vscode' | 'sconosciuta'
+export type KpiKind = 'interattiva' | 'print' | 'sdk' | 'desktop' | 'vscode' | 'cowork' | 'sconosciuta'
 
 /** Categorie dei comandi Bash. */
 export type BashCat = 'git' | 'test' | 'build' | 'package' | 'docker' | 'fs' | 'network' | 'altro'

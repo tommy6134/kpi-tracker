@@ -30,6 +30,7 @@ const KIND_ALIASES: Record<string, string> = {
   sdk: 'sdk',
   desktop: 'desktop',
   vscode: 'vscode',
+  cowork: 'cowork',
   sconosciuta: 'sconosciuta',
   unknown: 'sconosciuta',
 }

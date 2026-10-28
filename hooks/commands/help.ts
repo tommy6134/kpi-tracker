@@ -22,7 +22,7 @@ const IT = `## /kpi · guida
 | \`/kpi aiuto\` (\`help\`) | Questa guida |
 
 **Filtri** (ripetibili, anche con valori separati da virgola):
-\`--progetto <testo|.>\` (\`.\` = progetto corrente) · \`--sessione <id>\` · \`--da\` / \`--a\` (\`oggi\`, \`ieri\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` giorno/mese/anno) · \`--mese 2026-11\` (o \`11/2026\`: da e a sul mese) · \`--modello <testo>\` · \`--tipo interattiva|print|sdk|desktop|vscode\` · \`--branch <testo>\` · \`--repo <testo>\` · \`--categoria <etichetta|parola|nessuna>\` (se le categorie sono attive, vedi il README).
+\`--progetto <testo|.>\` (\`.\` = progetto corrente) · \`--sessione <id>\` · \`--da\` / \`--a\` (\`oggi\`, \`ieri\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` giorno/mese/anno) · \`--mese 2026-11\` (o \`11/2026\`: da e a sul mese) · \`--modello <testo>\` · \`--tipo interattiva|print|sdk|desktop|vscode|cowork\` · \`--branch <testo>\` · \`--repo <testo>\` · \`--categoria <etichetta|parola|nessuna>\` (se le categorie sono attive, vedi il README).
 
 **Lingua:** \`--lingua it|en\` (\`--lang\`) sceglie la lingua di report, export e testi di questo comando; senza, vale quella della configurazione (\`/config\`).
 Ogni comando e opzione ha anche il nome inglese: \`--project\`, \`--since\`, \`--until\`, \`--month\`, \`--category\`, \`--model\`, \`--kind\`, \`--by\`, \`--limit\`, \`--level\`, \`--no-open\`, \`--yes\`, \`--check\`.
@@ -49,7 +49,7 @@ const EN = `## /kpi · help
 | \`/kpi help\` | This help |
 
 **Filters** (repeatable, also with comma-separated values):
-\`--project <text|.>\` (\`.\` = current project) · \`--session <id>\` · \`--since\` / \`--until\` (\`today\`, \`yesterday\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` day/month/year) · \`--month 2026-11\` (or \`11/2026\`: since and until on the month) · \`--model <text>\` · \`--kind interactive|print|sdk|desktop|vscode\` · \`--branch <text>\` · \`--repo <text>\` · \`--category <label|keyword|none>\` (when categories are active, see the README).
+\`--project <text|.>\` (\`.\` = current project) · \`--session <id>\` · \`--since\` / \`--until\` (\`today\`, \`yesterday\`, \`7d\`, \`24h\`, \`2w\`, \`3m\`, \`2026-10-01\`, \`01/10/2026\` day/month/year) · \`--month 2026-11\` (or \`11/2026\`: since and until on the month) · \`--model <text>\` · \`--kind interactive|print|sdk|desktop|vscode|cowork\` · \`--branch <text>\` · \`--repo <text>\` · \`--category <label|keyword|none>\` (when categories are active, see the README).
 
 **Language:** \`--lang it|en\` picks the language of reports, exports and this command's text; without it, the one in the configuration (\`/config\`) applies.
 Every command and option also has its Italian name (\`statistiche\`, \`esporta\`, \`--da\`, \`--mese\`, \`--categoria\`, \`--progetto\`…).

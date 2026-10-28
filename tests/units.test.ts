@@ -8,6 +8,7 @@ import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import type { KpiSessionFile } from '../hooks/core/session-file'
+import { coworkOf, isInCoworkSessions } from '../hooks/core/cowork'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
 import { dayKey, hourSlot, monthEnd, stampOf } from '../hooks/core/time'
@@ -505,6 +506,34 @@ describe('tipo di sessione', () => {
     expect(kindOf(false, null, undefined)).toBe('print')
     expect(kindOf(true, 'desktop', 'cli')).toBe('desktop')
     expect(kindOf(null, null, undefined)).toBe('sconosciuta')
+  })
+
+  test('Cowork prima della superficie del desktop', () => {
+    expect(kindOf(false, null, 'local-agent', 'host')).toBe('cowork')
+    expect(kindOf(true, 'desktop', 'local-agent', 'host')).toBe('cowork')
+    expect(kindOf(true, 'desktop', 'claude-desktop', null)).toBe('desktop')
+  })
+})
+
+describe('Cowork', () => {
+  const TASK = '/Users/me/Library/Application Support/Claude/local-agent-mode-sessions/acc/org/agent/local_1a2b/.claude'
+
+  test('local-agent sul computer, nella VM, nel cloud', () => {
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'local-agent', HOME: '/Users/me', CLAUDE_CONFIG_DIR: TASK })).toBe('host')
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'local-agent', HOME: '/sessions/brave-owl', CLAUDE_CONFIG_DIR: '/sessions/brave-owl/mnt/.claude' })).toBe('vm')
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'local-agent', HOME: '/home/me', CLAUDE_CONFIG_DIR: '/sessions/brave-owl/mnt/.claude' })).toBe('vm')
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'remote_cowork', HOME: '/home/claude' })).toBe('cloud')
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: ' Local-Agent ', HOME: '/home/me' })).toBe('host')
+  })
+
+  test('senza entrypoint basta la cartella dei task; fuori da Cowork null', () => {
+    expect(coworkOf({ HOME: '/Users/me', CLAUDE_CONFIG_DIR: TASK })).toBe('host')
+    expect(coworkOf({ USERPROFILE: 'C:\\Users\\me', CLAUDE_CONFIG_DIR: 'C:\\Users\\me\\AppData\\Roaming\\Claude\\local-agent-mode-sessions\\a\\b\\agent\\local_1\\.claude' })).toBe('host')
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'cli', HOME: '/home/me' })).toBeNull()
+    expect(coworkOf({ CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', HOME: '/Users/me' })).toBeNull()
+    expect(coworkOf({ HOME: '/sessions/x' })).toBeNull()
+    expect(coworkOf({})).toBeNull()
+    expect(isInCoworkSessions('/home/me/.config/Claude/local-agent-mode-sessions-old/x')).toBe(false)
   })
 })
 

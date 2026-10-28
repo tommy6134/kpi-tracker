@@ -11,7 +11,7 @@ Every KPI is **measured**: ratios (cache hit, cost per turn…) are computed fro
 | KPI | Definition | Source | Gran. |
 | --- | --- | --- | --- |
 | Sessions | number of sessions (folders) | storage | S |
-| Kind | interactive, print (`claude -p`), sdk, desktop, vscode | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` | S |
+| Kind | interactive, print (`claude -p`), sdk, desktop, vscode, cowork | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` (`local-agent` for Cowork), `CLAUDE_CONFIG_DIR` | S |
 | Segment origin | startup, resume, clear, fork, reload (hot reload) | `classic.SessionStart.source`, `$.state` | S |
 | Segments | processes that worked on the session (resumes, reloads) | storage | S |
 | End reason | clear, resume, logout, prompt_input_exit, other, interrupted | `session.end.reason`, heartbeat | S |

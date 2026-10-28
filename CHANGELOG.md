@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New session kind **cowork**: tasks of Cowork, the agent mode of the Claude desktop app, are recognised from `CLAUDE_CODE_ENTRYPOINT` (`local-agent`, `remote_cowork` in the cloud) or from a configuration folder inside the app's `local-agent-mode-sessions`, before the desktop surface. `--kind cowork` filters them.
+
 ## 0.5.8
 
 Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude Code stays 2.1.287: no new engine events or APIs. At the first start the past sessions are recomputed once from the raw events (file classes, Bash categories), with a line in the transcript.

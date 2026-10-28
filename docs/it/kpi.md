@@ -11,7 +11,7 @@ Colonna **Fonte**: l'evento del motore (hook del mod) o il campo da cui arriva i
 | KPI | Definizione | Fonte | Gran. |
 | --- | --- | --- | --- |
 | Sessioni | numero di sessioni (cartelle) | storage | S |
-| Tipo | interattiva, print (`claude -p`), sdk, desktop, vscode | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` | S |
+| Tipo | interattiva, print (`claude -p`), sdk, desktop, vscode, cowork | `session.start` (`isInteractive`, `surface`), `CLAUDE_CODE_ENTRYPOINT` (`local-agent` per Cowork), `CLAUDE_CONFIG_DIR` | S |
 | Origine dei segmenti | startup, resume, clear, fork, ricarica (hot reload) | `classic.SessionStart.source`, `$.state` | S |
 | Segmenti | processi che hanno lavorato sulla sessione (riprese, reload) | storage | S |
 | Motivo di chiusura | clear, resume, logout, prompt_input_exit, other, interrotta | `session.end.reason`, heartbeat | S |
