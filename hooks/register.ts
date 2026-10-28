@@ -8,6 +8,7 @@ import { extOf } from './core/paths'
 import { lengthsOf, safeName, toolEventOf } from './collect/tool-extract'
 import type { Host, OpenResult } from './host'
 import {
+  adoptCliOptions,
   attach,
   awaitToolMs,
   checkDocs,
@@ -128,6 +129,7 @@ export function register(on: On, raw: PluginOptions) {
       CLAUDE_CODE_ENTRYPOINT: await $.env.get('CLAUDE_CODE_ENTRYPOINT'),
       CLAUDE_CODE_EXECPATH: await $.env.get('CLAUDE_CODE_EXECPATH'),
     })
+    await adoptCliOptions(tracker, host)
     await confirmRoot(tracker, host)
 
     tracker.ui.bandDisabled = (await host.storeGet('band').catch(() => undefined)) === 'off'

@@ -164,6 +164,8 @@ From `/config` (the plugin's section) or in `settings.json` under `pluginConfigs
 | `streamTiming` | `true` | Hooks the response stream for TTFT, latency and per-request tokens; turn it off if you notice slowdowns |
 | `autoUpdate` | `"auto"` | `auto` installs compatible new versions by itself; `avviso` (notify) only reports them (install with `/kpi update`); `off` no automatic check |
 
+**In Cowork** the plugin's `/config` is the task's own and Cowork does not ask for the values. Every option except `streamTiming` and `autoUpdate` that Cowork leaves at its default therefore takes the CLI's value, read from `~/.claude/settings.json`. That is the entry of the enabled plugin, otherwise the marketplace's, otherwise the `@synced` copy. Same language and same folders, with nothing to set again.
+
 ## Activity categories
 
 Optional, off by default: whoever does not use it sees no change. A category says what kind of work a session was (documentation, development, testing…), worked out from the **git branch** name, so you can filter and group by it.

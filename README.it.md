@@ -164,6 +164,8 @@ Da `/config` (sezione del plugin) o in `settings.json` sotto `pluginConfigs`:
 | `streamTiming` | `true` | Intercetta lo streaming delle risposte per TTFT, latenza e token per richiesta; spegnilo se noti rallentamenti |
 | `autoUpdate` | `"auto"` | `auto` installa da solo le versioni nuove compatibili; `avviso` le segnala soltanto (installi con `/kpi aggiorna`); `off` nessun controllo automatico |
 
+**In Cowork** il `/config` del plugin è quello del task e Cowork non chiede i valori. Ogni opzione tranne `streamTiming` e `autoUpdate` che Cowork lascia al default prende quindi il valore della CLI, letto da `~/.claude/settings.json`. È la voce del plugin abilitato, altrimenti quella del marketplace, altrimenti la copia `@synced`. Stessa lingua e stesse cartelle, senza reimpostarle.
+
 ## Categorie di attività
 
 Facoltative e spente di default: chi non le usa non vede nessun cambiamento. Una categoria dice che tipo di lavoro è stata una sessione (documentazione, sviluppo, test…), ricavato dal nome del **branch git**, per filtrare e raggruppare.

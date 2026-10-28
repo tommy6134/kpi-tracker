@@ -71,3 +71,48 @@ export function optionsOf(raw: PluginOptions | undefined): KpiOptions {
     badAutoUpdate: mode === undefined ? autoUpdate : null,
   }
 }
+
+/** Le opzioni che in Cowork si prendono dalla CLI; non `streamTiming`, che conta già quando il modulo si registra. */
+const CLI_KEYS = ['language', 'dataDir', 'reportDir', 'fullName', 'categoriesFile', 'buildCommands', 'testCommands'] as const
+
+/**
+ * Le opzioni del plugin nei settings della CLI (`pluginConfigs`), `null` se
+ * non ci sono. Fra più voci `<plugin>@<origine>` vince quella abilitata in
+ * `enabledPlugins`, poi una del marketplace, poi la copia `@synced`.
+ */
+export function cliOptionsOf(settings: unknown, plugin: string): { key: string; raw: PluginOptions } | null {
+  if (typeof settings !== 'object' || settings === null) {
+    return null
+  }
+
+  const { pluginConfigs, enabledPlugins } = settings as { pluginConfigs?: unknown; enabledPlugins?: unknown }
+
+  if (typeof pluginConfigs !== 'object' || pluginConfigs === null) {
+    return null
+  }
+
+  const enabled = typeof enabledPlugins === 'object' && enabledPlugins !== null ? (enabledPlugins as Record<string, unknown>) : {}
+  const rank = (key: string): number => (enabled[key] === true ? 0 : 1) + (key.endsWith('@synced') ? 2 : 0)
+  const entries = Object.entries(pluginConfigs as Record<string, unknown>)
+    .filter(([key, value]) => key.startsWith(`${plugin}@`) && typeof value === 'object' && value !== null)
+    .map(([key, value]) => ({ key, options: (value as { options?: unknown }).options }))
+    .filter((entry): entry is { key: string; options: PluginOptions } => typeof entry.options === 'object' && entry.options !== null)
+    .sort((a, b) => rank(a.key) - rank(b.key))
+  const best = entries[0]
+
+  return best === undefined ? null : { key: best.key, raw: best.options }
+}
+
+/** Le opzioni di Cowork con quelle della CLI dove Cowork ha lasciato il default. */
+export function withCliOptions(own: KpiOptions, cli: KpiOptions): KpiOptions {
+  const defaults = optionsOf(undefined)
+  const out: KpiOptions = { ...own }
+
+  for (const key of CLI_KEYS) {
+    if (own[key] === defaults[key]) {
+      ;(out as Record<string, unknown>)[key] = cli[key]
+    }
+  }
+
+  return out
+}

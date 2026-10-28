@@ -13,11 +13,12 @@
 
 import { customOf, type CustomCommands } from './analysis/bash-classify'
 import { compareDocs, diffArgv, parseDiff, parseStatus, statusArgv, type DocSnapshot } from './collect/docs'
-import type { KpiOptions } from './config'
+import { cliOptionsOf, optionsOf, withCliOptions, type KpiOptions } from './config'
 import { closeSegment, ensureRoot, moveLast, openSession } from './core/binding'
 import { cliPathsOf, coworkOf, type CoworkMode } from './core/cowork'
 import type { KpiEventBody, KpiKind, ResumeInfo } from './core/events'
-import { join, kpiRootOf, type EnvValues } from './core/paths'
+import { configDirOf, join, kpiRootOf, type EnvValues } from './core/paths'
+import { readJson } from './core/recover'
 import type { KpiRepo } from './core/session-file'
 import type { SessionStore } from './core/writer'
 import type { Host } from './host'
@@ -43,6 +44,8 @@ export type Tracker = {
   root: string | null
   /** In Cowork, la radice della CLI che non si è potuta scrivere (si è ripiegato su quella del task). */
   rootFallback: string | null
+  /** In Cowork, la voce di `pluginConfigs` della CLI da cui vengono le opzioni lasciate al default. */
+  cliOptions: string | null
   launchCwd: string | null
   interactive: boolean | null
   surface: string | null
@@ -102,6 +105,7 @@ export function newTracker(options: KpiOptions): Tracker {
     paths: {},
     root: null,
     rootFallback: null,
+    cliOptions: null,
     launchCwd: null,
     interactive: null,
     surface: null,
@@ -350,6 +354,33 @@ export function setRoot(tracker: Tracker, env: TrackerEnv): void {
   tracker.paths = (tracker.cowork === 'host' ? cliPathsOf(env) : null) ?? env
   tracker.rootFallback = null
   tracker.root = tracker.cowork === 'cloud' || tracker.cowork === 'vm' ? null : kpiRootOf(tracker.paths, tracker.options.dataDir)
+}
+
+/**
+ * In Cowork le opzioni lasciate al default prendono il valore della CLI, dai
+ * suoi `settings.json` (Cowork non legge `/config` della CLI): stessa lingua,
+ * stesse cartelle. Da chiamare dopo `setRoot`, prima di `confirmRoot`.
+ */
+export async function adoptCliOptions(tracker: Tracker, host: Host): Promise<void> {
+  const config = configDirOf(tracker.paths)
+
+  if (tracker.cowork !== 'host' || config === null) {
+    return
+  }
+
+  const found = cliOptionsOf(await readJson<unknown>(host.fs, join(config, 'settings.json')), host.pluginName)
+
+  if (found === null) {
+    return
+  }
+
+  const options = withCliOptions(tracker.options, optionsOf(found.raw))
+
+  tracker.cliOptions = found.key
+  tracker.options = options
+  tracker.custom = customOf(options.buildCommands, options.testCommands)
+  tracker.i18n = i18nOf(options.language)
+  tracker.root = kpiRootOf(tracker.paths, options.dataDir)
 }
 
 /**

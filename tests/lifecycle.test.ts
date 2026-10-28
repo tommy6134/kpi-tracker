@@ -503,6 +503,28 @@ describe('Cowork sul computer', () => {
     expect(world.writes.slice(before).some(write => write.path.endsWith(`${REBUILD_KEY}.json`))).toBe(false)
   })
 
+  test('lingua e cartella dati vengono da /config della CLI', EN, async ($, on) => {
+    const settings = JSON.stringify({ pluginConfigs: { 'kpi-tracker@kpi-tracker': { options: { language: 'it', dataDir: '~/Documenti/kpi' } } } })
+    const world = worldOf(on, { env: COWORK, files: { [`${HOME}/.claude/settings.json`]: settings } })
+
+    mock.clock(on)
+    await $.session.start(HEADLESS)
+
+    expect(world.files.has(`${HOME}/Documenti/kpi/_meta/kpi-root.json`)).toBe(true)
+    expect(world.files.has(`${CLI_ROOT}/_meta/kpi-root.json`)).toBe(false)
+    expect(((await $.command.run(command('kpi'))) as { text: string }).text).toContain('Oggi')
+  })
+
+  test('con settings della CLI malformati valgono le opzioni di Cowork', EN, async ($, on) => {
+    const world = worldOf(on, { env: COWORK, files: { [`${HOME}/.claude/settings.json`]: '{ rotto' } })
+
+    mock.clock(on)
+    await $.session.start(HEADLESS)
+
+    expect(world.files.has(`${CLI_ROOT}/_meta/kpi-root.json`)).toBe(true)
+    expect(((await $.command.run(command('kpi'))) as { text: string }).text).toContain('Today')
+  })
+
   test('se la radice della CLI non si scrive, ripiega sulla cartella del task e /kpi lo dice', IT, async ($, on) => {
     const world = worldOf(on, { env: COWORK })
 

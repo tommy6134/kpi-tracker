@@ -8,6 +8,7 @@ import { addStat, emptyStat, percentileOf } from '../hooks/analysis/stats'
 import { emptyDetails, emptySummary, REDUCER_VERSION } from '../hooks/analysis/summary-types'
 import { dayOfArg, daysOfAge, monthOfArg, parseArgs, words } from '../hooks/commands/args'
 import type { KpiSessionFile } from '../hooks/core/session-file'
+import { cliOptionsOf, optionsOf, withCliOptions } from '../hooks/config'
 import { cliPathsOf, coworkOf, isInCoworkSessions, realHomeOf } from '../hooks/core/cowork'
 import { decodeEvents, encodeEvent, type KpiEvent, type KpiEventBody } from '../hooks/core/events'
 import { configDirOf, dirName, encodeProject, encodeProjectAlt, extOf, fileUrlOf, hasHiddenSegment, isInside, join, kpiRootOf, parseSessionDir, resolvePath, sessionDirName } from '../hooks/core/paths'
@@ -552,6 +553,36 @@ describe('Cowork', () => {
     expect(kpiRootOf(paths ?? {}, '')).toBe('/Users/me/.claude/kpi')
     expect(kpiRootOf(paths ?? {}, '~/Documenti/kpi')).toBe('/Users/me/Documenti/kpi')
     expect(cliPathsOf({ CLAUDE_CONFIG_DIR: TASK })).toBeNull()
+  })
+
+  test('le opzioni della CLI: la voce abilitata, poi il marketplace, poi @synced', () => {
+    const settings = {
+      enabledPlugins: { 'kpi-tracker@kpi-tracker': true },
+      pluginConfigs: {
+        'kpi-tracker@synced': { options: { language: 'en' } },
+        'kpi-tracker@altro': { options: { language: 'en' } },
+        'kpi-tracker@kpi-tracker': { options: { language: 'it' } },
+        'altro-plugin@x': { options: { language: 'it' } },
+      },
+    }
+
+    expect(cliOptionsOf(settings, 'kpi-tracker')?.key).toBe('kpi-tracker@kpi-tracker')
+    expect(cliOptionsOf({ pluginConfigs: { 'kpi-tracker@synced': { options: { a: 1 } }, 'kpi-tracker@altro': { options: { a: 2 } } } }, 'kpi-tracker')?.key).toBe('kpi-tracker@altro')
+    expect(cliOptionsOf({ pluginConfigs: { 'kpi-tracker@synced': { options: { a: 1 } } } }, 'kpi-tracker')?.key).toBe('kpi-tracker@synced')
+    expect(cliOptionsOf({ pluginConfigs: { 'kpi-tracker@x': { other: 1 } } }, 'kpi-tracker')).toBeNull()
+    expect(cliOptionsOf(null, 'kpi-tracker')).toBeNull()
+    expect(cliOptionsOf({ pluginConfigs: 'no' }, 'kpi-tracker')).toBeNull()
+  })
+
+  test('valgono le opzioni della CLI dove Cowork ha lasciato il default, mai streamTiming', () => {
+    const cli = optionsOf({ language: 'it', dataDir: '~/kpi', fullName: 'Mario Rossi', streamTiming: false, buildCommands: './build.sh' })
+    const merged = withCliOptions(optionsOf({ fullName: 'Ada Lovelace' }), cli)
+
+    expect(merged.language).toBe('it')
+    expect(merged.dataDir).toBe('~/kpi')
+    expect(merged.fullName).toBe('Ada Lovelace')
+    expect(merged.buildCommands).toBe('./build.sh')
+    expect(merged.streamTiming).toBe(true)
   })
 })
 
