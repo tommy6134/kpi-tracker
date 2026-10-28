@@ -26,7 +26,7 @@ import {
   type Tracker,
 } from './tracker'
 import { i18nOf } from './i18n'
-import { keepsItalian, setItalian } from './i18n/migrate'
+import { migrateLanguage } from './i18n/migrate'
 import { rebuildOnce } from './maintenance/maintenance'
 import { startUpdates } from './update/update'
 import { bandView } from './ui/band'
@@ -145,8 +145,6 @@ export function register(on: On, raw: PluginOptions) {
 
     const root = tracker.root
     const isInteractive = tracker.interactive === true && root !== null
-    // Prima dell'aggancio: dopo, i dati di questa sessione sembrerebbero di una versione precedente.
-    const keepItalian = isInteractive && tracker.options.language !== 'it' && (await keepsItalian(host, root).catch(() => false))
     const sessionId = await host.sessionId()
     const pending = pendingStart !== null && pendingStart.sessionId === sessionId ? pendingStart : null
 
@@ -160,8 +158,8 @@ export function register(on: On, raw: PluginOptions) {
         .catch(() => undefined)
     }
 
-    if (keepItalian) {
-      void setItalian(host)
+    if (isInteractive && tracker.options.language !== 'it') {
+      void migrateLanguage(host, root)
         .then(ok => ok && host.log(i18nOf('it').t('kpi-tracker ora parla anche inglese: resta in italiano come prima. Per cambiare lingua: /config → Language / Lingua.')))
         .catch(() => undefined)
     }

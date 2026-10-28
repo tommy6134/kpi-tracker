@@ -13,7 +13,11 @@ import type { Host, HostFs } from '../host'
 import { loadProjects } from '../query/load'
 import { installationOf } from '../update/install'
 
-/** La chiave di `$.store` che segna il controllo fatto, qualunque sia l'esito. */
+/**
+ * La chiave di `$.store` che segna la migrazione conclusa: italiano impostato,
+ * oppure non dovuto (lingua già scelta, nessun dato della 0.3.0, cartella di
+ * sviluppo). Dopo un errore resta assente e si riprova all'avvio successivo.
+ */
 export const LANGUAGE_KEY = 'language-0.4.0'
 
 type PluginConfigs = Record<string, { options?: Record<string, unknown> } | undefined>
@@ -57,17 +61,12 @@ async function hasDataOf030(fs: HostFs, root: string): Promise<boolean> {
 }
 
 /**
- * `true` se chi usa il plugin va lasciato in italiano. Contano solo i dati
- * della 0.3.0: quelli scritti dopo (questa sessione, una sessione `-p`) non
- * dicono che chi usa il plugin è abituato all'italiano.
+ * `true` se chi usa il plugin va lasciato in italiano, `null` se non si può
+ * dire (settings illeggibili). Contano solo i dati della 0.3.0: quelli scritti
+ * dopo (questa sessione, una sessione `-p`) non dicono che chi usa il plugin è
+ * abituato all'italiano.
  */
-export async function keepsItalian(host: Host, root: string): Promise<boolean> {
-  if ((await host.storeGet(LANGUAGE_KEY).catch(() => null)) !== undefined) {
-    return false
-  }
-
-  await host.storeSet(LANGUAGE_KEY, { at: await host.now() }).catch(() => undefined)
-
+async function keepsItalian(host: Host, root: string): Promise<boolean | null> {
   // Con --plugin-dir (sviluppo) la lingua si sceglie a mano.
   const installation = installationOf(host.pluginRoot)
 
@@ -78,7 +77,7 @@ export async function keepsItalian(host: Host, root: string): Promise<boolean> {
   const configs = (await host.settingsRead('pluginConfigs').catch(() => null)) as PluginConfigs | null | undefined
 
   if (configs === null) {
-    return false
+    return null
   }
 
   if (configs?.[`${installation.plugin}@${installation.marketplace}`]?.options?.language !== undefined) {
@@ -89,7 +88,7 @@ export async function keepsItalian(host: Host, root: string): Promise<boolean> {
 }
 
 /** Imposta l'italiano nell'opzione del plugin; `true` se riuscito. */
-export async function setItalian(host: Host): Promise<boolean> {
+async function setItalian(host: Host): Promise<boolean> {
   const wanted = `${host.pluginName}.language`
   const keys = await host.configKeys().catch(() => [wanted])
   // La riga si chiama `<plugin>.language`; se il motore la qualifica col marketplace, si prende quella.
@@ -102,4 +101,27 @@ export async function setItalian(host: Host): Promise<boolean> {
   const result = await host.configSet(key, 'it').catch(() => ({ deny: 'errore' }))
 
   return result.deny === undefined
+}
+
+/**
+ * Lascia in italiano chi aggiorna dalla 0.3.0; `true` se ha impostato la
+ * lingua. Il segno si scrive solo a esito definitivo: dopo un errore (settings,
+ * /config) si riprova all'avvio successivo. Se la ricarica che segue
+ * `config.set` impedisce di scriverlo, all'avvio dopo la lingua risulta scelta
+ * e lo si scrive allora.
+ */
+export async function migrateLanguage(host: Host, root: string): Promise<boolean> {
+  if ((await host.storeGet(LANGUAGE_KEY).catch(() => null)) !== undefined) {
+    return false
+  }
+
+  const keep = await keepsItalian(host, root)
+
+  if (keep === null || (keep && !(await setItalian(host)))) {
+    return false
+  }
+
+  await host.storeSet(LANGUAGE_KEY, { at: await host.now() }).catch(() => undefined)
+
+  return keep
 }

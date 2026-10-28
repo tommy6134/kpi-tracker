@@ -20,10 +20,11 @@ Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude
 - New `buildCommands` and `testCommands` options for your own build and test commands (`./build.sh`).
 - The category of past commands is recomputed from the stored labels with the new rules, when the label is enough (`mvn dependency:tree` stops counting as a build).
 - Language of whoever updates from 0.3.0: only sessions recorded by 0.3.0 count (their events lack the `sw` field). A new installation that records `-p` sessions before the first interactive one stays in English instead of switching to Italian.
+- The language migration is marked as done only when it has an outcome (Italian set, language already chosen, no 0.3.0 data, development folder): after an error reading the settings or writing `/config` it is tried again at the next start, instead of never.
 
 ## 0.4.0
 
-Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration is simply skipped.
+Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration does not happen (since 0.5.0 it is tried again at the next start).
 
 - **Exact cost.** The KPI cost now matches `/cost` and the status line. `session.measure` fires only at the end of a main turn, so what was spent outside turns (background subagents that finish later, service calls, the stretch before `/exit`) never arrived, and the next segment (reload, resume) took it as its baseline: on real data between 4 and 45 cents were missing at each boundary. The plugin now reads Claude Code's cost ledger when a subagent finishes, every minute, before `/kpi` and when the session closes, and the cost between one segment and the next is counted when the ledger belongs to the same session.
 - New KPI **cost outside turns**, in `/kpi stats`, `/kpi session`, the HTML report and the `cost_outside_turns_usd` export column. `/kpi session current` also shows the cost according to Claude Code next to the KPI one.

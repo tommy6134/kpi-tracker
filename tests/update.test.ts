@@ -3,7 +3,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { parseArgs } from '../hooks/commands/args'
 import { optionsOf, type UpdateMode } from '../hooks/config'
 import type { Host } from '../hooks/host'
-import { keepsItalian, LANGUAGE_KEY, setItalian } from '../hooks/i18n/migrate'
+import { LANGUAGE_KEY, migrateLanguage } from '../hooks/i18n/migrate'
 import { newTracker, noticeOf, type Tracker } from '../hooks/tracker'
 import { installationOf, releaseAt, sourceOf, type Release } from '../hooks/update/install'
 import { compareVersions, engineOf, isVersion, partsOf } from '../hooks/update/semver'
@@ -600,6 +600,8 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
     )
     const store = new Map<string, unknown>()
     const sets: [string, string][] = []
+    /** Le chiamate che falliscono, come un errore passeggero del motore. */
+    const broken = { settings: false, set: false }
     const host = {
       fs: {
         list: async (path: string) => {
@@ -634,10 +636,19 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
       storeSet: async (key: string, value: unknown) => {
         store.set(key, value)
       },
-      settingsRead: async (key: string) =>
-        key === 'pluginConfigs' ? { [`kpi-tracker@${MKT}`]: { options: { autoUpdate: 'auto', ...(options.language !== undefined && { language: options.language }) } } } : undefined,
+      settingsRead: async (key: string) => {
+        if (broken.settings) {
+          throw new Error('settings non leggibili')
+        }
+
+        return key === 'pluginConfigs' ? { [`kpi-tracker@${MKT}`]: { options: { autoUpdate: 'auto', ...(options.language !== undefined && { language: options.language }) } } } : undefined
+      },
       configKeys: async () => ['theme', 'kpi-tracker.language', 'kpi-tracker.dataDir'],
       configSet: async (key: string, value: string) => {
+        if (broken.set) {
+          throw new Error('config non scrivibile')
+        }
+
         sets.push([key, value])
 
         return {}
@@ -646,24 +657,25 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
       pluginRoot: options.dev === true ? '/src/kpi-tracker' : `${CONFIG}/plugins/cache/${MKT}/kpi-tracker/0.4.0`,
     } as unknown as Host
 
-    return { host, root, store, sets }
+    return { host, root, store, sets, broken }
   }
 
   test('con dati e lingua mai scelta resta in italiano, una volta sola', async () => {
     const { host, root, sets } = migrating({ data: '0.3.0' })
 
-    expect(await keepsItalian(host, root)).toBe(true)
-    expect(await setItalian(host)).toBe(true)
+    expect(await migrateLanguage(host, root)).toBe(true)
     expect(sets).toEqual([['kpi-tracker.language', 'it']])
-    expect(await keepsItalian(host, root)).toBe(false)
+    expect(await migrateLanguage(host, root)).toBe(false)
+    expect(sets).toHaveLength(1)
   })
 
   test('installazione nuova, lingua già scelta o cartella di sviluppo: niente da fare', async () => {
     for (const options of [{ data: null }, { data: '0.3.0', language: 'en' }, { data: '0.3.0', dev: true }] as const) {
-      const { host, root, store } = migrating(options)
+      const { host, root, store, sets } = migrating(options)
 
-      expect(await keepsItalian(host, root)).toBe(false)
-      // Il controllo si segna comunque: una sessione successiva con dati non lo rifà.
+      expect(await migrateLanguage(host, root)).toBe(false)
+      expect(sets).toEqual([])
+      // Esito definitivo: si segna, e un avvio successivo non rifà il controllo.
       expect(store.has(LANGUAGE_KEY)).toBe(true)
     }
   })
@@ -671,7 +683,22 @@ describe('lingua di chi aggiorna dalla 0.3.0', () => {
   test('dati scritti solo dalla 0.4.0 in poi, anche da sessioni -p prima della prima interattiva: resta in inglese', async () => {
     const { host, root, sets } = migrating({ data: '0.4.0' })
 
-    expect(await keepsItalian(host, root)).toBe(false)
+    expect(await migrateLanguage(host, root)).toBe(false)
     expect(sets).toEqual([])
+  })
+
+  test('settings illeggibili o lingua non impostata: nessun segno, si riprova all\'avvio successivo', async () => {
+    for (const failing of ['settings', 'set'] as const) {
+      const { host, root, store, sets, broken } = migrating({ data: '0.3.0' })
+
+      broken[failing] = true
+      expect(await migrateLanguage(host, root)).toBe(false)
+      expect(store.has(LANGUAGE_KEY)).toBe(false)
+
+      broken[failing] = false
+      expect(await migrateLanguage(host, root)).toBe(true)
+      expect(sets).toEqual([['kpi-tracker.language', 'it']])
+      expect(store.has(LANGUAGE_KEY)).toBe(true)
+    }
   })
 })
