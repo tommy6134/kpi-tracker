@@ -1,6 +1,6 @@
 {
   "name": "kpi-tracker",
-  "version": "0.5.0",
+  "version": "0.5.8",
   "description": "Records and shows every measurable Claude Code usage KPI (tokens, cost, context, rate limits, tools, code, git, permissions, subagents), stored per project and session: live band, panel, /kpi with filters, HTML report and CSV/JSON export. In English or Italian.",
   "author": {
     "name": "Thomas Amerio",

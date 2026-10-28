@@ -15,13 +15,13 @@ export type KpiKind = 'interattiva' | 'print' | 'sdk' | 'desktop' | 'vscode' | '
 /** Categorie dei comandi Bash. */
 export type BashCat = 'git' | 'test' | 'build' | 'package' | 'docker' | 'fs' | 'network' | 'altro'
 
-/** Classe di un file toccato (`cobol` e `mainframe` dalla 0.5.0: prima erano `src` o `altro`). */
+/** Classe di un file toccato (`cobol` e `mainframe` dalla 0.5.8: prima erano `src` o `altro`). */
 export type FileClass = 'src' | 'test' | 'doc' | 'config' | 'cobol' | 'mainframe' | 'altro'
 
 /**
  * Esito di una tool call: riuscita, errore, negata da regola, modalità o hook,
  * interrotta, rifiutata dall'utente nel dialogo dei permessi (`rej`, dalla
- * 0.5.0), negata dal classificatore della modalità auto (`cls`, dalla 0.5.0).
+ * 0.5.8), negata dal classificatore della modalità auto (`cls`, dalla 0.5.8).
  */
 export type ToolStatus = 'ok' | 'err' | 'deny' | 'intr' | 'rej' | 'cls'
 
@@ -48,9 +48,9 @@ export type ToolExtra =
       intr?: 1
       sbx?: 1
       git?: GitInfo
-      /** Build o test riusciti per il motore, ma con un marcatore di fallimento noto nell'output (una pipe nasconde l'errore): dalla 0.5.0. */
+      /** Build o test riusciti per il motore, ma con un marcatore di fallimento noto nell'output (una pipe nasconde l'errore): dalla 0.5.8. */
       fx?: 1
-      /** La categoria viene da un comando personalizzato delle opzioni: il reducer la tiene com'è. Dalla 0.5.0. */
+      /** La categoria viene da un comando personalizzato delle opzioni: il reducer la tiene com'è. Dalla 0.5.8. */
       cus?: 1
     }
   | {
@@ -173,7 +173,7 @@ export type KpiEventBody =
   | { e: 'instr'; mt: string; lr: string }
   | { e: 'cwd'; to: string }
   | { e: 'task'; ev: 'created' | 'completed' }
-  /** Documenti creati e rigenerati da un turno, per estensione (dalla 0.5.0; mai i nomi dei file). */
+  /** Documenti creati e rigenerati da un turno, per estensione (dalla 0.5.8; mai i nomi dei file). */
   | { e: 'docs'; cr?: Record<string, number>; rg?: Record<string, number> }
 
 export type KpiEvent = Base & KpiEventBody

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0
+## 0.5.8
 
 Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude Code stays 2.1.287: no new engine events or APIs. At the first start the past sessions are recomputed once from the raw events (file classes, Bash categories), with a line in the transcript.
 
@@ -27,7 +27,7 @@ Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude
 
 ## 0.4.0
 
-Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration does not happen (since 0.5.0 it is tried again at the next start).
+Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.311); the desktop app and Cowork are still to be tried on macOS. The minimum Claude Code stays 2.1.287: if the engine lacks the APIs the language migration uses, the migration does not happen (since 0.5.8 it is tried again at the next start).
 
 - **Exact cost.** The KPI cost now matches `/cost` and the status line. `session.measure` fires only at the end of a main turn, so what was spent outside turns (background subagents that finish later, service calls, the stretch before `/exit`) never arrived, and the next segment (reload, resume) took it as its baseline: on real data between 4 and 45 cents were missing at each boundary. The plugin now reads Claude Code's cost ledger when a subagent finishes, every minute, before `/kpi` and when the session closes, and the cost between one segment and the next is counted when the ledger belongs to the same session.
 - New KPI **cost outside turns**, in `/kpi stats`, `/kpi session`, the HTML report and the `cost_outside_turns_usd` export column. `/kpi session current` also shows the cost according to Claude Code next to the KPI one.

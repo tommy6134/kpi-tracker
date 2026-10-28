@@ -232,7 +232,7 @@ Documentation (in Italian in [docs/it/](docs/it/)): [KPI catalogue](docs/kpi.md)
 ## Known limits
 
 - The **cost** is the one Claude Code computes (API equivalent, its service calls included); there is no cost per model or per subagent. Since 0.4.0 it matches `/cost`, including what is spent outside turns; only what Claude Code spends after closing a session that is never resumed is left out.
-- Of the **user's answer** in a permission dialog only the "no" is seen (since 0.5.0; before, it counted as an interruption): decisions, dialogs, denials and rejections are counted.
+- Of the **user's answer** in a permission dialog only the "no" is seen (since 0.5.8; before, it counted as an interruption): decisions, dialogs, denials and rejections are counted.
 - The outcome of **piped** Bash commands reflects only the last command, except for builds and tests whose output holds a known failure marker (`BUILD FAILURE`, failed tests…), which count as failed.
 - On **Linux** browsers installed as snap or flatpak (Firefox on Ubuntu, Brave, Chromium) cannot read hidden folders such as `~/.claude`: `/kpi report` then opens a copy of the report in the Downloads folder (`kpi-report.html`, overwritten each time). To avoid the copy set `reportDir` to a visible folder, for example `~/Documents/kpi`.
 - **Documents created** (Word, Excel, PDF…) are seen only inside a git repo: files outside it, ignored by git or created and deleted in the same turn are not counted.

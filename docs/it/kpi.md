@@ -117,7 +117,7 @@ La categoria si ricalcola dalle etichette salvate con le regole di adesso, quind
 | Comandi più usati | `programma sottocomando` | classificatore | E |
 | Test | esecuzioni, superate, fallite, pass rate | categoria test + esito | E |
 | Build | esecuzioni, riuscite, fallite | categoria build + esito | E |
-| Fallimenti nell'output | una build o un test che Claude Code dà riuscito, ma il cui output contiene un marcatore di fallimento noto (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:riga: error:` di javac/gcc/cobc, test falliti di pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec, `make: ***`…), conta come fallito: `mvn package 2>&1 \| tail -50` prende l'esito di `tail`. L'output si legge in memoria (gli ultimi 64 KB) e non si salva. Dalla 0.5.0 | output del risultato | E |
+| Fallimenti nell'output | una build o un test che Claude Code dà riuscito, ma il cui output contiene un marcatore di fallimento noto (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:riga: error:` di javac/gcc/cobc, test falliti di pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec, `make: ***`…), conta come fallito: `mvn package 2>&1 \| tail -50` prende l'esito di `tail`. L'output si legge in memoria (gli ultimi 64 KB) e non si salva. Dalla 0.5.8 | output del risultato | E |
 | Comandi con pipe | a parte i marcatori di fallimento di build e test, l'esito riflette solo l'ultimo comando | classificatore | E |
 | Sandbox disattivata | | input Bash `dangerouslyDisableSandbox` | E |
 
@@ -127,7 +127,7 @@ La categoria si ricalcola dalle etichette salvate con le regole di adesso, quind
 | --- | --- | --- | --- |
 | Righe aggiunte, rimosse, nette | per file, estensione, classe e giorno. Classi: test, cobol (`.cbl` `.cob` `.cpy` `.cobol`), mainframe (i file mainframe che non sono COBOL: `.jcl` `.pli` `.pl1` `.rexx` `.rex` `.bms` `.ezt` `.clist`), config, doc, src, altro. La classe si ricava dal percorso, quindi un cambio delle regole vale anche per le sessioni passate, una volta ricalcolate | `gitDiff` o `structuredPatch` di Edit/Write; contenuto per i file creati | E |
 | File creati, modificati, letti (unici) | | Edit, Write, Read | E |
-| Documenti creati e rigenerati | file Word, Excel, PowerPoint, PDF e OpenDocument (`docx`, `doc`, `odt`, `pdf`, `xlsx`, `xls`, `ods`, `pptx`, `ppt`, `odp`), contati per estensione. Nascono da comandi Bash (pandoc, python-docx, openpyxl, script), quindi il plugin confronta il `git status` del repo all'inizio della sessione e alla fine di ogni turno con comandi Bash (in background, al massimo 2 s, `--no-optional-locks`); un commit fatto nel frattempo si legge con `git diff`. Creato = file nuovo; rigenerato = file tracciato modificato, o uno già presente riscritto. Non si vedono: file fuori dal repo o ignorati da git, cartelle senza git, file creati e cancellati nello stesso turno. Quando `git status` impiega più di 2 s (repo molto grandi) quella lettura si salta: a fine turno i cambi si contano al turno successivo con comandi Bash, mai se prima la sessione finisce; all'inizio della sessione manca il punto di partenza, quindi i documenti creati prima della prima lettura riuscita non si contano. Nell'export sono dell'intera sessione, anche con un periodo. Dalla 0.5.0; solo conteggi, mai i nomi | `git status`, `git diff` | T |
+| Documenti creati e rigenerati | file Word, Excel, PowerPoint, PDF e OpenDocument (`docx`, `doc`, `odt`, `pdf`, `xlsx`, `xls`, `ods`, `pptx`, `ppt`, `odp`), contati per estensione. Nascono da comandi Bash (pandoc, python-docx, openpyxl, script), quindi il plugin confronta il `git status` del repo all'inizio della sessione e alla fine di ogni turno con comandi Bash (in background, al massimo 2 s, `--no-optional-locks`); un commit fatto nel frattempo si legge con `git diff`. Creato = file nuovo; rigenerato = file tracciato modificato, o uno già presente riscritto. Non si vedono: file fuori dal repo o ignorati da git, cartelle senza git, file creati e cancellati nello stesso turno. Quando `git status` impiega più di 2 s (repo molto grandi) quella lettura si salta: a fine turno i cambi si contano al turno successivo con comandi Bash, mai se prima la sessione finisce; all'inizio della sessione manca il punto di partenza, quindi i documenti creati prima della prima lettura riuscita non si contano. Nell'export sono dell'intera sessione, anche con un periodo. Dalla 0.5.8; solo conteggi, mai i nomi | `git status`, `git diff` | T |
 | Modifiche ritoccate dall'utente | modifiche cambiate dall'utente nel dialogo | `userModified` | E |
 | File fuori dal progetto | | percorso fuori dalla cartella di avvio | E |
 | Churn | file modificati 3 o più volte | dettagli | S |
@@ -154,7 +154,7 @@ Le righe scritte dai subagent si contano dai loro tool call, senza doppi contegg
 | Dialoghi mostrati | | `classic.PermissionRequest` | E |
 | Negati dal classificatore | negati dal classificatore della modalità auto | `classic.PermissionDenied` | E |
 | Tool call negate | da una regola, dalla modalità (don't ask) o da un hook. Fino alla 0.4.0 una chiamata negata da una regola contava come errore del tool | `tool.call` (deny, testo d'errore) | E |
-| Rifiutate dall'utente | "No" nel dialogo dei permessi, anche con un messaggio per Claude. Dalla 0.5.0: fino alla 0.4.0 un rifiuto contava come interruzione, e i dati vecchi restano così (il testo non si salva) | `tool.call` (testo d'errore) | E |
+| Rifiutate dall'utente | "No" nel dialogo dei permessi, anche con un messaggio per Claude. Dalla 0.5.8: fino alla 0.4.0 un rifiuto contava come interruzione, e i dati vecchi restano così (il testo non si salva) | `tool.call` (testo d'errore) | E |
 
 ## Subagent e workflow
 
@@ -190,6 +190,6 @@ Le righe scritte dai subagent si contano dai loro tool call, senza doppi contegg
 ## Non disponibili
 
 - costo per richiesta, per modello o per subagent (Claude Code espone solo il costo totale della sessione);
-- il "sì" dell'utente nel dialogo di permesso (il "no" si conta dalla 0.5.0);
+- il "sì" dell'utente nel dialogo di permesso (il "no" si conta dalla 0.5.8);
 - le chiamate di servizio del motore (titoli, classificatori), incluse solo nel costo totale;
 - il codice di uscita numerico di Bash (solo ok/errore).

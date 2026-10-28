@@ -117,7 +117,7 @@ The category is recomputed from the stored labels with the current rules, so a c
 | Most used commands | `program subcommand` | classifier | E |
 | Tests | runs, passed, failed, pass rate | test category + outcome | E |
 | Builds | runs, succeeded, failed | build category + outcome | E |
-| Failures in the output | a build or test that Claude Code reports as succeeded, but whose output holds a known failure marker (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:line: error:` of javac/gcc/cobc, failed pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec tests, `make: ***`…), counts as failed: `mvn package 2>&1 \| tail -50` takes the outcome of `tail`. The output is read in memory (its last 64 KB) and never stored. Since 0.5.0 | result output | E |
+| Failures in the output | a build or test that Claude Code reports as succeeded, but whose output holds a known failure marker (`BUILD FAILURE`, `BUILD FAILED`, `npm error`, `error TS…`, `file:line: error:` of javac/gcc/cobc, failed pytest/jest/vitest/JUnit/cargo/PHPUnit/mocha/rspec tests, `make: ***`…), counts as failed: `mvn package 2>&1 \| tail -50` takes the outcome of `tail`. The output is read in memory (its last 64 KB) and never stored. Since 0.5.8 | result output | E |
 | Piped commands | apart from the failure markers of builds and tests, the outcome reflects only the last command | classifier | E |
 | Sandbox off | | Bash input `dangerouslyDisableSandbox` | E |
 
@@ -127,7 +127,7 @@ The category is recomputed from the stored labels with the current rules, so a c
 | --- | --- | --- | --- |
 | Lines added, removed, net | per file, extension, class and day. Classes: test, cobol (`.cbl` `.cob` `.cpy` `.cobol`), mainframe (the mainframe files that are not COBOL: `.jcl` `.pli` `.pl1` `.rexx` `.rex` `.bms` `.ezt` `.clist`), config, doc, src, other. The class comes from the path, so a change of the rules applies to past sessions too once they are recomputed | `gitDiff` or `structuredPatch` of Edit/Write; content for created files | E |
 | Files created, modified, read (unique) | | Edit, Write, Read | E |
-| Documents created and regenerated | Word, Excel, PowerPoint, PDF and OpenDocument files (`docx`, `doc`, `odt`, `pdf`, `xlsx`, `xls`, `ods`, `pptx`, `ppt`, `odp`), counted per extension. They are born from Bash commands (pandoc, python-docx, openpyxl, scripts), so the plugin compares the repo's `git status` at the start of the session and at the end of every turn with Bash commands (in the background, 2 s at most, `--no-optional-locks`); a commit made in the meantime is read with `git diff`. Created = new file; regenerated = tracked file modified, or one already there written again. Not seen: files outside the repo or ignored by git, folders without git, files created and deleted in the same turn. When `git status` takes more than 2 s (very large repos) that reading is skipped: at the end of a turn the changes are counted at the next turn with Bash commands, never if the session ends first; at the start of the session there is no starting point, so the documents created before the first reading that succeeds are not counted. In the export they come from the whole session, even with a period. Since 0.5.0; only counts, never the names | `git status`, `git diff` | T |
+| Documents created and regenerated | Word, Excel, PowerPoint, PDF and OpenDocument files (`docx`, `doc`, `odt`, `pdf`, `xlsx`, `xls`, `ods`, `pptx`, `ppt`, `odp`), counted per extension. They are born from Bash commands (pandoc, python-docx, openpyxl, scripts), so the plugin compares the repo's `git status` at the start of the session and at the end of every turn with Bash commands (in the background, 2 s at most, `--no-optional-locks`); a commit made in the meantime is read with `git diff`. Created = new file; regenerated = tracked file modified, or one already there written again. Not seen: files outside the repo or ignored by git, folders without git, files created and deleted in the same turn. When `git status` takes more than 2 s (very large repos) that reading is skipped: at the end of a turn the changes are counted at the next turn with Bash commands, never if the session ends first; at the start of the session there is no starting point, so the documents created before the first reading that succeeds are not counted. In the export they come from the whole session, even with a period. Since 0.5.8; only counts, never the names | `git status`, `git diff` | T |
 | Edits changed by the user | edits the user changed in the dialog | `userModified` | E |
 | Files outside the project | | path outside the launch folder | E |
 | Churn | files modified 3 or more times | details | S |
@@ -154,7 +154,7 @@ Lines written by subagents are counted from their tool calls, without double cou
 | Dialogs shown | | `classic.PermissionRequest` | E |
 | Denied by the classifier | denied by the auto mode classifier | `classic.PermissionDenied` | E |
 | Denied tool calls | by a rule, the mode (don't ask) or a hook. Until 0.4.0 a call denied by a rule counted as a tool error | `tool.call` (deny, error text) | E |
-| Rejected by the user | "No" in the permission dialog, also with a message for Claude. Since 0.5.0: until 0.4.0 a rejection counted as an interruption, and the old data stays that way (the text is not stored) | `tool.call` (error text) | E |
+| Rejected by the user | "No" in the permission dialog, also with a message for Claude. Since 0.5.8: until 0.4.0 a rejection counted as an interruption, and the old data stays that way (the text is not stored) | `tool.call` (error text) | E |
 
 ## Subagents and workflows
 
@@ -190,6 +190,6 @@ Lines written by subagents are counted from their tool calls, without double cou
 ## Not available
 
 - cost per request, per model or per subagent (Claude Code exposes only the session's total cost);
-- the user's "yes" in the permission dialog (the "no" is counted since 0.5.0);
+- the user's "yes" in the permission dialog (the "no" is counted since 0.5.8);
 - the engine's service calls (titles, classifiers), included only in the total cost;
 - Bash's numeric exit code (only ok/error).

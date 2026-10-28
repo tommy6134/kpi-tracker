@@ -35,7 +35,7 @@ export type DayAgg = Tokens & {
 
 export const emptyDay = (): DayAgg => ({ ...emptyTokens(), cost: 0, turns: 0, active: 0, prompts: 0, req: 0, tools: 0, toolErr: 0, add: 0, del: 0, commits: 0 })
 
-/** `deny` comprende le negate dal classificatore; `rej` (rifiutate dall'utente) è assente prima della 0.5.0. */
+/** `deny` comprende le negate dal classificatore; `rej` (rifiutate dall'utente) è assente prima della 0.5.8. */
 export type ToolAgg = { n: number; ok: number; err: number; deny: number; intr: number; rej?: number; ro: number; sub: number; ms: Stat; wall: number }
 
 export const emptyToolAgg = (): ToolAgg => ({ n: 0, ok: 0, err: 0, deny: 0, intr: 0, rej: 0, ro: 0, sub: 0, ms: emptyStat(), wall: 0 })
@@ -177,7 +177,7 @@ export type KpiSummary = {
   /**
    * `denied`: negate dal classificatore (PermissionDenied); `toolDenied`: tool
    * call negate da regola, modalità o hook; `rejected`: rifiutate dall'utente
-   * nel dialogo, assente prima della 0.5.0 (prima contavano come interruzioni).
+   * nel dialogo, assente prima della 0.5.8 (prima contavano come interruzioni).
    */
   perms: { byDecision: Record<string, number>; byWho: Record<string, number>; dialogs: number; denied: number; toolDenied: number; rejected?: number }
   agents: { n: number; byType: Record<string, AgentTypeAgg>; byModel: Record<string, number>; workflows: number; maxConcurrent: number; bg: number }
@@ -190,7 +190,7 @@ export type KpiSummary = {
   instr: Record<string, number>
   cwdChanges: number
   tasks: { created: number; completed: number }
-  /** Documenti creati e rigenerati per estensione; assente prima della 0.5.0. */
+  /** Documenti creati e rigenerati per estensione; assente prima della 0.5.8. */
   docs?: { created: Record<string, number>; regen: Record<string, number> }
   diag: { events: number; reloads: number }
   _r: ReducerCursor
