@@ -22,6 +22,7 @@ Automated tests on Linux (Ubuntu 25.10, Claude Code 2.1.312). The minimum Claude
 - Language of whoever updates from 0.3.0: only sessions recorded by 0.3.0 count (their events lack the `sw` field). A new installation that records `-p` sessions before the first interactive one stays in English instead of switching to Italian.
 - The language migration is marked as done only when it has an outcome (Italian set, language already chosen, no 0.3.0 data, development folder): after an error reading the settings or writing `/config` it is tried again at the next start, instead of never.
 - **Interrupted recomputation.** The recomputation is marked as done only at the end, and an interrupted one starts again from the sessions still to do: at once after a reload of the plugin in the same session, otherwise after 10 minutes without progress. Before, the reload caused by the language migration (from 0.3.0 both happen at the same first start), an exit or `/reload-plugins` left the remaining sessions with the old computation. The language migration now runs after the recomputation, and each session writes its details before `session.json`.
+- On Windows reports and folders open with `explorer.exe` instead of `cmd /c start`: a path holding `&`, `|`, `%` or `^` without spaces reached cmd without quotes, and cmd read it as part of the command.
 
 ## 0.4.0
 

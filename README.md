@@ -144,7 +144,7 @@ The full format is in [docs/storage.md](docs/storage.md).
 
 **Language:** `--lang en|it` (`--lingua`) picks the language of one command: text reports, HTML report, CSV and JSON (columns, values, file name). Without it, the `language` option applies. The HTML report also has an English/Italiano selector next to the theme, and opens in Italian with `#it` in the address (`#en` for English).
 
-**Opening the folder.** An HTML page opened from `file://` cannot start programs, so the report's header shows the reports and exports folders with three buttons: **Open** (the folder in the browser, when the browser can read it), **Copy path** and **Copy command** (`/kpi folder report`: paste it into Claude Code and the file manager opens). The `/kpi live` panel has a **Folder** button too. On Linux it uses `xdg-open`, on macOS `open`, on Windows `start`, and in WSL Windows' `explorer.exe` (the path is converted with `wslpath`).
+**Opening the folder.** An HTML page opened from `file://` cannot start programs, so the report's header shows the reports and exports folders with three buttons: **Open** (the folder in the browser, when the browser can read it), **Copy path** and **Copy command** (`/kpi folder report`: paste it into Claude Code and the file manager opens). The `/kpi live` panel has a **Folder** button too. On Linux it uses `xdg-open`, on macOS `open`, on Windows `explorer.exe` (never `cmd`, which would read `&`, `|`, `%` in the path), and in WSL Windows' `explorer.exe` (the path is converted with `wslpath`).
 
 Only you see the `/kpi` report: Claude gets a short line, so it does not use up context. With `--ctx` the full report goes to Claude too, for example so it can analyse your KPIs.
 

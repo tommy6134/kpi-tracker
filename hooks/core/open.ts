@@ -12,10 +12,14 @@ export type Platform = { os: string; wsl: boolean }
 
 const isWindows = (os: string): boolean => /windows|mingw|msys|cygwin/i.test(os)
 
-/** L'argv per aprire un percorso fuori da WSL. */
+/**
+ * L'argv per aprire un percorso fuori da WSL. Su Windows explorer.exe, mai
+ * `cmd /c start`: senza shell un argomento senza spazi arriva senza virgolette,
+ * e cmd rileggerebbe `&`, `|`, `%`, `^` del percorso. explorer.exe vuole `\`.
+ */
 export function openArgv(os: string, path: string): string[] {
   if (isWindows(os)) {
-    return ['cmd', '/c', 'start', '', path]
+    return ['explorer.exe', path.replace(/\//g, '\\')]
   }
 
   return os === 'Darwin' ? ['open', path] : ['xdg-open', path]
@@ -25,9 +29,9 @@ export function openArgv(os: string, path: string): string[] {
 export const isWslKernel = (procVersion: string): boolean => /microsoft|wsl/i.test(procVersion)
 
 /**
- * Apre `path` (file o cartella); `true` se il programma è partito. In WSL il
- * percorso si converte con `wslpath -w` e lo apre `explorer.exe`, che esce
- * con 1 anche quando riesce: lì conta solo che sia partito.
+ * Apre `path` (file o cartella); `true` se il programma è partito. Su Windows
+ * e in WSL lo apre `explorer.exe` (in WSL dopo `wslpath -w`), che esce con 1
+ * anche quando riesce: lì conta solo che sia partito.
  */
 export async function openPath(host: Host, platform: Platform, path: string): Promise<boolean> {
   if (platform.wsl) {
@@ -37,7 +41,8 @@ export async function openPath(host: Host, platform: Platform, path: string): Pr
     return target !== '' && (await host.run(['explorer.exe', target], { timeoutMs: 10_000 }).then(() => true, () => false))
   }
 
-  const result = await host.run(openArgv(platform.os, path), { timeoutMs: 10_000 }).catch(() => null)
+  const argv = openArgv(platform.os, path)
+  const result = await host.run(argv, { timeoutMs: 10_000 }).catch(() => null)
 
-  return result !== null && result.exitCode === 0
+  return result !== null && (result.exitCode === 0 || argv[0] === 'explorer.exe')
 }

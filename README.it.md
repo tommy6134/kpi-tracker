@@ -144,7 +144,7 @@ Il formato completo è in [docs/it/storage.md](docs/it/storage.md).
 
 **Lingua:** `--lingua it|en` (`--lang`) sceglie la lingua di un comando: report testuali, report HTML, CSV e JSON (colonne, valori, nome del file). Senza, vale l'opzione `language`. Il report HTML ha anche un selettore Italiano/English accanto al tema, e si apre in inglese con `#en` nell'indirizzo (`#it` per l'italiano).
 
-**Aprire la cartella.** Una pagina HTML aperta da `file://` non può avviare programmi, quindi la testata del report mostra le cartelle di report ed export con tre pulsanti: **Apri** (la cartella nel browser, quando il browser la può leggere), **Copia percorso** e **Copia comando** (`/kpi cartella report`: incollalo in Claude Code e si apre il file manager). Anche il pannello `/kpi live` ha il pulsante **Cartella**. Su Linux usa `xdg-open`, su macOS `open`, su Windows `start`, in WSL l'`explorer.exe` di Windows (il percorso si converte con `wslpath`).
+**Aprire la cartella.** Una pagina HTML aperta da `file://` non può avviare programmi, quindi la testata del report mostra le cartelle di report ed export con tre pulsanti: **Apri** (la cartella nel browser, quando il browser la può leggere), **Copia percorso** e **Copia comando** (`/kpi cartella report`: incollalo in Claude Code e si apre il file manager). Anche il pannello `/kpi live` ha il pulsante **Cartella**. Su Linux usa `xdg-open`, su macOS `open`, su Windows `explorer.exe` (mai `cmd`, che leggerebbe `&`, `|`, `%` nel percorso), in WSL l'`explorer.exe` di Windows (il percorso si converte con `wslpath`).
 
 Il report di `/kpi` lo vedi solo tu: a Claude arriva una riga breve, così non consuma contesto. Con `--ctx` il report completo va anche a Claude, per esempio per fargli analizzare i tuoi KPI.
 

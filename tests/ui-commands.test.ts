@@ -1,5 +1,6 @@
 import { describe, expect, mock, test, type TestBody } from 'claude-code/testing'
 
+import { openArgv } from '../hooks/core/open'
 import type { KpiSessionFile } from '../hooks/core/session-file'
 import { assemble } from '../hooks/report/html'
 import { BAND, command, commandOutput, EN, IT, PANE, SESSION } from './fixtures/inputs'
@@ -613,14 +614,27 @@ describe('cartella di report ed export', () => {
     expect(report).toContain('Cartella aperta:')
   })
 
-  test('su Windows la cartella si apre con start', IT, async ($, on) => {
+  // Senza shell gli argomenti senza spazi arrivano senza virgolette: cmd rileggerebbe & | % ^ del percorso.
+  test('su Windows report e cartella li apre explorer.exe, mai cmd, con i percorsi come sono', { options: { reportDir: 'C:\\Users\\Rossi&Bianchi\\kpi%DATI%', language: 'it' } }, async ($, on) => {
     const world = worldOf(on, { os: 'MINGW64_NT-10.0' })
     const clock = mock.clock(on)
 
     await workedSession($, on, world, clock)
-    await $.command.run(command('kpi', 'cartella'))
 
-    expect(world.runs.at(-1)).toEqual(['cmd', '/c', 'start', '', `${ROOT}/_reports`])
+    const report = ((await $.command.run(command('kpi', 'report --cartella'))) as { text: string }).text
+    const explorer = world.runs.filter(argv => argv[0] === 'explorer.exe')
+
+    expect(world.runs.some(argv => argv[0] === 'cmd')).toBe(false)
+    expect(explorer[0]?.[1]?.startsWith('C:\\Users\\Rossi&Bianchi\\kpi%DATI%\\report-')).toBe(true)
+    expect(explorer[1]).toEqual(['explorer.exe', 'C:\\Users\\Rossi&Bianchi\\kpi%DATI%'])
+    // explorer.exe esce con 1 anche quando riesce: conta che sia partito.
+    expect(report).toContain('Aperto nel browser.')
+    expect(report).toContain('Cartella aperta:')
+  })
+
+  test('su Windows explorer.exe vuole le barre rovesciate', () => {
+    expect(openArgv('Windows_NT', 'C:/Users/rossi/.claude/kpi/_reports')).toEqual(['explorer.exe', 'C:\\Users\\rossi\\.claude\\kpi\\_reports'])
+    expect(openArgv('Darwin', '/Users/rossi/kpi & co')).toEqual(['open', '/Users/rossi/kpi & co'])
   })
 
   test('il report porta le cartelle, il loro URL e il comando per aprirle; il pannello ha il pulsante Cartella', IT, async ($, on) => {
